@@ -13,7 +13,7 @@ No existe aplicación oficial de Sentry para macOS, y tampoco una de terceros. B
 
 Esto llena ese hueco.
 
-**Nativa de verdad**: SwiftUI, `MenuBarExtra`, 668 KB de aplicación. No es un contenedor web ni un script dentro de otra aplicación.
+**Nativa de verdad**: SwiftUI, `MenuBarExtra`, 2 MB de aplicación. No es un contenedor web ni un script dentro de otra aplicación.
 
 ## Qué muestra
 
@@ -106,7 +106,7 @@ make app       # arma build/Centinela.app y lo firma ad-hoc
 make run       # lo anterior, y lo abre
 ```
 
-Compilación limpia en release: **60 s** en un Apple Silicon. La aplicación queda en 668 KB.
+Compilación limpia en release: **60 s** en un Apple Silicon. La aplicación queda en 2 MB, de los cuales 1,1 son el `.icns`.
 
 ### Sin Xcode, con swiftly
 
@@ -147,12 +147,13 @@ El paquete está partido en dos objetivos por una razón concreta: `CentinelaCor
 
 | | Centinela | SwiftBar + un script |
 |---|---|---|
-| En disco | **0,67 MB** | 7,1 MB |
-| Residente | 25 MB | **6–8 MB** |
+| En disco | **2,0 MB** (1,1 son el ícono) | 7,1 MB |
+| Residente, sin abrir el panel | 7,6 MB | 6–8 MB |
+| Residente, después de abrirlo | ~25 MB | 6–8 MB |
 | Por ciclo | nada: `async` dentro del proceso | **+19 MB y 1,5 s**, un intérprete que arranca de cero |
 | Depende de | nada | de que SwiftBar siga instalado y siga funcionando |
 
-**Centinela gasta más memoria residente, no menos.** El tiempo de ejecución de SwiftUI cuesta cerca de 20 MB y no hay forma de no pagarlos: SwiftBar es AppKit y por eso arranca en 6. Si el criterio es la RAM, SwiftBar gana y conviene saberlo antes de instalar nada.
+**Abrir el panel triplica la memoria y no baja.** SwiftUI construye la ventana la primera vez que se despliega y se queda con ella. Antes de eso las dos aplicaciones gastan lo mismo. Si el criterio es la RAM en régimen, SwiftBar gana, y conviene saberlo antes de instalar nada.
 
 Lo que sí gana Centinela: 10 veces menos en disco, ningún proceso que nazca y muera cada cinco minutos para siempre, y no depender de que una segunda aplicación siga instalada y siga funcionando, que en macOS 27, con la barra de menús rehecha, dejó de ser una suposición gratis.
 
