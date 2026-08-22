@@ -22,7 +22,13 @@ final class Estado {
     var novedad: BuscadorDeActualizaciones.Novedad?
     var cargando = false
     var ultimoError: String?
-    var ultimaActualizacion: Date?
+    /// Persistida: al reiniciar, el panel decía "" en vez de cuándo son los datos que muestra.
+    /// No es un secreto, así que va en `UserDefaults` y no en el llavero.
+    var ultimaActualizacion: Date? {
+        didSet {
+            UserDefaults.standard.set(ultimaActualizacion?.timeIntervalSince1970 ?? 0, forKey: "ultimaActualizacion")
+        }
+    }
     var tokenConDemasiadoPoder = false
     var deprecacion: AvisoDeDeprecacion?
 
@@ -40,6 +46,8 @@ final class Estado {
         let losAjustes = ajustes ?? Ajustes()
         self.ajustes = losAjustes
         self.sesion = InicioDeSesion(ajustes: losAjustes)
+        let guardada = UserDefaults.standard.double(forKey: "ultimaActualizacion")
+        if guardada > 0 { ultimaActualizacion = Date(timeIntervalSince1970: guardada) }
         observarSuspension()
     }
 
