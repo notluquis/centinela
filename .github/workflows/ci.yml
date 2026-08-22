@@ -33,13 +33,16 @@ jobs:
           swift --version
           xcodebuild -version
 
+      # Vía `make` y no `swift build` directo: el Makefile es lo que documenta el README y es
+      # donde vive la resolución de la toolchain. Acá, sin swiftly instalado, ejercita la rama
+      # de respaldo (el `swift` del PATH, o sea el de Xcode del runner).
       - name: Construir
-        run: swift build -c release
+        run: make build
 
       # La suite es de `CentinelaCore`, que no importa AppKit ni SwiftUI: corre sin sesión
       # gráfica. Es la razón por la que el paquete está partido en dos objetivos.
       - name: Tests
-        run: swift test
+        run: make test
 
       - name: Armar el paquete de aplicación
         run: make app
@@ -91,8 +94,12 @@ jobs:
           swift --version
           swift --version | grep -q 'swift-6\.3\.3-RELEASE' \
             || { echo "::error::el compilador activo NO es el de swiftly"; exit 1; }
-          swift build -c release
-          swift test
+          # Por `make`, que es la ruta que el README manda usar y donde vive la resolución de
+          # la toolchain. Correr `swift build` directo acá dejaría sin probar justamente el
+          # camino que se arregló (el proxy de swiftly resuelve distinto bajo make).
+          make toolchain
+          make build
+          make test
 
   lint:
     name: swiftlint

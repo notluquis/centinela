@@ -27,12 +27,15 @@ struct Preferencias: View {
                 SecureField("Token", text: $token)
                 HStack {
                     Button("Guardar token") {
-                        ajustes.token = token.trimmingCharacters(in: .whitespaces)
-                        token = ""
-                        guardado = true
-                        Task {
-                            await estado.revisarPoderDelToken()
-                            await estado.refrescarLoBarato()
+                        // El visto bueno se pinta SÓLO si el llavero aceptó. Ver
+                        // `Ajustes.ultimoErrorDeLlavero`.
+                        guardado = ajustes.guardarToken(token.trimmingCharacters(in: .whitespaces))
+                        if guardado {
+                            token = ""
+                            Task {
+                                await estado.revisarPoderDelToken()
+                                await estado.refrescarLoBarato()
+                            }
                         }
                     }
                     .disabled(token.isEmpty)
@@ -44,10 +47,15 @@ struct Preferencias: View {
                     }
                     Spacer()
                     Button("Borrar", role: .destructive) {
-                        ajustes.token = ""
+                        ajustes.guardarToken("")
                         token = ""
                         guardado = false
                     }
+                }
+                if let error = ajustes.ultimoErrorDeLlavero {
+                    Label(error, systemImage: "exclamationmark.triangle")
+                        .font(.caption)
+                        .foregroundStyle(.orange)
                 }
                 Text("El token se guarda en el llavero de macOS, nunca en un archivo. Dale sólo `org:read`, `project:read` y `event:read`: Centinela no escribe nada en Sentry.")
                     .font(.caption)

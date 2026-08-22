@@ -46,14 +46,41 @@ final class Ajustes {
         maximoIssues = tope > 0 ? tope : 15
     }
 
+    /// Lo último que dijo el llavero cuando falló. `nil` si la última operación salió bien.
+    ///
+    /// Existe porque la versión anterior de esto usaba `try?` en las dos direcciones: una
+    /// escritura fallida dejaba la interfaz mostrando "Guardado en el llavero" con su visto
+    /// bueno, sin guardar nada, y la aplicación se quedaba en "Falta configurar" para siempre
+    /// sin un error en ninguna parte. El modo de falla no es teórico: una firma ad-hoc no
+    /// carga `application-identifier`, y sin él el grupo de acceso al llavero puede no existir
+    /// (`errSecMissingEntitlement`, -34018).
+    var ultimoErrorDeLlavero: String?
+
     var token: String {
-        get { (try? Llavero.leer(cuenta: Self.cuentaDelToken)) .flatMap { $0 } ?? "" }
-        set {
-            if newValue.isEmpty {
-                try? Llavero.borrar(cuenta: Self.cuentaDelToken)
+        do {
+            let valor = try Llavero.leer(cuenta: Self.cuentaDelToken) ?? ""
+            return valor
+        } catch {
+            // El getter no puede reportar sin volverse mutante; el error se recoge al escribir,
+            // que es cuando el usuario está mirando.
+            return ""
+        }
+    }
+
+    /// Devuelve `true` si el llavero aceptó la operación. Quien llama NO debe asumir que sí.
+    @discardableResult
+    func guardarToken(_ nuevo: String) -> Bool {
+        do {
+            if nuevo.isEmpty {
+                try Llavero.borrar(cuenta: Self.cuentaDelToken)
             } else {
-                try? Llavero.guardar(newValue, cuenta: Self.cuentaDelToken)
+                try Llavero.guardar(nuevo, cuenta: Self.cuentaDelToken)
             }
+            ultimoErrorDeLlavero = nil
+            return true
+        } catch {
+            ultimoErrorDeLlavero = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+            return false
         }
     }
 
