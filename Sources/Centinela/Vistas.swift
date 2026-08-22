@@ -12,9 +12,12 @@ struct EtiquetaDeBarra: View {
             if estado.totalDeErrores > 0 {
                 Text(estado.totalDeErrores, format: .number)
             }
-            if !estado.serie.puntos.isEmpty {
-                TrazoDeChispa(valores: estado.serie.puntos.map(\.cantidad))
-                    .frame(width: 26, height: 11)
+            // Como imagen y no como `Path` en vivo: la etiqueta de un `MenuBarExtra` la
+            // dibuja el sistema en la barra, y ahí `Text` e `Image` son lo único que se
+            // renderiza de forma confiable. Una forma vectorial se veía en el panel y NO en la
+            // barra, que es justo donde se quería.
+            if let chispa = Chispa.imagen(estado.serie.puntos.map(\.cantidad)) {
+                Image(nsImage: chispa)
             }
         }
         .accessibilityLabel(descripcionAccesible)
@@ -125,8 +128,15 @@ private struct Encabezado: View {
     }
 }
 
+/// Mide el alto natural del contenido para que el `ScrollView` no colapse.
+private struct AlturaDelContenido: PreferenceKey {
+    static let defaultValue: CGFloat = 0
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) { value = nextValue() }
+}
+
 private struct Contenido: View {
     let estado: Estado
+    @State private var alto: CGFloat = 0
 
     var body: some View {
         ScrollView {
@@ -191,8 +201,18 @@ private struct Contenido: View {
                 }
             }
             .padding(.bottom, 8)
+            // Un `ScrollView` no tiene alto propio: dentro de un `VStack` sin alto definido
+            // colapsa a CERO y su contenido desaparece sin dejar rastro, ni un hueco. Así se
+            // veía el panel sin la lista de issues, con el pie pegado al encabezado. Se mide
+            // el alto natural del contenido y se le da ese, con tope.
+            .background(
+                GeometryReader { geo in
+                    Color.clear.preference(key: AlturaDelContenido.self, value: geo.size.height)
+                }
+            )
         }
-        .frame(maxHeight: 420)
+        .onPreferenceChange(AlturaDelContenido.self) { alto = $0 }
+        .frame(height: min(max(alto, 1), 420))
     }
 }
 
