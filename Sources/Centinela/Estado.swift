@@ -24,6 +24,7 @@ final class Estado {
     var ultimoError: String?
     var ultimaActualizacion: Date?
     var tokenConDemasiadoPoder = false
+    var deprecacion: AvisoDeDeprecacion?
 
     @ObservationIgnored private var temporizador: Timer?
     @ObservationIgnored private var observadores: [NSObjectProtocol] = []
@@ -50,7 +51,9 @@ final class Estado {
 
     private var cliente: ClienteDeSentry? {
         guard let credenciales = ajustes.credenciales() else { return nil }
-        return ClienteDeSentry(credenciales: credenciales)
+        return ClienteDeSentry(credenciales: credenciales) { [weak self] aviso in
+            Task { @MainActor in self?.deprecacion = aviso }
+        }
     }
 
     // MARK: - Ciclo

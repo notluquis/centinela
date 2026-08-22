@@ -219,6 +219,21 @@ Sería lo natural en una aplicación de barra de menús, y **no se puede**: `Men
 
 La salida sería abandonar `MenuBarExtra` y manejar un `NSStatusItem` con un `NSPanel` propio, que es un rediseño completo por un atajo. Queda anotado, no hecho.
 
+## Revisión de la documentación (2026-08-22)
+
+Se leyó la documentación oficial de todo lo que este proyecto usa, buscando lo que estuviera mal o deprecado. Nada estaba deprecado. Salieron dos cosas que sí cambiaron el código:
+
+| Qué se leyó | Qué salió |
+|---|---|
+| Política de deprecación de Sentry | Sentry avisa por los encabezados `X-Sentry-Deprecation-Date` y `X-Sentry-Replacement-Endpoint` antes de retirar una ruta. **Centinela los ignoraba**: ahora los lee y lo dice en el panel. Ninguna de las cinco rutas que usa los trae hoy |
+| `URLSessionConfiguration.waitsForConnectivity` | Estaba en `true`. La documentación aclara que entonces una petición sin red **no falla: espera hasta `timeoutIntervalForResource`, cuyo valor por omisión es de siete días**. En un sondeo cada cinco minutos eso son tareas apilándose en silencio. Pasó a `false`, con `timeoutIntervalForResource` en 60 s |
+| `GlassEffectContainer`, `.buttonStyle(.glass)` | macOS 26.0, correctos, no deprecados |
+| `SMAppService.Status.requiresApproval`, `openSystemSettingsLoginItems()` | Correctos. El estado no es booleano y la interfaz ya lo trataba aparte |
+| `NSWorkspace.didWakeNotification`, `Timer.tolerance` | Correctos |
+| `kSecAttrAccessibleWhenUnlockedThisDeviceOnly` | Correcto: no migra a otro equipo al restaurar un respaldo, que es lo que se quiere de un token |
+| API de GitHub, `releases/latest` | 60 peticiones por hora sin autenticar (medido en el encabezado `x-ratelimit-limit`). La búsqueda es una vez al día. Sin releases publicados devuelve **404**, y hay un test que fija que eso no invente una novedad |
+| Rasgo `.serialized` de Swift Testing | Serializa **dentro** de una suite, no entre suites. El servidor de mentira dependía de eso y estaba mal: ahora cada sesión tiene su propia cola y la suite corre en paralelo sin carreras |
+
 ## Distribución
 
 Las compilaciones de CI van firmadas **ad-hoc**, sin Developer ID y sin notarizar. macOS pide confirmación la primera vez: clic derecho → Abrir.

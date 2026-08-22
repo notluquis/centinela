@@ -145,6 +145,16 @@ private struct Contenido: View {
                     }
                     .buttonStyle(.plain)
                 }
+                if let aviso = estado.deprecacion {
+                    // Ver `AvisoDeDeprecacion`: Sentry avisa por encabezado antes de apagar
+                    // una ruta. Sin esto, la aplicación se enteraría el día que se rompe.
+                    Aviso(
+                        texto: "Sentry va a retirar `\(aviso.ruta)` el \(aviso.fecha)."
+                            + (aviso.reemplazo.map { " Reemplazo: \($0)." } ?? ""),
+                        simbolo: "clock.badge.exclamationmark",
+                        color: .orange
+                    )
+                }
                 if estado.tokenConDemasiadoPoder {
                     // Ver `ClienteDeSentry.tokenPareceDeSoloLectura()`.
                     Aviso(

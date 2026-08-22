@@ -1,3 +1,4 @@
+import Foundation
 import Testing
 
 @testable import CentinelaCore
@@ -42,5 +43,48 @@ struct ActualizacionesTests {
     func orden() throws {
         let versiones = try ["1.0.0", "0.9.9", "1.10.0", "1.2.0", "2.0.0"].map { try #require(Ver($0)) }
         #expect(versiones.sorted().map(\.description) == ["0.9.9", "1.0.0", "1.2.0", "1.10.0", "2.0.0"])
+    }
+}
+
+/// La búsqueda de actualizaciones habla con la API de GitHub. Estos tests la ejercitan contra
+/// un servidor de mentira, incluido el caso que ocurre HOY en este repositorio: sin releases
+/// publicados, `releases/latest` devuelve 404 (comprobado contra api.github.com).
+@Suite("Búsqueda de actualizaciones")
+struct BusquedaDeActualizacionesTests {
+    private func buscador(_ sesion: URLSession) -> BuscadorDeActualizaciones {
+        BuscadorDeActualizaciones(repositorio: "quien/sea", sesion: sesion)
+    }
+
+    @Test("Sin releases publicados (404) no inventa una novedad")
+    func sinReleases() async {
+        let sesion = Servidor.sesion()
+        Servidor.encolar(sesion, "/releases/latest", #"{"message":"Not Found"}"#, estado: 404)
+        #expect(await buscador(sesion).buscar(versionActual: "1.0.0") == nil)
+    }
+
+    @Test("Una versión mayor sí es novedad")
+    func hayNovedad() async throws {
+        let sesion = Servidor.sesion()
+        Servidor.encolar(sesion, "/releases/latest", #"""
+        {"tag_name":"v1.2.0","html_url":"https://github.com/quien/sea/releases/tag/v1.2.0"}
+        """#)
+        let novedad = try #require(await buscador(sesion).buscar(versionActual: "1.1.9"))
+        #expect(novedad.version.description == "1.2.0")
+    }
+
+    @Test("La misma versión no es novedad")
+    func alDia() async {
+        let sesion = Servidor.sesion()
+        Servidor.encolar(sesion, "/releases/latest", #"{"tag_name":"v1.2.0","html_url":"https://x/y"}"#)
+        #expect(await buscador(sesion).buscar(versionActual: "1.2.0") == nil)
+    }
+
+    /// Publicar un borrador o un prelanzamiento no debería empujar a nadie a actualizar.
+    @Test("Borradores y prelanzamientos no cuentan", arguments: ["draft", "prerelease"])
+    func borradores(campo: String) async {
+        let sesion = Servidor.sesion()
+        let cuerpo = #"{"tag_name":"v9.0.0","html_url":"https://x/y","\#(campo)":true}"#
+        Servidor.encolar(sesion, "/releases/latest", cuerpo)
+        #expect(await buscador(sesion).buscar(versionActual: "1.0.0") == nil)
     }
 }

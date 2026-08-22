@@ -112,3 +112,45 @@ struct DecodificacionTests {
         #expect(Severidad(textoDeSentry: nil) == .error)
     }
 }
+
+/// Sentry publica una política de deprecación por encabezados. Una aplicación que los ignora se
+/// entera del cambio el día que deja de funcionar.
+@Suite("Política de deprecación de Sentry")
+struct DeprecacionTests {
+    // La URL sale a una constante: anidar un `#require` dentro de otro hace que el
+    // compilador reviente con "recursive expansion of macro".
+    private static let url = URL(string: "https://sentry.io/api/0/organizations/x/issues/")
+
+    private func respuesta(_ campos: [String: String]) throws -> HTTPURLResponse {
+        let url = try #require(Self.url)
+        return try #require(HTTPURLResponse(
+            url: url, statusCode: 200, httpVersion: "HTTP/1.1", headerFields: campos
+        ))
+    }
+
+    @Test("Sin los encabezados no hay aviso")
+    func sinAviso() throws {
+        let http = try respuesta(["Content-Type": "application/json"])
+        #expect(ClienteDeSentry.deprecacion(en: http, ruta: "issues") == nil)
+    }
+
+    @Test("Con fecha y reemplazo se arma el aviso completo")
+    func avisoCompleto() throws {
+        let http = try respuesta([
+            "X-Sentry-Deprecation-Date": "2027-01-01",
+            "X-Sentry-Replacement-Endpoint": "/organizations/{org}/otra-cosa/"
+        ])
+        let aviso = try #require(ClienteDeSentry.deprecacion(en: http, ruta: "issues"))
+        #expect(aviso.fecha == "2027-01-01")
+        #expect(aviso.reemplazo == "/organizations/{org}/otra-cosa/")
+    }
+
+    /// El reemplazo es opcional en la política: hay rutas que se retiran sin sucesora. Exigirlo
+    /// haría que el aviso más importante, el que no tiene salida, fuera el único que no se ve.
+    @Test("Una fecha sin reemplazo igual avisa")
+    func avisoSinReemplazo() throws {
+        let http = try respuesta(["X-Sentry-Deprecation-Date": "2027-01-01"])
+        let aviso = try #require(ClienteDeSentry.deprecacion(en: http, ruta: "uptime"))
+        #expect(aviso.reemplazo == nil)
+    }
+}

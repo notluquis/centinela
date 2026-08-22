@@ -39,12 +39,33 @@ public struct Credenciales: Sendable, Equatable {
     }
 }
 
+/// Aviso de que una ruta que usamos quedó deprecada.
+///
+/// Sentry publica una política de deprecación: cuando una ruta entra en cuenta regresiva, sus
+/// respuestas empiezan a traer `X-Sentry-Deprecation-Date` y, si existe reemplazo,
+/// `X-Sentry-Replacement-Endpoint`. Ignorar esos encabezados es cómo una aplicación se entera
+/// de un cambio el día que deja de funcionar, con un error que no menciona la deprecación.
+///
+/// Al 2026-08-22 ninguna de las cinco rutas que Centinela usa trae estos encabezados.
+public struct AvisoDeDeprecacion: Sendable, Equatable {
+    public let ruta: String
+    public let fecha: String
+    public let reemplazo: String?
+}
+
 public struct ClienteDeSentry: Sendable {
     private let credenciales: Credenciales
     private let sesion: URLSession
+    /// Se llama cuando una respuesta trae los encabezados de deprecación de Sentry.
+    private let alDeprecar: (@Sendable (AvisoDeDeprecacion) -> Void)?
 
-    public init(credenciales: Credenciales, sesion: URLSession? = nil) {
+    public init(
+        credenciales: Credenciales,
+        sesion: URLSession? = nil,
+        alDeprecar: (@Sendable (AvisoDeDeprecacion) -> Void)? = nil
+    ) {
         self.credenciales = credenciales
+        self.alDeprecar = alDeprecar
         if let sesion {
             self.sesion = sesion
         } else {
@@ -57,7 +78,14 @@ public struct ClienteDeSentry: Sendable {
             conf.urlCache = nil
             conf.requestCachePolicy = .reloadIgnoringLocalCacheData
             conf.timeoutIntervalForRequest = 20
-            conf.waitsForConnectivity = true
+            // `waitsForConnectivity` va en FALSE a propósito, y esto salió de leer la
+            // documentación, no de verlo fallar: cuando está en `true`, una petición sin red no
+            // falla, se queda esperando hasta `timeoutIntervalForResource`, cuyo valor por
+            // omisión es de SIETE DÍAS. En un sondeo cada cinco minutos eso significa tareas
+            // apilándose en silencio y un panel que nunca dice que no hay red. Acá lo correcto
+            // es fallar rápido: el ciclo siguiente vuelve a intentar en minutos.
+            conf.waitsForConnectivity = false
+            conf.timeoutIntervalForResource = 60
             self.sesion = URLSession(configuration: conf)
         }
     }
@@ -112,6 +140,7 @@ public struct ClienteDeSentry: Sendable {
         guard let http = respuesta as? HTTPURLResponse else {
             throw ErrorDeSentry.respuestaInesperada("respuesta sin estado HTTP")
         }
+        if let aviso = Self.deprecacion(en: http, ruta: ruta) { alDeprecar?(aviso) }
         switch http.statusCode {
         case 200...299:
             return datos
@@ -135,6 +164,17 @@ public struct ClienteDeSentry: Sendable {
         } catch {
             throw ErrorDeSentry.respuestaInesperada("\(ruta): \(error)")
         }
+    }
+
+    /// Lee los encabezados de la política de deprecación de Sentry. `internal` para que la
+    /// suite pueda ejercitarla sin salir a la red.
+    static func deprecacion(en http: HTTPURLResponse, ruta: String) -> AvisoDeDeprecacion? {
+        guard let fecha = http.value(forHTTPHeaderField: "X-Sentry-Deprecation-Date") else { return nil }
+        return AvisoDeDeprecacion(
+            ruta: ruta,
+            fecha: fecha,
+            reemplazo: http.value(forHTTPHeaderField: "X-Sentry-Replacement-Endpoint")
+        )
     }
 
     // MARK: - Lo barato: esto es lo que se pide en cada ciclo

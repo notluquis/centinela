@@ -7,6 +7,8 @@ Versionado semántico.
 
 ### Agregado
 
+- Lectura de los encabezados de deprecación de Sentry (`X-Sentry-Deprecation-Date`), con aviso en el panel.
+
 - Inicio de sesión con el flujo de dispositivo de OAuth 2.0 (RFC 8628), verificado contra sentry.io, con el identificador de cliente incluido y renovación automática bajo el 10 % de vida restante.
 - Aviso de versión nueva leyendo la API de releases de GitHub, una vez al día.
 - Pestaña "Acerca de" con versión, enlaces y búsqueda manual de actualizaciones.
