@@ -44,8 +44,11 @@ jobs:
           # La compilación es ad-hoc: sin Developer ID, macOS pide confirmación la primera
           # vez. Se dice acá y no en letra chica.
           body: |
-            Firma ad-hoc, sin notarizar. La primera vez macOS va a pedir confirmación:
-            clic derecho sobre la aplicación → Abrir.
+            Qué trae esta versión: [CHANGELOG.md](https://github.com/notluquis/centinela/blob/main/CHANGELOG.md).
+
+            **Instalar**: descomprime, arrastra a Aplicaciones, y la primera vez ábrela con
+            clic derecho, Abrir. La firma es ad-hoc y sin notarizar, así que Gatekeeper pide
+            confirmación una vez. Notarizar cuesta 99 USD al año y para esto no se justifica.
 
             Verifica lo que bajaste antes de abrirlo:
 
