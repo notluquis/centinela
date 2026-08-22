@@ -2,13 +2,14 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-	<!-- Caja de arena activada, con exactamente dos permisos: salir a la red (Sentry) y
-	     leer del llavero. No hay acceso a archivos, ni a la cámara, ni a contactos, ni
-	     servidor de red entrante. Si algún día hace falta uno más, que se note en el diff.
+	<!-- Sandbox on, with exactly two permissions: reach the network, and read the Keychain.
+	     No file access, no camera, no contacts, no inbound network server. If one more is ever
+	     needed, it shows up in the diff.
 
-	     No se declara `keychain-access-groups`: `$(AppIdentifierPrefix)` sólo se expande con
-	     un perfil de aprovisionamiento y acá se firma ad-hoc. Sin la clave, el grupo por
-	     omisión es el identificador de la propia aplicación, que es lo que se quiere. -->
+	     `keychain-access-groups` is deliberately not declared: `$(AppIdentifierPrefix)` only
+	     expands with a provisioning profile and these builds are signed ad-hoc. Without the key
+	     the default group is the app's own identifier, which is what is wanted. Verified by
+	     running a sandboxed ad-hoc bundle: SecItemAdd returns 0 and the value reads back. -->
 	<key>com.apple.security.app-sandbox</key>
 	<true/>
 	<key>com.apple.security.network.client</key>

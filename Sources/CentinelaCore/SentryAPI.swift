@@ -1,291 +1,292 @@
 import Foundation
 
-public enum ErrorDeSentry: LocalizedError, Sendable {
-    case sinCredenciales
-    case noAutorizado
-    case sinPermiso(String)
-    case limiteDePeticiones(reintentarEn: TimeInterval?)
+public enum SentryError: LocalizedError, Sendable {
+    case missingCredentials
+    case unauthorized
+    case forbidden(String)
+    case rateLimited(retryAfter: TimeInterval?)
     case http(Int)
-    case respuestaInesperada(String)
+    case unexpectedResponse(String)
 
     public var errorDescription: String? {
         switch self {
-        case .sinCredenciales:
-            "Falta el token. Ábrelo en Ajustes y pega uno de sólo lectura."
-        case .noAutorizado:
-            "Sentry rechazó el token (401). Puede estar revocado o vencido."
-        case .sinPermiso(let detalle):
-            "El token no tiene permiso para esto: \(detalle)"
-        case .limiteDePeticiones(let espera):
-            espera.map { "Sentry limitó las peticiones. Reintento en \(Int($0))s." }
-                ?? "Sentry limitó las peticiones."
-        case .http(let codigo):
-            "Sentry respondió \(codigo)."
-        case .respuestaInesperada(let que):
-            "Respuesta inesperada de Sentry: \(que)"
+        case .missingCredentials:
+            "No token yet. Open Settings and sign in, or paste a read-only token."
+        case .unauthorized:
+            "Sentry rejected the token (401). It may have been revoked or expired."
+        case .forbidden(let detail):
+            "The token is not allowed to do this: \(detail)"
+        case .rateLimited(let wait):
+            wait.map { "Sentry rate-limited the request. Retrying in \(Int($0))s." }
+                ?? "Sentry rate-limited the request."
+        case .http(let code):
+            "Sentry answered \(code)."
+        case .unexpectedResponse(let what):
+            "Unexpected response from Sentry: \(what)"
         }
     }
 }
 
-public struct Credenciales: Sendable, Equatable {
+public struct Credentials: Sendable, Equatable {
     public var token: String
-    public var organizacion: String
+    public var organization: String
     public var host: URL
 
-    public init(token: String, organizacion: String, host: URL = URL(string: "https://sentry.io")!) {
+    public init(token: String, organization: String, host: URL = URL(string: "https://sentry.io")!) {
         self.token = token
-        self.organizacion = organizacion
+        self.organization = organization
         self.host = host
     }
 }
 
-/// Aviso de que una ruta que usamos quedó deprecada.
+/// Sentry is about to retire a route we use.
 ///
-/// Sentry publica una política de deprecación: cuando una ruta entra en cuenta regresiva, sus
-/// respuestas empiezan a traer `X-Sentry-Deprecation-Date` y, si existe reemplazo,
-/// `X-Sentry-Replacement-Endpoint`. Ignorar esos encabezados es cómo una aplicación se entera
-/// de un cambio el día que deja de funcionar, con un error que no menciona la deprecación.
+/// Sentry publishes a deprecation policy: once a route starts its countdown, its responses
+/// carry `X-Sentry-Deprecation-Date` and, when a successor exists,
+/// `X-Sentry-Replacement-Endpoint`. Ignoring those headers is how an app finds out about a
+/// change on the day it stops working, with an error that never mentions deprecation.
 ///
-/// Al 2026-08-22 ninguna de las cinco rutas que Centinela usa trae estos encabezados.
-public struct AvisoDeDeprecacion: Sendable, Equatable {
-    public let ruta: String
-    public let fecha: String
-    public let reemplazo: String?
+/// As of 2026-08-22 none of the five routes Centinela uses carries these headers.
+public struct DeprecationNotice: Sendable, Equatable {
+    public let path: String
+    public let date: String
+    public let replacement: String?
 }
 
-public struct ClienteDeSentry: Sendable {
-    private let credenciales: Credenciales
-    private let sesion: URLSession
-    /// Se llama cuando una respuesta trae los encabezados de deprecación de Sentry.
-    private let alDeprecar: (@Sendable (AvisoDeDeprecacion) -> Void)?
+public struct SentryClient: Sendable {
+    private let credentials: Credentials
+    private let session: URLSession
+    /// Called when a response carries Sentry's deprecation headers.
+    private let onDeprecation: (@Sendable (DeprecationNotice) -> Void)?
 
     public init(
-        credenciales: Credenciales,
-        sesion: URLSession? = nil,
-        alDeprecar: (@Sendable (AvisoDeDeprecacion) -> Void)? = nil
+        credentials: Credentials,
+        session: URLSession? = nil,
+        onDeprecation: (@Sendable (DeprecationNotice) -> Void)? = nil
     ) {
-        self.credenciales = credenciales
-        self.alDeprecar = alDeprecar
-        if let sesion {
-            self.sesion = sesion
+        self.credentials = credentials
+        self.onDeprecation = onDeprecation
+        if let session {
+            self.session = session
         } else {
             let conf = URLSessionConfiguration.ephemeral
-            // Efímera a propósito: sin caché en disco, sin cookies, sin credenciales
-            // persistidas. Los títulos de los incidencias pueden traer datos del negocio y no
-            // tienen por qué quedar escritos en ninguna parte del disco.
+            // Ephemeral on purpose: no disk cache, no cookies, no stored credentials. Issue
+            // titles can carry business data and have no business being written anywhere.
             conf.httpShouldSetCookies = false
             conf.httpCookieAcceptPolicy = .never
             conf.urlCache = nil
             conf.requestCachePolicy = .reloadIgnoringLocalCacheData
             conf.timeoutIntervalForRequest = 20
-            // `waitsForConnectivity` va en FALSE a propósito, y esto salió de leer la
-            // documentación, no de verlo fallar: cuando está en `true`, una petición sin red no
-            // falla, se queda esperando hasta `timeoutIntervalForResource`, cuyo valor por
-            // omisión es de SIETE DÍAS. En un sondeo cada cinco minutos eso significa tareas
-            // apilándose en silencio y un panel que nunca dice que no hay red. Acá lo correcto
-            // es fallar rápido: el ciclo siguiente vuelve a intentar en minutos.
+            // `waitsForConnectivity` is FALSE on purpose, and this came from reading the docs
+            // rather than watching it fail: when true, a request with no network does not fail,
+            // it waits until `timeoutIntervalForResource`, whose default is SEVEN DAYS. On a
+            // five-minute poll that means tasks piling up in silence and a panel that never
+            // says the network is down. Failing fast is right here: the next cycle retries in
+            // minutes.
             conf.waitsForConnectivity = false
             conf.timeoutIntervalForResource = 60
-            self.sesion = URLSession(configuration: conf)
+            self.session = URLSession(configuration: conf)
         }
     }
 
-    // MARK: - Decodificación
+    // MARK: - Decoding
 
-    /// Sentry mezcla dos formatos ISO-8601 en la MISMA respuesta: `lastSeen` de una incidencia llega
-    /// como `2026-08-22T18:09:56Z` y `dateCreated` de un release como
-    /// `2026-08-22T18:15:40.781127Z`. `.iso8601` a secas revienta con el segundo, y
-    /// `.withFractionalSeconds` revienta con el primero. Por eso se prueban los dos.
-    static let decodificador: JSONDecoder = {
-        let con = ISO8601DateFormatter()
-        con.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        let sin = ISO8601DateFormatter()
-        sin.formatOptions = [.withInternetDateTime]
+    /// Sentry mixes two ISO-8601 formats in the SAME response: an issue's `lastSeen` arrives as
+    /// `2026-08-22T18:09:56Z` and a release's `dateCreated` as `2026-08-22T18:15:40.781127Z`.
+    /// Plain `.iso8601` blows up on the second, `.withFractionalSeconds` blows up on the first.
+    /// Hence both are tried.
+    static let decoder: JSONDecoder = {
+        let withFraction = ISO8601DateFormatter()
+        withFraction.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        let withoutFraction = ISO8601DateFormatter()
+        withoutFraction.formatOptions = [.withInternetDateTime]
 
-        let decodificador = JSONDecoder()
-        decodificador.dateDecodingStrategy = .custom { decodificador in
-            let texto = try decodificador.singleValueContainer().decode(String.self)
-            if let fecha = con.date(from: texto) ?? sin.date(from: texto) { return fecha }
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .custom { inner in
+            let text = try inner.singleValueContainer().decode(String.self)
+            if let date = withFraction.date(from: text) ?? withoutFraction.date(from: text) {
+                return date
+            }
             throw DecodingError.dataCorrupted(
-                .init(codingPath: decodificador.codingPath, debugDescription: "fecha no ISO-8601: \(texto)")
+                .init(codingPath: inner.codingPath, debugDescription: "not an ISO-8601 date: \(text)")
             )
         }
-        return decodificador
+        return decoder
     }()
 
-    // MARK: - Transporte
+    // MARK: - Transport
 
-    private func pedir(_ ruta: String, _ consulta: [URLQueryItem]) async throws -> Data {
-        guard !credenciales.organizacion.isEmpty else { throw ErrorDeSentry.sinCredenciales }
-        let completa = "api/0/organizations/\(credenciales.organizacion)/\(ruta)/"
-        return try await pedirEnRuta(completa, consulta)
+    private func get(_ path: String, _ query: [URLQueryItem]) async throws -> Data {
+        guard !credentials.organization.isEmpty else { throw SentryError.missingCredentials }
+        let full = "api/0/organizations/\(credentials.organization)/\(path)/"
+        return try await getAtPath(full, query)
     }
 
-    /// Igual que `pedir`, pero con la ruta completa: hay endpoints que NO cuelgan de una
-    /// organización, y `organizations/` es justamente el que hace falta para saber cuál es.
-    private func pedirEnRuta(_ ruta: String, _ consulta: [URLQueryItem]) async throws -> Data {
-        guard !credenciales.token.isEmpty else { throw ErrorDeSentry.sinCredenciales }
-        // La barra final NO es cosmética: `…/projects` sin ella devuelve 404 seco, sin
-        // redirección (medido contra sentry.io). `appendingPathComponent` la conserva; cambiar
-        // esta línea por algo que la coma rompe la aplicación entera con un error que no
-        // menciona barras por ningún lado.
-        var componentes = URLComponents(
-            url: credenciales.host.appendingPathComponent(ruta),
+    /// Same as `get`, but with the full path: some endpoints do NOT hang off an organization,
+    /// and `organizations/` is exactly the one needed to find out which organization it is.
+    private func getAtPath(_ path: String, _ query: [URLQueryItem]) async throws -> Data {
+        guard !credentials.token.isEmpty else { throw SentryError.missingCredentials }
+        // The trailing slash is NOT cosmetic: `…/projects` without it returns a flat 404, with
+        // no redirect (measured against sentry.io). `appendingPathComponent` keeps it; replacing
+        // this line with something that drops it breaks the whole app with an error that never
+        // mentions slashes.
+        var components = URLComponents(
+            url: credentials.host.appendingPathComponent(path),
             resolvingAgainstBaseURL: false
         )!
-        // Sólo si hay algo: asignar un arreglo vacío deja la URL terminada en `?` suelto
-        // (`…/organizations/?`). Sentry lo tolera, pero es basura que después aparece en logs
-        // ajenos y en cualquier comparación de URLs.
-        if !consulta.isEmpty { componentes.queryItems = consulta }
+        // Only when there is something: assigning an empty array leaves the URL ending in a
+        // bare `?` (`…/organizations/?`). Sentry tolerates it, but it is junk that later shows
+        // up in someone else's logs and in any URL comparison.
+        if !query.isEmpty { components.queryItems = query }
 
-        var peticion = URLRequest(url: componentes.url!)
-        peticion.setValue("Bearer \(credenciales.token)", forHTTPHeaderField: "Authorization")
-        // URLSession ya negocia gzip por su cuenta y Sentry lo respeta (medido: la respuesta
-        // de incidencias llega comprimida). No hay ETag en ninguna ruta de la API, así que no
-        // existe revalidación condicional que aprovechar: lo liviano sale de pedir poco.
-        peticion.setValue("centinela", forHTTPHeaderField: "User-Agent")
+        var request = URLRequest(url: components.url!)
+        request.setValue("Bearer \(credentials.token)", forHTTPHeaderField: "Authorization")
+        // URLSession negotiates gzip on its own and Sentry honours it (measured: the issues
+        // response arrives compressed). There is no ETag on any route of the API, so there is
+        // no conditional revalidation to exploit: staying light means asking for little.
+        request.setValue("centinela", forHTTPHeaderField: "User-Agent")
 
-        let (datos, respuesta) = try await sesion.data(for: peticion)
-        guard let http = respuesta as? HTTPURLResponse else {
-            throw ErrorDeSentry.respuestaInesperada("respuesta sin estado HTTP")
+        let (data, response) = try await session.data(for: request)
+        guard let http = response as? HTTPURLResponse else {
+            throw SentryError.unexpectedResponse("response without an HTTP status")
         }
-        if let aviso = Self.deprecacion(en: http, ruta: ruta) { alDeprecar?(aviso) }
+        if let notice = Self.deprecation(in: http, path: path) { onDeprecation?(notice) }
         switch http.statusCode {
         case 200...299:
-            return datos
+            return data
         case 401:
-            throw ErrorDeSentry.noAutorizado
+            throw SentryError.unauthorized
         case 403:
-            let detalle = (try? JSONSerialization.jsonObject(with: datos) as? [String: Any])?["detail"] as? String
-            throw ErrorDeSentry.sinPermiso(detalle ?? "403")
+            let detail = (try? JSONSerialization.jsonObject(with: data) as? [String: Any])?["detail"] as? String
+            throw SentryError.forbidden(detail ?? "403")
         case 429:
-            let espera = http.value(forHTTPHeaderField: "Retry-After").flatMap(TimeInterval.init)
-            throw ErrorDeSentry.limiteDePeticiones(reintentarEn: espera)
+            let wait = http.value(forHTTPHeaderField: "Retry-After").flatMap(TimeInterval.init)
+            throw SentryError.rateLimited(retryAfter: wait)
         default:
-            throw ErrorDeSentry.http(http.statusCode)
+            throw SentryError.http(http.statusCode)
         }
     }
 
-    private func pedir<T: Decodable>(_ tipo: T.Type, _ ruta: String, _ consulta: [URLQueryItem]) async throws -> T {
-        try await decodificar(tipo, try await pedir(ruta, consulta), ruta: ruta)
+    private func get<T: Decodable>(_ type: T.Type, _ path: String, _ query: [URLQueryItem]) async throws -> T {
+        try decode(type, try await get(path, query), path: path)
     }
 
-    private func decodificar<T: Decodable>(_ tipo: T.Type, _ datos: Data, ruta: String) async throws -> T {
+    private func decode<T: Decodable>(_ type: T.Type, _ data: Data, path: String) throws -> T {
         do {
-            return try Self.decodificador.decode(T.self, from: datos)
+            return try Self.decoder.decode(T.self, from: data)
         } catch {
-            throw ErrorDeSentry.respuestaInesperada("\(ruta): \(error)")
+            throw SentryError.unexpectedResponse("\(path): \(error)")
         }
     }
 
-    /// Las organizaciones a las que llega el token. NO cuelga de una organización, por eso pasa
-    /// por `pedirEnRuta`.
-    ///
-    /// Existe para cerrar un agujero del inicio de sesión: el flujo de dispositivo entrega un
-    /// token y nada más. Sin esto, alguien iniciaba sesión con éxito y la aplicación seguía
-    /// diciendo "Falta configurar", porque `organizacion` seguía vacía y ninguna capa reportaba
-    /// error.
-    public func organizaciones() async throws -> [Organizacion] {
-        let datos = try await pedirEnRuta("api/0/organizations/", [])
-        return try await decodificar([Organizacion].self, datos, ruta: "organizations")
-    }
-
-    /// Lee los encabezados de la política de deprecación de Sentry. `internal` para que la
-    /// suite pueda ejercitarla sin salir a la red.
-    static func deprecacion(en http: HTTPURLResponse, ruta: String) -> AvisoDeDeprecacion? {
-        guard let fecha = http.value(forHTTPHeaderField: "X-Sentry-Deprecation-Date") else { return nil }
-        return AvisoDeDeprecacion(
-            ruta: ruta,
-            fecha: fecha,
-            reemplazo: http.value(forHTTPHeaderField: "X-Sentry-Replacement-Endpoint")
+    /// Reads Sentry's deprecation-policy headers. `internal` so the suite can exercise it
+    /// without going to the network.
+    static func deprecation(in http: HTTPURLResponse, path: String) -> DeprecationNotice? {
+        guard let date = http.value(forHTTPHeaderField: "X-Sentry-Deprecation-Date") else { return nil }
+        return DeprecationNotice(
+            path: path,
+            date: date,
+            replacement: http.value(forHTTPHeaderField: "X-Sentry-Replacement-Endpoint")
         )
     }
 
-    // MARK: - Lo barato: esto es lo que se pide en cada ciclo
+    // MARK: - The cheap calls: this is what every cycle asks for
 
-    /// 378 ms y 937 B medidos contra una organización real: 3 veces más rápido y 11 veces más
-    /// liviano que pedir la lista de incidencias. Es lo que alimenta el número y la chispa.
-    public func serieDeErrores(ventana: Ventana, intervalo: String = "1h") async throws -> SerieDeEventos {
-        let datos = try await pedir("events-stats", [
-            .init(name: "statsPeriod", value: ventana.rawValue),
-            .init(name: "interval", value: intervalo),
+    /// 378 ms and 937 B measured against a real organization: three times faster and eleven
+    /// times lighter than fetching the issue list. This is what feeds the count and the
+    /// sparkline.
+    public func errorSeries(window: TimeWindow, interval: String = "1h") async throws -> EventSeries {
+        let data = try await get("events-stats", [
+            .init(name: "statsPeriod", value: window.rawValue),
+            .init(name: "interval", value: interval),
             .init(name: "yAxis", value: "count()"),
             .init(name: "query", value: "event.type:error"),
             .init(name: "project", value: "-1")
         ])
-        return try SerieDeEventos(json: datos)
+        return try EventSeries(json: data)
     }
 
-    /// 490 ms medidos. Devuelve la configuración de los monitores, no su historia.
-    public func monitoresDeUptime() async throws -> [MonitorDeUptime] {
-        try await pedir([MonitorDeUptime].self, "uptime", [])
+    /// 490 ms measured. Returns the monitors' configuration, not their history.
+    public func uptimeMonitors() async throws -> [UptimeMonitor] {
+        try await get([UptimeMonitor].self, "uptime", [])
     }
 
-    // MARK: - Lo caro: sólo al abrir el panel
+    // MARK: - The expensive calls: only when the panel opens
 
-    /// 1047 ms y 10,6 KB medidos: la ruta más cara de la API. Por eso no va en el ciclo
-    /// periódico: se pide cuando alguien abre el panel y quiere leer los títulos.
-    public func issuesSinResolver(ventana: Ventana, limite: Int = 15) async throws -> [Incidencia] {
-        try await pedir([Incidencia].self, "incidencias", [
+    /// 1047 ms and 10.6 KB measured: the most expensive route in the API. That is why it is not
+    /// in the periodic cycle: it is fetched when someone opens the panel and wants to read.
+    public func unresolvedIssues(window: TimeWindow, limit: Int = 15) async throws -> [SentryIssue] {
+        try await get([SentryIssue].self, "issues", [
             .init(name: "query", value: "is:unresolved"),
-            .init(name: "statsPeriod", value: ventana.rawValue),
-            .init(name: "limit", value: String(limite)),
+            .init(name: "statsPeriod", value: window.rawValue),
+            .init(name: "limit", value: String(limit)),
             .init(name: "project", value: "-1")
         ])
     }
 
-    public func issuesPorRevisar(ventana: Ventana = .catorceDias, limite: Int = 10) async throws -> [Incidencia] {
-        try await pedir([Incidencia].self, "incidencias", [
+    public func issuesForReview(window: TimeWindow = .fourteenDays, limit: Int = 10) async throws -> [SentryIssue] {
+        try await get([SentryIssue].self, "issues", [
             .init(name: "query", value: "is:unresolved is:for_review"),
-            .init(name: "statsPeriod", value: ventana.rawValue),
-            .init(name: "limit", value: String(limite)),
+            .init(name: "statsPeriod", value: window.rawValue),
+            .init(name: "limit", value: String(limit)),
             .init(name: "project", value: "-1")
         ])
     }
 
-    public func ultimosReleases(limite: Int = 5) async throws -> [Release] {
-        try await pedir([Release].self, "releases", [.init(name: "per_page", value: String(limite))])
+    public func latestReleases(limit: Int = 5) async throws -> [Release] {
+        try await get([Release].self, "releases", [.init(name: "per_page", value: String(limit))])
     }
 
-    public func proyectos() async throws -> [Proyecto] {
-        try await pedir([Proyecto].self, "projects", [])
+    public func projects() async throws -> [Project] {
+        try await get([Project].self, "projects", [])
     }
 
-    // MARK: - Higiene del token
-
-    /// Un token de sólo lectura NO puede leer la bitácora de auditoría de la organización.
-    /// Si esta llamada devuelve 200, el token trae permisos de escritura y el widget está
-    /// corriendo con más poder del que necesita: se avisa en la interfaz.
+    /// The organizations this token can reach. Does NOT hang off an organization, hence
+    /// `getAtPath`.
     ///
-    /// Existe porque el primer token que se usó acá era el de `sentry-cli` (el mismo que sube
-    /// sourcemaps y publica releases) y leía la auditoría sin problema.
-    public func tokenPareceDeSoloLectura() async -> Bool {
+    /// It exists to close a hole in sign-in: the device flow hands back a token and nothing
+    /// else. Without this, someone signed in successfully and the app kept saying "not
+    /// configured", because `organization` was still empty and no layer reported an error.
+    public func organizations() async throws -> [Organization] {
+        let data = try await getAtPath("api/0/organizations/", [])
+        return try decode([Organization].self, data, path: "organizations")
+    }
+
+    // MARK: - Token hygiene
+
+    /// A read-only token CANNOT read the organization's audit log. If this call returns 200 the
+    /// token carries write permissions and the widget is running with more power than it needs,
+    /// which the UI then says out loud.
+    ///
+    /// It exists because the first token used here was `sentry-cli`'s — the same one that
+    /// uploads sourcemaps and publishes releases — and it read the audit log just fine.
+    public func tokenLooksReadOnly() async -> Bool {
         do {
-            _ = try await pedir("audit-logs", [.init(name: "per_page", value: "1")])
+            _ = try await get("audit-logs", [.init(name: "per_page", value: "1")])
             return false
-        } catch ErrorDeSentry.sinPermiso, ErrorDeSentry.http(404) {
+        } catch SentryError.forbidden, SentryError.http(404) {
             return true
         } catch {
-            // Un fallo de red no dice nada del token: no se acusa sin evidencia.
+            // A network failure says nothing about the token: no accusations without evidence.
             return true
         }
     }
 }
 
-public enum Ventana: String, CaseIterable, Sendable {
-    case unaHora = "1h"
-    case seisHoras = "6h"
-    case veinticuatroHoras = "24h"
-    case sieteDias = "7d"
-    case catorceDias = "14d"
+public enum TimeWindow: String, CaseIterable, Sendable {
+    case oneHour = "1h"
+    case sixHours = "6h"
+    case twentyFourHours = "24h"
+    case sevenDays = "7d"
+    case fourteenDays = "14d"
 
-    public var etiqueta: String {
+    public var label: String {
         switch self {
-        case .unaHora: "1 hora"
-        case .seisHoras: "6 horas"
-        case .veinticuatroHoras: "24 horas"
-        case .sieteDias: "7 días"
-        case .catorceDias: "14 días"
+        case .oneHour: "1 hour"
+        case .sixHours: "6 hours"
+        case .twentyFourHours: "24 hours"
+        case .sevenDays: "7 days"
+        case .fourteenDays: "14 days"
         }
     }
 }

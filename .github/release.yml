@@ -1,0 +1,24 @@
+# Categorizes the notes GitHub generates on its own when a version is published.
+#
+# CHANGELOG.md is still maintained by hand, and deliberately so: these notes say WHAT changed,
+# the changelog says WHY it matters. A list of commit subjects cannot explain that a token was
+# over-privileged or that a poll was waiting seven days for a network that was not there.
+changelog:
+  exclude:
+    labels:
+      - no-notes
+  categories:
+    - title: Breaking changes
+      labels: ["breaking"]
+    - title: Security
+      labels: ["security"]
+    - title: Features
+      labels: ["feature", "enhancement"]
+    - title: Fixes
+      labels: ["bug", "fix"]
+    - title: Documentation
+      labels: ["documentation"]
+    - title: Dependencies
+      labels: ["dependencies"]
+    - title: Other
+      labels: ["*"]

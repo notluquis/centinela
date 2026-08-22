@@ -1,54 +1,101 @@
-# Cambios
+# Changelog
 
-Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/).
-Versionado semántico.
+Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
+Semantic versioning.
+
+The release workflow reads the section for the tag being published out of this file and refuses
+to publish when it is missing, so a release never goes out with an empty body.
+
+## [Unreleased]
+
+## [0.2.0] — 2026-08-22
+
+### Changed
+
+- **The whole project is in English**: interface, source, comments, documentation and CI. It was
+  written in Spanish and this is a public repository.
+
+### Fixed
+
+- **The issue list was invisible in the panel.** A previous attempt measured the content with a
+  `PreferenceKey` and fed it back into `.frame(height:)`, on the theory that the `ScrollView` was
+  collapsing. Measured with `NSHostingView` against the real layout, that was backwards: the
+  original arrangement lays out to its full height and the measured version sits at 91 pt,
+  because the loop "the frame height depends on the preference, which depends on the frame
+  height" never converges. Reverted, with the measurement written down so nobody tries it again.
+- The footer said "Updated in 0 seconds": `lastUpdated` is essentially `now` when the panel
+  draws, and the relative formatter read it as the future.
+
+### Added
+
+- Release notes are assembled automatically: the CHANGELOG section for the tag plus the list
+  GitHub generates from merged pull requests, categorized by `.github/release.yml`.
+- The release workflow checks that the version inside the bundle matches the tag. A mistyped tag
+  used to ship an artifact claiming something else.
+- `make lint` fails when swiftlint is missing instead of skipping in silence, and points
+  `DYLD_FRAMEWORK_PATH` at the swiftly toolchain, without which swiftlint dies looking for
+  `sourcekitdInProc` inside Xcode.
 
 ## [0.1.0] — 2026-08-22
 
-Primera versión publicada. Firma ad-hoc, sin notarizar: la primera vez macOS pide confirmación (clic derecho sobre la aplicación, Abrir).
+First published version. Ad-hoc signature, not notarized: the first time, macOS asks for
+confirmation (right click on the app, Open).
 
-### En la barra de menús
+### In the menu bar
 
-- Conteo de errores de la ventana elegida, con una chispa de la serie al lado.
-- Ícono rojo cuando un monitor de uptime está caído.
-- El ícono no fija colores: en macOS 26 y 27 la barra es transparente y encima va el papel tapiz, así que el contraste lo resuelve el sistema. El único color propio es el rojo de una caída.
+- Error count for the chosen window, with a sparkline of the series next to it.
+- Red icon when an uptime monitor is down.
+- The icon sets no colours of its own: in macOS 26 and 27 the bar is transparent with the
+  wallpaper behind it, so contrast is the system's call. The only colour of our own is the red
+  of an outage.
 
-### En el panel
+### In the panel
 
-- Issues sin resolver con proyecto, eventos y personas afectadas. Clic abre el issue en Sentry.
-- Issues nuevos por revisar (`is:for_review`).
-- Últimos releases y cuántos issues nuevos trajo cada uno.
-- Estado de los monitores de uptime.
-- Aviso si Sentry anuncia que va a retirar una de las rutas que la aplicación usa.
+- Unresolved issues with project, event count and affected people. A click opens the issue in
+  Sentry.
+- New issues for review (`is:for_review`).
+- Latest releases and how many new issues each one brought.
+- Uptime monitor status.
+- A notice when Sentry announces it is retiring one of the routes the app uses.
 
-### Inicio de sesión
+### Signing in
 
-- Flujo de dispositivo de OAuth 2.0 (RFC 8628), lo mismo que usa `sentry-cli`. La aplicación declara `org:read`, `project:read` y `event:read`; Sentry entrega un token con exactamente esos y nada más.
-- El identificador de cliente viene incluido: no hay nada que configurar. Quien prefiera registrar el suyo lo pega en Ajustes.
-- Renovación automática bajo el 10 % de vida restante. Una renovación fallida no cierra la sesión: puede ser falta de red.
-- Sigue funcionando pegar un token a mano, que es la única vía en instancias anteriores a Sentry 26.1.0.
-- Avisa si el token puede leer la bitácora de auditoría de la organización, o sea si trae permisos de escritura que la aplicación no necesita.
+- OAuth 2.0 device flow (RFC 8628), the same one `sentry-cli` uses. The app declares `org:read`,
+  `project:read` and `event:read`; Sentry hands back a token with exactly those and nothing more.
+- The client id is built in: there is nothing to configure. Anyone who prefers to register their
+  own pastes it in Settings.
+- Automatic renewal below 10% of remaining life. A failed renewal does not sign you out: there
+  may simply be no network.
+- Pasting a token by hand still works, and is the only way on instances older than Sentry 26.1.0.
+- Warns when the token can read the organization's audit log, meaning it carries write access the
+  app does not need.
 
-### Seguridad
+### Security
 
-- Token y token de refresco en el llavero de macOS, sólo con el equipo desbloqueado y sin sincronizar a iCloud.
-- Caja de arena con dos permisos: salir a la red y nada más. Se leen enteros en `Centinela.entitlements`.
-- Sesión de red efímera: nada de lo que devuelve Sentry se escribe en disco.
+- Access and refresh tokens in the macOS Keychain, only while the machine is unlocked and never
+  synced to iCloud.
+- Sandbox with two permissions: reach the network, and nothing else. They can be read end to end
+  in `Centinela.entitlements`.
+- Ephemeral network session: nothing Sentry returns is written to disk.
 
-### Rendimiento
+### Performance
 
-- El ciclo periódico pide sólo las dos rutas baratas: la serie de errores (378 ms, 937 B) y el estado de uptime (490 ms). La lista de issues (1047 ms, 10,6 KB) se pide únicamente al abrir el panel.
-- El temporizador lleva 20 % de tolerancia, para que el sistema junte el despertar con otros.
-- Cero peticiones mientras el equipo duerme, y refresco inmediato al despertar.
+- The periodic cycle asks only for the two cheap routes: the error series (378 ms, 937 B) and
+  uptime status (490 ms). The issue list (1047 ms, 10.6 KB) is fetched only when the panel opens.
+- The timer carries 20% tolerance so the system can coalesce the wake-up with others.
+- Zero requests while the machine sleeps, and an immediate refresh on wake.
 
-### Sistema
+### System
 
-- Arranque con la sesión vía `SMAppService`, con el estado "falta aprobarlo" tratado aparte en vez de mostrarse como apagado.
-- Aviso de versión nueva leyendo la API de releases de GitHub, una vez al día. No se actualiza sola.
-- Preferencias con pestañas y ventana "Acerca de".
+- Launch at login through `SMAppService`, with the "needs approval" state handled separately
+  instead of shown as off.
+- New-version notice read from GitHub's releases API, once a day. It does not update itself.
+- Settings window with tabs, and an About tab.
 
-### Cómo se construye
+### How it is built
 
-- SwiftPM más un `Makefile`, sin `.xcodeproj`.
-- **No necesita Xcode**: con la toolchain de [swiftly](https://www.swift.org/install/macos/swiftly/) alcanza, y hay un job de CI que lo verifica compilando sin él.
-- 45 tests en Swift Testing, incluidos once de integración del inicio de sesión contra un servidor de mentira.
+- SwiftPM plus a `Makefile`, no `.xcodeproj`.
+- **Xcode is not required**: the [swiftly](https://www.swift.org/install/macos/swiftly/)
+  toolchain is enough, and a CI job keeps that honest by building without it.
+- 45 tests in Swift Testing, including eleven integration tests of the sign-in flow against a
+  stub server.

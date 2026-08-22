@@ -1,10 +1,11 @@
 // swift-tools-version: 6.0
 import PackageDescription
 
-// El objetivo está partido en dos a propósito, y no por gusto arquitectónico: `CentinelaCore`
-// no importa AppKit ni SwiftUI, así que su suite corre en un runner de CI sin sesión gráfica.
-// Todo lo que puede estar mal (el parseo de la respuesta de Sentry, la normalización de la
-// chispa, la lectura del llavero) vive ahí. `Centinela` es sólo la carcasa que dibuja.
+// The package is split in two on purpose, not out of architectural taste: `CentinelaCore`
+// imports neither AppKit nor SwiftUI, so its suite runs on a CI runner with no graphics session.
+// Everything that can be wrong in a way you cannot see — parsing Sentry's responses, the
+// sparkline arithmetic, reading the Keychain — lives there. `Centinela` is only the shell that
+// draws.
 let package = Package(
     name: "Centinela",
     platforms: [.macOS(.v14)],
@@ -12,9 +13,9 @@ let package = Package(
         .target(
             name: "CentinelaCore",
             path: "Sources/CentinelaCore",
-            // Modo 5 y no 6: la concurrencia estricta de Swift 6 obliga a anotar cosas que
-            // acá no cruzan hilos, y el costo se paga en ruido, no en seguridad. Se sube a 6
-            // cuando el proyecto tenga estado compartido de verdad.
+            // Mode 5 and not 6: Swift 6's strict concurrency forces annotations on things that
+            // do not cross threads here, and the cost is paid in noise, not in safety. It moves
+            // to 6 when the project has real shared state.
             swiftSettings: [.swiftLanguageMode(.v5)]
         ),
         .executableTarget(

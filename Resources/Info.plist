@@ -4,16 +4,8 @@
 <dict>
 	<key>CFBundleName</key>
 	<string>Centinela</string>
-	<!-- Sin estas dos claves, SwiftUI arma el título de la ventana de preferencias en inglés
-	     ("Centinela Settings") aunque toda la interfaz esté en español: el sistema decide el
-	     idioma de sus propias cadenas por las localizaciones que declara el paquete, no por lo
-	     que uno escriba adentro. -->
 	<key>CFBundleDevelopmentRegion</key>
-	<string>es</string>
-	<key>CFBundleLocalizations</key>
-	<array>
-		<string>es</string>
-	</array>
+	<string>en</string>
 	<key>CFBundleDisplayName</key>
 	<string>Centinela</string>
 	<key>CFBundleExecutable</key>
@@ -30,8 +22,8 @@
 	<string>__BUILD__</string>
 	<key>LSMinimumSystemVersion</key>
 	<string>14.0</string>
-	<!-- Sin ícono en el Dock y sin entrada en el conmutador de aplicaciones: esto vive
-	     arriba, en la barra de menús, y nada más. -->
+	<!-- No Dock icon and no entry in the app switcher: this lives up in the menu bar and
+	     nowhere else. -->
 	<key>LSUIElement</key>
 	<true/>
 	<key>NSHumanReadableCopyright</key>

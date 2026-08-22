@@ -1,0 +1,51 @@
+name: mutation
+
+# Weekly and on demand, never on every PR: a mutation run takes far longer than the suite and
+# its result is not a yes/no, it is a list to read.
+on:
+  schedule:
+    - cron: "0 6 * * 1"
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: mutation
+  cancel-in-progress: true
+
+jobs:
+  mutate:
+    # `macos-26` and not a machine without Xcode: muter does NOT build without Xcode. It fails
+    # with `no such module 'XCTest'`, exactly the same wall that made this project's suite use
+    # Swift Testing. That is why mutation lives in CI and not in the local loop.
+    runs-on: macos-26
+    timeout-minutes: 60
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Install muter
+        run: brew install muter-mutation-testing/formulae/muter
+
+      - name: Mutate
+        run: muter run --output-json muter-report.json || true
+
+      # The `|| true` above lets through the case where muter never ran, crashed, or rejected
+      # `muter.conf.yml`. That file cannot be validated locally (muter does not build without
+      # Xcode), so a misspelled key would mutate everything or nothing and the job would go
+      # green regardless. This makes a broken config loud without gating any PR: the job is
+      # weekly.
+      - name: The report exists and has mutants
+        run: |
+          set -euo pipefail
+          test -s muter-report.json || { echo "::error::muter left no report: check muter.conf.yml"; exit 1; }
+          mutants=$(python3 -c "import json;d=json.load(open('muter-report.json'));print(len(d.get('fileMutations') or d.get('mutationScores') or []))")
+          echo "mutants/files in the report: $mutants"
+          test "$mutants" -gt 0 || { echo "::error::the report came out empty: the config is not pointing at the code"; exit 1; }
+
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: mutation-report
+          path: muter-report.json
+          retention-days: 30

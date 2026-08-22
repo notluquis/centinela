@@ -1,39 +1,51 @@
-# Seguridad
+# Security
 
-## Qué maneja esta aplicación
+## What this app handles
 
-Un token de la API de Sentry con permisos de lectura, y los títulos de los issues que ese token devuelve. Los títulos de error suelen traer URLs internas, identificadores y fragmentos de datos del negocio.
+A Sentry API token with read scopes, and the issue titles that token returns. Error titles often
+carry internal URLs, identifiers and fragments of business data.
 
-## Cómo se guarda
+## How it is stored
 
-| Dato | Dónde | Detalle |
+| Data | Where | Detail |
 |---|---|---|
-| Token | Llavero de macOS | `kSecClassGenericPassword`, `kSecAttrAccessibleWhenUnlockedThisDeviceOnly`, sin sincronizar |
-| Organización, servidor, intervalo | `UserDefaults` | No son secretos |
-| Issues, releases, uptime | Sólo en memoria | `URLSessionConfiguration.ephemeral`: sin caché en disco, sin cookies |
+| Access and refresh tokens | macOS Keychain | `kSecClassGenericPassword`, `kSecAttrAccessibleWhenUnlockedThisDeviceOnly`, not synchronized |
+| Organization, server, interval, OAuth client id | `UserDefaults` | None of these are secrets |
+| Issues, releases, uptime | Memory only | `URLSessionConfiguration.ephemeral`: no disk cache, no cookies |
 
-Nada de lo que devuelve Sentry se escribe en disco.
+Nothing Sentry returns is written to disk.
 
-## Permisos que pide la aplicación
+## What the app asks the system for
 
-Caja de arena activada. Dos permisos, y se pueden leer enteros en `Centinela.entitlements`:
+Sandbox on. Two permissions, and they can be read end to end in `Centinela.entitlements`:
 
 - `com.apple.security.app-sandbox`
-- `com.apple.security.network.client`: salir a la red
+- `com.apple.security.network.client` — reach the network
 
-No pide archivos, ni cámara, ni contactos, ni servidor de red entrante. Si algún día aparece uno más, se ve en el diff.
+No files, no camera, no contacts, no inbound network server. If one more ever appears, it shows
+up in the diff.
 
-## El token que le des
+`keychain-access-groups` is deliberately not declared: `$(AppIdentifierPrefix)` only expands with
+a provisioning profile and these builds are signed ad-hoc. Without the key, the default group is
+the app's own identifier, which is what is wanted. Verified by running a sandboxed, ad-hoc-signed
+bundle: `SecItemAdd` returns 0 and the value reads back.
 
-Dale `org:read`, `project:read` y `event:read`. Nada más. La aplicación no escribe en Sentry y no tiene código para hacerlo.
+## The token you give it
 
-Centinela revisa si el token puede leer `/audit-logs/` de la organización. Si puede, trae permisos de escritura y lo dice en el panel. **No reutilices el token de `sentry-cli`**: ese sube sourcemaps y publica releases.
+Signing in through the device flow requests `org:read`, `project:read` and `event:read`, and
+nothing else. A test fails if a write scope is ever added.
 
-## Reportar un problema
+Centinela checks whether the token can read the organization's `/audit-logs/`. If it can, it
+carries write access and the panel says so. **Do not reuse `sentry-cli`'s token**: that one
+uploads sourcemaps and publishes releases.
 
-Abre un issue en el repositorio. Si el hallazgo expone datos, escribe a la dirección del perfil de GitHub del autor en vez de abrirlo público.
+## Reporting a problem
 
-## Lo que este proyecto no promete
+Open an issue in the repository. If the finding exposes data, write to the address on the
+author's GitHub profile instead of opening it in public.
 
-- Las compilaciones publicadas van firmadas ad-hoc, sin notarizar. Verifica con `codesign -dv --verbose=4` y `spctl -a -t exec -vvv` antes de abrir lo que bajaste.
-- No hay actualizaciones automáticas. Nada se descarga ni se ejecuta solo.
+## What this project does not promise
+
+- Published builds are signed ad-hoc and not notarized. Check what you downloaded with
+  `codesign -dv --verbose=4` and `spctl -a -t exec -vvv` before opening it.
+- There are no automatic updates. Nothing is downloaded or executed on its own.

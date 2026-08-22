@@ -1,23 +1,23 @@
 #!/usr/bin/env swift
-// Genera Resources/Centinela.icns desde código, no desde un archivo binario que nadie puede
-// editar ni revisar en un diff. Se corre a mano cuando el ícono cambia:
+// Generates Resources/Centinela.icns from code, not from a binary file nobody can edit or
+// review in a diff. Run by hand when the icon changes:
 //
-//     swift Tools/generar-icono.swift
+//     swift Tools/generate-icon.swift
 //
-// Dibuja un escudo (el centinela) con un punto arriba, que es lo único que sobrevive a 16×16.
+// Draws a shield (the sentinel) with a dot on it, which is all that survives at 16×16.
 import AppKit
 import CoreGraphics
 import Foundation
 
-func dibujar(lado: Int) -> CGImage {
+func draw(side: Int) -> CGImage {
     let ctx = CGContext(
-        data: nil, width: lado, height: lado, bitsPerComponent: 8, bytesPerRow: 0,
+        data: nil, width: side, height: side, bitsPerComponent: 8, bytesPerRow: 0,
         space: CGColorSpace(name: CGColorSpace.sRGB)!,
         bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
     )!
-    let l = CGFloat(lado)
+    let l = CGFloat(side)
 
-    // Fondo: cuadrado redondeado con el radio proporcional que usa macOS (aprox. 22,5 %).
+    // Background: rounded square with the proportional radius macOS uses (about 22.5%).
     let margen = l * 0.06
     let caja = CGRect(x: margen, y: margen, width: l - margen * 2, height: l - margen * 2)
     let fondo = CGPath(roundedRect: caja, cornerWidth: caja.width * 0.225, cornerHeight: caja.height * 0.225, transform: nil)
@@ -34,7 +34,7 @@ func dibujar(lado: Int) -> CGImage {
     ctx.drawLinearGradient(degradado, start: CGPoint(x: 0, y: l), end: CGPoint(x: l, y: 0), options: [])
     ctx.resetClip()
 
-    // Escudo: dos curvas que bajan a una punta. Trazo grueso para que se lea chico.
+    // Shield: two curves meeting at a point. Thick stroke so it reads small.
     let cx = l / 2, top = l * 0.74, bottom = l * 0.24, ancho = l * 0.19
     let escudo = CGMutablePath()
     escudo.move(to: CGPoint(x: cx - ancho, y: top))
@@ -55,7 +55,7 @@ func dibujar(lado: Int) -> CGImage {
     ctx.addPath(escudo)
     ctx.strokePath()
 
-    // El punto: lo que queda visible a 16 píxeles.
+    // The dot: what stays visible at 16 pixels.
     let r = l * 0.062
     ctx.setFillColor(CGColor(gray: 1, alpha: 0.95))
     ctx.fillEllipse(in: CGRect(x: cx - r, y: l * 0.50 - r, width: r * 2, height: r * 2))
@@ -63,19 +63,19 @@ func dibujar(lado: Int) -> CGImage {
     return ctx.makeImage()!
 }
 
-let salida = URL(fileURLWithPath: "Resources/Centinela.iconset")
-try? FileManager.default.removeItem(at: salida)
-try FileManager.default.createDirectory(at: salida, withIntermediateDirectories: true)
+let output = URL(fileURLWithPath: "Resources/Centinela.iconset")
+try? FileManager.default.removeItem(at: output)
+try FileManager.default.createDirectory(at: output, withIntermediateDirectories: true)
 
-// Los nombres los define Apple; `iconutil` rechaza el iconset si falta alguno o si el nombre
-// no calza exactamente con el tamaño.
+// Apple defines the names; `iconutil` rejects the iconset if one is missing or if the name
+// does not match the size exactly.
 for (base, escala) in [(16, 1), (16, 2), (32, 1), (32, 2), (128, 1), (128, 2), (256, 1), (256, 2), (512, 1), (512, 2)] {
     let lado = base * escala
-    let imagen = dibujar(lado: lado)
+    let imagen = draw(side: lado)
     let sufijo = escala == 1 ? "" : "@2x"
-    let archivo = salida.appendingPathComponent("icon_\(base)x\(base)\(sufijo).png")
+    let archivo = output.appendingPathComponent("icon_\(base)x\(base)\(sufijo).png")
     let destino = CGImageDestinationCreateWithURL(archivo as CFURL, "public.png" as CFString, 1, nil)!
     CGImageDestinationAddImage(destino, imagen, nil)
     CGImageDestinationFinalize(destino)
 }
-print("iconset en \(salida.path). Ahora: iconutil -c icns \(salida.path)")
+print("iconset at \(output.path). Next: iconutil -c icns \(output.path)")

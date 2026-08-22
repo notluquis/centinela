@@ -1,84 +1,96 @@
 # Centinela
 
-Los issues de Sentry en la barra de menús de macOS: un número, una chispa de las últimas horas y el estado de los monitores de uptime, sin abrir el navegador.
+Your Sentry issues in the macOS menu bar. A count, a sparkline of the last few hours, and the
+state of your uptime monitors, without opening a browser.
 
-No existe aplicación oficial de Sentry para macOS, y tampoco una de terceros. Buscado el 2026-08-22:
+There is no official Sentry app for macOS, and no third-party one either. Searched on 2026-08-22:
 
-| Dónde se buscó | Resultado |
+| Where | Result |
 |---|---|
-| Repositorios de GitHub (4 consultas) | Nada. Todo lo que sale usa "sentry" como sustantivo común: puertos, notch, pomodoro |
-| Extensión de Sentry para Raycast | Sus dos comandos son `mode: "view"`, o sea buscador. Sin comando de barra de menús |
-| Casks de Homebrew | Sólo `sentry-cli` |
-| Plugins de xbar | Uno, apuntando al dominio legacy `app.getsentry.com` y a un solo proyecto |
+| GitHub repositories, 4 queries | Nothing. Everything that comes up uses "sentry" as a common noun: ports, notch, pomodoro |
+| Sentry's Raycast extension | Both its commands are `mode: "view"`, i.e. a search box. No menu bar command |
+| Homebrew casks | Only `sentry-cli` |
+| xbar plugins | One, pointing at the legacy `app.getsentry.com` domain and a single project |
 
-Esto llena ese hueco.
+This fills that gap.
 
-**Nativa de verdad**: SwiftUI, `MenuBarExtra`, 2 MB de aplicación. No es un contenedor web ni un script dentro de otra aplicación.
+**Actually native**: SwiftUI, `MenuBarExtra`, a 2 MB app. Not a web wrapper and not a script
+inside somebody else's app.
 
-## Qué muestra
+## What it shows
 
-| Dónde | Qué | Cuándo se pide |
+| Where | What | When it is fetched |
 |---|---|---|
-| En la barra | Errores de la ventana elegida, con chispa | Cada ciclo (5 min por omisión) |
-| En la barra | Ícono rojo si un monitor de uptime está caído | Cada ciclo |
-| En el panel | Issues sin resolver: proyecto, eventos, personas afectadas | Al abrir el panel |
-| En el panel | Issues nuevos por revisar (`is:for_review`) | Al abrir el panel |
-| En el panel | Últimos releases y cuántos issues nuevos trajo cada uno | Al abrir el panel |
+| Menu bar | Errors in the chosen window, with a sparkline | Every cycle (5 min by default) |
+| Menu bar | Red icon when an uptime monitor is down | Every cycle |
+| Panel | Unresolved issues, with project, events and affected people | When the panel opens |
+| Panel | New issues for review (`is:for_review`) | When the panel opens |
+| Panel | Latest releases and how many new issues each brought | When the panel opens |
 
-Ese reparto es de dónde sale que sea liviano, y está medido contra una organización real:
+That split is where being light comes from, and it is measured against a real organization:
 
-| Ruta de la API | Tiempo | Tamaño |
+| API route | Time | Size |
 |---|---|---|
-| `events-stats` (el número y la chispa) | 378 ms | 937 B |
+| `events-stats` (the count and the sparkline) | 378 ms | 937 B |
 | `uptime` | 490 ms | 591 B |
-| `issues` (la lista) | 1047 ms | 10,6 KB |
+| `issues` (the list) | 1047 ms | 10.6 KB |
 
-La lista de issues es **la ruta más cara de toda la API**: 3 veces más lenta y 11 veces más pesada que la serie. Por eso el ciclo periódico no la toca y sólo se pide al abrir el panel.
+The issue list is **the most expensive route in the whole API**: three times slower and eleven
+times heavier than the series. That is why the periodic cycle never touches it and it is only
+fetched when the panel opens.
 
-Reproducir la medición con tu propio token:
+Reproduce the measurement with your own token:
 
 ```bash
 curl -s -o /dev/null -w '%{time_total}s %{size_download}B\n' \
   -H "Authorization: Bearer $TOKEN" \
-  'https://sentry.io/api/0/organizations/TU_ORG/events-stats/?statsPeriod=24h&interval=1h&yAxis=count()&query=event.type:error&project=-1'
+  'https://sentry.io/api/0/organizations/YOUR_ORG/events-stats/?statsPeriod=24h&interval=1h&yAxis=count()&query=event.type:error&project=-1'
 ```
 
-Dato que conviene saber antes de intentar optimizar: **la API de Sentry no expone `ETag` en ninguna de estas rutas**, así que no hay revalidación condicional (304) que aprovechar. Lo liviano se consigue pidiendo poco, no pidiendo barato. `gzip` sí está, y `URLSession` lo negocia sola.
+Worth knowing before trying to optimize: **Sentry's API exposes no `ETag` on any of these
+routes**, so there is no conditional revalidation (304) to exploit. Staying light means asking
+for little, not asking cheaply. `gzip` is there, and `URLSession` negotiates it on its own.
 
-Los límites medidos, por si vas a subir la frecuencia: 40 peticiones por ventana y por ruta (20 en `stats_v2`), 25 concurrentes, y la ventana se reinicia en menos de un segundo. El techo real no es Sentry sino la batería.
+The measured limits, in case you raise the frequency: 40 requests per window per route (20 on
+`stats_v2`), 25 concurrent, and the window resets in under a second. The real ceiling is not
+Sentry, it is battery.
 
-## Instalar
+## Install
 
 ```bash
 git clone https://github.com/notluquis/centinela.git
 cd centinela
-make instalar          # construye, arma el .app y lo copia a /Applications
+make install          # builds, assembles the .app and copies it to /Applications
 open /Applications/Centinela.app
 ```
 
-Luego: clic en el ícono → **Abrir ajustes** → organización y token.
+Then: click the icon, **Open Settings**, sign in.
 
-Requiere macOS 14 o superior. **No requiere Xcode**. Ver [Construir](#construir).
+Requires macOS 14 or newer. **Xcode is not required** — see [Building](#building).
 
-## Iniciar sesión
+## Signing in
 
-Centinela **sólo lee**, y hay dos formas de darle acceso.
+Centinela **only reads**, and there are two ways to give it access.
 
-### Con el flujo de dispositivo
+### With the device flow
 
-Clic en "Iniciar sesión con Sentry": la aplicación pide un código, abre el navegador, tú apruebas, y Sentry entrega un token con **exactamente** los permisos que se pidieron.
+Click "Sign in with Sentry": the app asks for a code, opens the browser, you approve, and Sentry
+hands back a token with **exactly** the scopes that were requested.
 
-Los que pide Centinela, y ningunos más:
+The ones Centinela asks for, and no others:
 
 ```
 org:read  project:read  event:read
 ```
 
-Hay un test que se pone rojo si alguien agrega uno de escritura, porque los permisos son parte del contrato con quien usa esto, no un detalle interno.
+There is a test that goes red if anyone adds a write scope, because the scopes are part of the
+contract with whoever runs this, not an internal detail.
 
-**No hay nada que configurar.** El identificador de cliente viene en el código, que es donde corresponde: el RFC 8628 trata a estos clientes como públicos y no hay secreto que proteger. `sentry-cli` hace lo mismo con el suyo.
+**There is nothing to configure.** The client id ships in the source, which is where it belongs:
+RFC 8628 treats these as public clients and there is no secret to protect. `sentry-cli` does the
+same with its own.
 
-Verificado contra sentry.io el 2026-08-22:
+Verified against sentry.io on 2026-08-22:
 
 ```
 POST /oauth/device/code/  {client_id, scope: "org:read project:read event:read"}
@@ -87,56 +99,71 @@ POST /oauth/device/code/  {client_id, scope: "org:read project:read event:read"}
        "verification_uri_complete":"…?user_code=CZCS-FSLC",
        "expires_in":600,"interval":5}
 
-POST /oauth/token/  (sin aprobar todavía)
+POST /oauth/token/  (before approving)
 → 400 {"error":"authorization_pending"}
 ```
 
-El token se renueva solo cuando le queda menos del 10 % de vida, que es el criterio de `sentry-cli`. Sentry rota el token de refresco, así que la renovación se queda con el nuevo cuando viene y con el viejo cuando no; hay un test para cada rama. Si la renovación falla, la sesión **no** se cierra: puede ser que no haya red, y el token viejo sigue sirviendo hasta que Sentry responda 401.
+The token renews itself once less than 10% of its life remains, which is `sentry-cli`'s rule.
+Sentry rotates the refresh token, so renewal keeps the new one when it arrives and the old one
+when it does not; there is a test for each branch. A failed renewal does **not** sign you out:
+there may simply be no network, and the old token keeps working until Sentry answers 401.
 
-#### Registrar tu propio cliente
+#### Registering your own client
 
-Sólo si prefieres que el diálogo de aprobación diga tu nombre y no "Centinela". Lo que hay que crear es una **API Application**, que no está donde uno buscaría:
+Only if you would rather the approval dialog said your name instead of "Centinela". What you
+create is an **API Application**, which is not where you would look for it:
 
 | | |
 |---|---|
-| Dónde | `https://sentry.io/settings/account/api/applications/`, o sea ajustes de **tu cuenta**, no de la organización |
-| Tipo | **Public Client**. Es el que la propia pantalla describe como "for CLIs, native apps […] uses PKCE, device authorization, and refresh token rotation" |
-| Redirect URIs | Vacío. El flujo de dispositivo no redirige a ninguna parte, por eso existe |
-| Qué NO es | No es una integración interna ni pública de *Developer Settings*: esas entregan un token o son para el flujo de código de autorización |
+| Where | `https://sentry.io/settings/account/api/applications/`, i.e. **your account's** settings, not the organization's |
+| Type | **Public Client**. The one the screen itself describes as "for CLIs, native apps […] uses PKCE, device authorization, and refresh token rotation" |
+| Redirect URIs | Leave empty. The device flow redirects nowhere, which is the point of it |
+| What it is NOT | Not an internal or public integration under *Developer Settings*: those hand back a token, or are meant for the authorization-code flow |
 
-El endpoint hace `ApiApplication.objects.get(client_id=…, status=active)` y nada más (`src/sentry/web/frontend/oauth_device_authorization.py`): no hay que marcar nada ni publicar la aplicación. El Client ID se pega en Ajustes, pestaña Cuenta.
+The endpoint does `ApiApplication.objects.get(client_id=…, status=active)` and nothing else
+(`src/sentry/web/frontend/oauth_device_authorization.py`): nothing to tick, no need to publish
+the application. Paste the Client ID in Settings, Account tab.
 
-### Con un token pegado a mano
+### With a hand-pasted token
 
-Sigue funcionando, y es la única vía en instancias anteriores a Sentry 26.1.0 (ahí el endpoint no existe y la aplicación lo dice con esas palabras en vez de dar un error genérico).
+Still works, and it is the only way on instances older than Sentry 26.1.0 (there the endpoint
+does not exist and the app says so in those words rather than giving a generic error).
 
-1. En Sentry: *Settings, Developer Settings, Organization Tokens, Create New Token*.
-2. Dale exactamente estos permisos y ninguno más:
+1. In Sentry: *Settings, Developer Settings, Organization Tokens, Create New Token*.
+2. Give it exactly these scopes and no others:
 
-| Permiso | Para qué |
+| Scope | What for |
 |---|---|
-| `org:read` | La organización, los monitores de uptime y los releases |
-| `project:read` | La lista de proyectos |
-| `event:read` | Los issues y la serie de errores |
+| `org:read` | The organization, the uptime monitors and the releases |
+| `project:read` | The project list |
+| `event:read` | Issues and the error series |
 
-3. Pégalo en Ajustes. Se guarda en el llavero de macOS con `kSecAttrAccessibleWhenUnlockedThisDeviceOnly`: no se sincroniza a iCloud ni sale en un respaldo restaurado en otro equipo.
+3. Paste it in Settings. It is stored in the macOS Keychain with
+`kSecAttrAccessibleWhenUnlockedThisDeviceOnly`: it does not sync to iCloud and does not come back
+from a backup restored on another machine.
 
-**No reutilices el token de `sentry-cli`.** Ese sube sourcemaps y publica releases, o sea trae permisos de escritura. Centinela lo detecta y lo dice en el panel: si el token puede leer `/audit-logs/` de la organización, no es de sólo lectura. El aviso existe porque el primer token que se usó acá fue justamente ése, y leía la auditoría sin chistar.
+**Do not reuse `sentry-cli`'s token.** That one uploads sourcemaps and publishes releases, which
+means it carries write access. Centinela detects it and says so in the panel: if the token can
+read `/audit-logs/`, it is not read-only. The check exists because the first token used here was
+exactly that one, and it read the audit log without complaint.
 
-## Construir
+## Building
 
 ```bash
 make build     # swift build -c release
-make test      # 15 tests de CentinelaCore, sin sesión gráfica
-make app       # arma build/Centinela.app y lo firma ad-hoc
-make run       # lo anterior, y lo abre
+make test      # 45 tests, no graphics session needed
+make lint      # swiftlint --strict
+make app       # assembles build/Centinela.app and signs it ad-hoc
+make run       # the above, then opens it
 ```
 
-Compilación limpia en release: **60 s** en un Apple Silicon. La aplicación queda en 2 MB, de los cuales 1,1 son el `.icns`.
+A clean release build takes **60 s** on Apple Silicon. The app comes out at 2 MB, 1.1 of which
+is the `.icns`.
 
-### Sin Xcode, con swiftly
+### Without Xcode, with swiftly
 
-Xcode no hace falta. [`swiftly`](https://www.swift.org/install/macos/swiftly/), el gestor oficial de toolchains de Swift, alcanza:
+Xcode is not needed. [`swiftly`](https://www.swift.org/install/macos/swiftly/), the official
+Swift toolchain manager, is enough:
 
 ```bash
 brew install swiftly
@@ -144,136 +171,195 @@ swiftly init
 swiftly install 6.3.3 --use
 ```
 
-Son unos 60 s de descarga contra los ~18 GB de Xcode, y desde ahí `swift build` compila SwiftUI, AppKit y ServiceManagement sin problema.
+That is about 60 s of download against Xcode's ~18 GB, and from there `swift build` compiles
+SwiftUI, AppKit and ServiceManagement without trouble.
 
-**Las Command Line Tools solas NO sirven**, y el error no ayuda:
+**The Command Line Tools alone are NOT enough**, and the error does not help:
 
 ```
 error: failed to build module 'SwiftUI'; this SDK is not supported by the compiler
 (the SDK is built with 'swiftlang-6.2.3.3.2', while this compiler is 'swiftlang-6.2.3.3.21')
 ```
 
-El compilador de las CLT y su propio SDK vienen de compilaciones distintas. `softwareupdate --list` no ofrece arreglo, y apuntar a un SDK más viejo (`MacOSX15.4.sdk`) sólo cambia el error por `redefinition of module 'SwiftBridging'`. La toolchain de swiftly lo resuelve porque trae su propio compilador consistente.
+The CLT compiler and the CLT's own SDK come from different builds. `softwareupdate --list` offers
+no fix, and pointing at an older SDK (`MacOSX15.4.sdk`) only swaps the error for
+`redefinition of module 'SwiftBridging'`. The swiftly toolchain solves it because it brings a
+compiler consistent with itself.
 
-Dato al margen: **Objective-C sí compila** con las CLT solas (`clang -framework Cocoa`, 1,2 s, binario de 52 KB). El bloqueo es específico de los módulos de Swift.
+Aside: **Objective-C does compile** with the CLT alone (`clang -framework Cocoa`, 1.2 s, a 52 KB
+binary). The wall is specific to Swift modules.
 
-### Dos trampas que costaron tiempo acá
+### Three traps that cost time here
 
-**`XCTest` no existe fuera de Xcode.** Viene con Xcode, no con la toolchain. La suite usa **Swift Testing**, que sí viene incluida y que además es el marco por omisión desde 2026. Si migras tests viejos, no es opcional: con XCTest la suite deja de correr en una máquina sin Xcode.
+**`XCTest` does not exist outside Xcode.** It ships with Xcode, not with the toolchain. The suite
+uses **Swift Testing**, which does ship with it — and which has been the default since 2026. If
+you port old tests, this is not optional: with XCTest the suite stops running on a machine
+without Xcode.
 
-**Swift Testing exporta su propio `Issue`.** Por eso el modelo de acá se llama `Incidencia` y no `Issue`: en un archivo con `import Testing`, el nombre corto se resuelve al de ellos. El síntoma no dice nada útil (el compilador emite `failed to produce diagnostic for expression` sobre la llamada a `decode`) y se pierde un buen rato revisando el `Codable`.
+**Swift Testing exports its own `Issue`.** That is why the model here is called `SentryIssue`: in
+a file with `import Testing`, the short name resolves to theirs. The symptom says nothing useful
+— the compiler emits `failed to produce diagnostic for expression` on the call to `decode` — and
+you lose a while going over the `Codable`.
 
-### Por qué no hay `.xcodeproj`
+**`swiftlint` needs `sourcekitdInProc.framework`**, which it only looks for inside Xcode. Without
+Xcode it has to be pointed at the swiftly toolchain; `make lint` already does that, and now fails
+loudly when swiftlint is missing instead of skipping in silence. That silence is how 80
+violations reached CI without ever showing up locally.
 
-Un `project.pbxproj` es un archivo generado de decenas de miles de líneas que nadie revisa en un diff y que entra en conflicto con sólo abrirlo. Para una aplicación de un binario y sin extensiones, `swift build` más doce líneas de `Makefile` hacen lo mismo y se leen enteras.
+### Why there is no `.xcodeproj`
 
-El paquete está partido en dos objetivos por una razón concreta: `CentinelaCore` no importa AppKit ni SwiftUI, así que su suite corre sin sesión gráfica, en CI o en una terminal por SSH. Ahí vive todo lo que puede estar mal de una forma que no se ve (el parseo de las respuestas, la aritmética de la chispa, el llavero); `Centinela` es sólo la carcasa que dibuja.
+A `project.pbxproj` is a generated file tens of thousands of lines long that nobody reviews in a
+diff and that conflicts just from opening it. For an app with one binary and no extensions,
+`swift build` plus a dozen lines of `Makefile` do the same and can be read end to end.
 
-## Qué es "nativo" acá, concretamente
+The package is split into two targets for a concrete reason: `CentinelaCore` imports neither
+AppKit nor SwiftUI, so its suite runs with no graphics session, in CI or over SSH. That is where
+everything that can be wrong in a way you cannot see lives (parsing the responses, the sparkline
+arithmetic, the Keychain); `Centinela` is only the shell that draws.
 
-| | Centinela | SwiftBar + un script |
+## What "native" means here, concretely
+
+| | Centinela | SwiftBar plus a script |
 |---|---|---|
-| En disco | **2,0 MB** (1,1 son el ícono) | 7,1 MB |
-| Residente, sin abrir el panel | 7,6 MB | 6–8 MB |
-| Residente, después de abrirlo | ~25 MB | 6–8 MB |
-| Por ciclo | nada: `async` dentro del proceso | **+19 MB y 1,5 s**, un intérprete que arranca de cero |
-| Depende de | nada | de que SwiftBar siga instalado y siga funcionando |
+| On disk | **2.0 MB** (1.1 is the icon) | 7.1 MB |
+| Resident, panel never opened | 7.6 MB | 6–8 MB |
+| Resident, after opening it | ~25 MB | 6–8 MB |
+| Per cycle | nothing: `async` inside the process | **+19 MB and 1.5 s**, an interpreter starting from scratch |
+| Depends on | nothing | SwiftBar staying installed and staying working |
 
-**Abrir el panel triplica la memoria y no baja.** SwiftUI construye la ventana la primera vez que se despliega y se queda con ella. Antes de eso las dos aplicaciones gastan lo mismo. Si el criterio es la RAM en régimen, SwiftBar gana, y conviene saberlo antes de instalar nada.
+**Opening the panel triples memory and it does not come back down.** SwiftUI builds the window
+the first time it is shown and keeps it. Before that, both apps cost the same. If your criterion
+is steady-state RAM, SwiftBar wins, and that is worth knowing before installing anything.
 
-Lo que sí gana Centinela: 10 veces menos en disco, ningún proceso que nazca y muera cada cinco minutos para siempre, y no depender de que una segunda aplicación siga instalada y siga funcionando, que en macOS 27, con la barra de menús rehecha, dejó de ser una suposición gratis.
+- `MenuBarExtra` with `.menuBarExtraStyle(.window)`: an `NSMenu` cannot draw a sparkline or
+  two-line rows.
+- `@Observable` (Observation), not `ObservableObject`.
+- Keychain for the token, not a dotfile.
+- `SMAppService` for launch at login. The old way (`SMLoginItemSetEnabled` plus a helper binary)
+  was deprecated in macOS 13. The status is not a boolean: `.requiresApproval` means registered
+  but pending the user's approval, and the UI says so instead of showing the switch off.
+- Liquid Glass following the three rules in Apple's official
+  [Adopting Liquid Glass](https://developer.apple.com/documentation/technologyoverviews/adopting-liquid-glass)
+  guide:
+  1. *"Instead of creating buttons with custom Liquid Glass effects […] use one of the button
+     style APIs"*. Hence `.buttonStyle(.glass)` and not a hand-drawn background.
+  2. *"Audit the backgrounds of sheets and popovers […] remove those custom background views"*.
+     Hence the panel's background is left alone: `MenuBarExtra(.window)` already draws it, and
+     stacking another material on top looks murky, not glassy.
+  3. *"Combine custom Liquid Glass effects […] using a GlassEffectContainer"*. Hence the three
+     footer buttons live in one container instead of loose.
 
-- `MenuBarExtra` con `.menuBarExtraStyle(.window)`: un `NSMenu` no puede dibujar una chispa ni filas de dos líneas.
-- `@Observable` (Observation), no `ObservableObject`.
-- Llavero para el token, no un archivo de puntos.
-- `SMAppService` para arrancar con la sesión. La forma vieja (`SMLoginItemSetEnabled` más un ejecutable auxiliar) quedó obsoleta en macOS 13. El estado no es un booleano: `.requiresApproval` significa registrado pero pendiente de que el usuario lo apruebe, y la interfaz lo dice en vez de mostrar el interruptor abajo.
-- Liquid Glass según la guía oficial de Apple ([Adopting Liquid Glass](https://developer.apple.com/documentation/technologyoverviews/adopting-liquid-glass)), que dice tres cosas que acá se siguen al pie de la letra:
-  1. *"Instead of creating buttons with custom Liquid Glass effects, adopt the look and feel of the material with minimal code by using one of the button style APIs"*. Por eso `.buttonStyle(.glass)` y no un fondo dibujado a mano.
-  2. *"Audit the backgrounds of sheets and popovers […] remove those custom background views"*. Por eso el fondo del panel no se toca: `MenuBarExtra(.window)` ya lo dibuja el sistema, y apilar otro material encima se ve turbio, no vidrioso.
-  3. *"Combine custom Liquid Glass effects […] using a GlassEffectContainer, which helps optimize performance while fluidly morphing Liquid Glass shapes into each other"*. Por eso los tres botones del pie van en un solo contenedor y no sueltos.
-  Todo detrás de `#available(macOS 26.0)`: en 14 y 15 cae al estilo plano, que es el correcto ahí.
-- `URLSession` efímera: sin caché en disco, sin cookies, sin nada escrito.
+  All behind `#available(macOS 26.0)`: on 14 and 15 it falls back to the plain style, which is
+  the right one there.
+- Ephemeral `URLSession`: no disk cache, no cookies, nothing written.
 
-## La barra de menús en macOS 26 y 27
+## Why it polls instead of waiting to be told
 
-- **macOS 26 (Tahoe)** dejó la barra transparente por omisión: los íconos quedan sobre el fondo de escritorio, no sobre una barra sólida. Por eso Centinela no fija colores en el ícono y deja que el sistema resuelva el contraste. El único color propio es el rojo de una caída, que es el estado que sí justifica romper la regla.
-- **macOS 27 (Golden Gate)** rehízo el render de la barra y agregó un botón nativo para desplegar los íconos que no caben. En el camino rompió a Bartender, Ice, Thaw, Hidden Bar, Barbee, Sane Bar y Glow, que *administran* íconos ajenos. Agregar el propio es otra operación y no se vio afectada. Verificado sobre macOS 27.0 beta (build 26A5416b).
+Sentry does have webhooks, and they are no use here. Its notifications are a POST to a URL, and
+to receive one you have to be **reachable from the public internet**: a server, a tunnel,
+something always on. A desktop app is none of those, and standing up a relay to avoid a
+five-minute poll trades a cheap request for a piece of infrastructure to maintain and pay for.
 
-## Actualizaciones
+There is no streaming API either: no SSE, no websocket for issues.
 
-Centinela **avisa** de versiones nuevas leyendo la API de releases de GitHub una vez al día. No se actualiza sola.
+What is done instead to avoid asking too much:
 
-Stats y TheBoringNotch usan [Sparkle](https://sparkle-project.org), que sí instala solo. Acá no sirve, y no es una preferencia:
-
-| Lo que Sparkle pide | Estado acá |
+| Measure | Effect |
 |---|---|
-| Un certificado de verdad para distribuir | No hay. Su propia documentación dice que las distribuciones ad-hoc "no son ideales para distribución" y hay que re-firmar |
-| Incrustar `Installer.xpc` y activar `SUEnableInstallerLauncherService` | Se podría |
-| Dos excepciones temporales de `mach-lookup` en los entitlements | Rompe la promesa de "dos permisos y se leen enteros" |
+| The panel fetches when it opens | When you look, the data is from that second, not from the last cycle |
+| The cycle asks only for the two cheap routes | 1.5 KB, not 10.6 KB |
+| `Timer` with 20% tolerance | Lets the system coalesce the wake-up instead of pulling the CPU out of idle just for this |
+| Stops on sleep, refreshes on wake | Zero requests while the lid is closed |
 
-Y aunque todo eso se hiciera, el binario instalado seguiría siendo ad-hoc y chocaría con Gatekeeper igual. Avisar y abrir la página es la parte que de verdad sirve.
+## Updates
 
-## Sin atajo de teclado global
+Centinela **tells you** about new versions by reading GitHub's releases API once a day. It does
+not update itself.
 
-Sería lo natural en una aplicación de barra de menús, y **no se puede**: `MenuBarExtra` no expone ninguna forma de abrir su ventana desde código. Es un pedido abierto en el sistema de feedback de Apple ([FB10185203](https://github.com/feedback-assistant/reports/issues/328)), sin resolver a agosto de 2026.
+Stats and TheBoringNotch use [Sparkle](https://sparkle-project.org), which does install by
+itself. It is no use here, and that is not a preference:
 
-La salida sería abandonar `MenuBarExtra` y manejar un `NSStatusItem` con un `NSPanel` propio, que es un rediseño completo por un atajo. Queda anotado, no hecho.
-
-## Revisión de la documentación (2026-08-22)
-
-Se leyó la documentación oficial de todo lo que este proyecto usa, buscando lo que estuviera mal o deprecado. Nada estaba deprecado. Salieron dos cosas que sí cambiaron el código:
-
-| Qué se leyó | Qué salió |
+| What Sparkle needs | Status here |
 |---|---|
-| Política de deprecación de Sentry | Sentry avisa por los encabezados `X-Sentry-Deprecation-Date` y `X-Sentry-Replacement-Endpoint` antes de retirar una ruta. **Centinela los ignoraba**: ahora los lee y lo dice en el panel. Ninguna de las cinco rutas que usa los trae hoy |
-| `URLSessionConfiguration.waitsForConnectivity` | Estaba en `true`. La documentación aclara que entonces una petición sin red **no falla: espera hasta `timeoutIntervalForResource`, cuyo valor por omisión es de siete días**. En un sondeo cada cinco minutos eso son tareas apilándose en silencio. Pasó a `false`, con `timeoutIntervalForResource` en 60 s |
-| `GlassEffectContainer`, `.buttonStyle(.glass)` | macOS 26.0, correctos, no deprecados |
-| `SMAppService.Status.requiresApproval`, `openSystemSettingsLoginItems()` | Correctos. El estado no es booleano y la interfaz ya lo trataba aparte |
-| `NSWorkspace.didWakeNotification`, `Timer.tolerance` | Correctos |
-| `kSecAttrAccessibleWhenUnlockedThisDeviceOnly` | Correcto: no migra a otro equipo al restaurar un respaldo, que es lo que se quiere de un token |
-| API de GitHub, `releases/latest` | 60 peticiones por hora sin autenticar (medido en el encabezado `x-ratelimit-limit`). La búsqueda es una vez al día. Sin releases publicados devuelve **404**, y hay un test que fija que eso no invente una novedad |
-| Rasgo `.serialized` de Swift Testing | Serializa **dentro** de una suite, no entre suites. El servidor de mentira dependía de eso y estaba mal: ahora cada sesión tiene su propia cola y la suite corre en paralelo sin carreras |
+| A real certificate to distribute | None. Its own documentation says ad-hoc distributions are "not ideal for distribution" and have to be re-signed |
+| Embedding `Installer.xpc` and turning on `SUEnableInstallerLauncherService` | Doable |
+| Two temporary `mach-lookup` exceptions in the entitlements | Breaks the promise of "two permissions and you can read them end to end" |
 
-## Distribución
+And even with all of that, the installed binary would still be ad-hoc and hit Gatekeeper anyway.
+Telling you and opening the page is the part that actually helps.
 
-Las compilaciones de CI van firmadas **ad-hoc**, sin Developer ID y sin notarizar. macOS pide confirmación la primera vez: clic derecho → Abrir.
+## No global keyboard shortcut
 
-Notarizar cuesta 99 USD al año y, para una herramienta que corre en los Macs de quien la construye, no se justifica. Si eso cambia: hace falta un `Developer ID Application` en el llavero del runner y un paso de `xcrun notarytool submit --wait`. El `Makefile` ya acepta `IDENTITY=` para no tener que tocarlo.
+It would be the natural thing for a menu bar app, and **it cannot be done**: `MenuBarExtra`
+exposes no way to open its window from code. It is an open request in Apple's feedback system
+([FB10185203](https://github.com/feedback-assistant/reports/issues/328)), unresolved as of August
+2026.
 
-Verificar lo que bajaste:
+The way out would be dropping `MenuBarExtra` and driving an `NSStatusItem` with a panel of our
+own, which is a full redesign for one shortcut. Noted, not done.
+
+## Releases
+
+Tag and push:
+
+```bash
+git tag -a v0.2.0 -m "Centinela 0.2.0"
+git push origin v0.2.0
+```
+
+The workflow does the rest, and refuses to publish when something does not add up:
+
+| Check | Why |
+|---|---|
+| `CHANGELOG.md` has a `## [0.2.0]` section | Without it the release would go out with an empty body and nobody would notice until they read it |
+| The bundle's version equals the tag | A mistyped tag used to ship an artifact claiming something else |
+| `LSUIElement` is true and the signature verifies | Building is not proof the bundle is right |
+
+The notes are assembled from two halves: the CHANGELOG section says **why** the change matters,
+and the list GitHub generates from merged pull requests says **what** changed, categorized by
+`.github/release.yml`. A list of commit subjects cannot explain that a token was
+over-privileged, so the changelog stays hand-written on purpose.
+
+## The menu bar on macOS 26 and 27
+
+- **macOS 26 (Tahoe)** made the bar transparent by default: icons sit on the wallpaper, not on a
+  solid bar. That is why Centinela sets no colours on the icon and lets the system work out
+  contrast. The only colour of its own is the red of an outage, the one state that justifies
+  breaking the rule.
+- **macOS 27 (Golden Gate)** reworked how the bar renders and added a native button to reveal
+  icons that do not fit. On the way it broke Bartender, Ice, Thaw, Hidden Bar, Barbee, Sane Bar
+  and Glow, all of which *manage* other apps' icons. Adding your own is a different operation and
+  was unaffected — verified on macOS 27.0 beta (build 26A5416b).
+
+## Distribution
+
+CI builds are signed **ad-hoc**, with no Developer ID and no notarization. macOS asks for
+confirmation the first time: right click, Open.
+
+Notarizing costs 99 USD a year and, for a tool that runs on the Macs of whoever builds it, does
+not pay for itself. If that changes: a `Developer ID Application` in the runner's keychain and an
+`xcrun notarytool submit --wait` step. The `Makefile` already accepts `IDENTITY=` so it does not
+have to be touched.
+
+Check what you downloaded:
 
 ```bash
 codesign -dv --verbose=4 Centinela.app
 spctl -a -t exec -vvv Centinela.app
 ```
 
-## Por qué consulta en vez de esperar un aviso
+## What it does NOT do, on purpose
 
-Sentry sí tiene webhooks, y no sirven acá. Sus notificaciones son un POST a una URL, y para recibir uno hay que ser **alcanzable desde internet público**: un servidor, un túnel, algo que esté siempre encendido. Una aplicación de escritorio no es nada de eso, y montar un relay para no consultar cada cinco minutos es cambiar una consulta barata por una pieza de infraestructura que hay que mantener y pagar.
-
-Tampoco hay API de streaming: ni SSE ni websocket para issues.
-
-Lo que sí se hace para no consultar de más:
-
-| Medida | Efecto |
+| Does not | Why |
 |---|---|
-| El panel pide al abrirse | Cuando miras, los datos son de ese segundo, no del último ciclo |
-| El ciclo pide sólo las dos rutas baratas | 1,5 KB, no 10,6 KB |
-| `Timer` con 20 % de tolerancia | Deja que el sistema junte el despertar con otros en vez de sacar el procesador de reposo sólo para esto |
-| Se detiene al suspender el equipo y refresca al despertar | Cero peticiones mientras la tapa está cerrada |
+| Desktop notifications | Sentry already notifies by email and Slack. Duplicating that is two alarms for one event |
+| Resolve, assign or mute issues | The token is read-only and that is the property worth keeping. It opens the issue in the browser, where there is a session with permissions |
+| Store issues on disk | Error titles carry business data. The network session is ephemeral |
+| Multiple organizations | One, the token's. It gets added when it is actually needed |
+| Self-hosted Sentry | Should work by changing the server in Settings, but it is untested |
 
-## Lo que NO hace, a propósito
+## Licence
 
-| No hace | Por qué |
-|---|---|
-| Notificaciones de escritorio | Sentry ya notifica por correo y por Slack. Duplicarlo son dos alarmas para el mismo evento. |
-| Resolver, asignar o silenciar issues | El token es de sólo lectura y esa es la propiedad que se quiere conservar. Abre el issue en el navegador, donde sí hay sesión con permisos. |
-| Guardar los issues en disco | Los títulos de error traen datos del negocio. La sesión de red es efímera. |
-| Varias organizaciones | Una sola, la del token. Se agrega cuando haga falta de verdad. |
-| Sentry autohospedado | Debería andar cambiando el servidor en Ajustes, pero no está probado. |
+MIT. See [LICENSE](LICENSE).
 
-## Licencia
-
-MIT. Ver [LICENSE](LICENSE).
-
-Sin relación con Sentry (Functional Software, Inc.). Usa su API pública de lectura.
+Not affiliated with Sentry (Functional Software, Inc.). Uses its public read API.

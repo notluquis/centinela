@@ -5,51 +5,51 @@ on:
     branches: [main]
   pull_request:
 
-# Sin permisos por omisión. Cada job pide sólo lo que usa.
+# No permissions by default. Each job asks for exactly what it uses.
 permissions: {}
 
-# Un push nuevo cancela la corrida anterior de la misma rama.
+# A new push cancels the previous run on the same branch.
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  construir:
-    name: construir y testear
-    # `macos-26` fija la imagen en vez de seguir a `macos-latest`, que cambia de versión de
-    # Xcode sin aviso y convierte un fallo de compilación ajeno en un fallo nuestro.
+  build:
+    name: build and test
+    # `macos-26` pins the image instead of following `macos-latest`, which changes Xcode version
+    # without warning and turns someone else's build break into ours.
     runs-on: macos-26
     timeout-minutes: 20
     permissions:
       contents: read
     steps:
-      # No se usa `step-security/harden-runner` acá: bloquea el tráfico saliente sólo en
-      # runners de Linux. En macOS no hace nada, y una defensa que no defiende es peor que
-      # ninguna, porque se cita como si defendiera.
+      # `step-security/harden-runner` is not used here: it blocks outbound traffic only on Linux
+      # runners. On macOS it does nothing, and a defence that does not defend is worse than
+      # none, because it gets cited as if it did.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - name: Versiones del entorno
+      - name: Environment versions
         run: |
           swift --version
           xcodebuild -version
 
-      # Vía `make` y no `swift build` directo: el Makefile es lo que documenta el README y es
-      # donde vive la resolución de la toolchain. Acá, sin swiftly instalado, ejercita la rama
-      # de respaldo (el `swift` del PATH, o sea el de Xcode del runner).
-      - name: Construir
+      # Through `make` and not `swift build` directly: the Makefile is what the README documents
+      # and where toolchain resolution lives. Here, with no swiftly installed, it exercises the
+      # fallback branch (whatever `swift` is on PATH, i.e. the runner's Xcode).
+      - name: Build
         run: make build
 
-      # La suite es de `CentinelaCore`, que no importa AppKit ni SwiftUI: corre sin sesión
-      # gráfica. Es la razón por la que el paquete está partido en dos objetivos.
-      - name: Tests
+      # The suite belongs to `CentinelaCore`, which imports neither AppKit nor SwiftUI: it runs
+      # with no graphics session. That is why the package is split into two targets.
+      - name: Test
         run: make test
 
-      - name: Armar el paquete de aplicación
+      - name: Assemble the app bundle
         run: make app
 
-      # Que compile no prueba que el bundle esté bien armado. Esto sí: sin `LSUIElement` la
-      # aplicación aparecería en el Dock, y sin firma no arranca en un Mac con Gatekeeper.
-      - name: Verificar el paquete
+      # Building is not proof the bundle is right. This is: without `LSUIElement` the app would
+      # show up in the Dock, and without a signature it will not launch on a Mac with Gatekeeper.
+      - name: Verify the bundle
         run: |
           set -euo pipefail
           plutil -lint build/Centinela.app/Contents/Info.plist
@@ -63,12 +63,12 @@ jobs:
           path: build/Centinela.app
           retention-days: 7
 
-  sin-xcode:
-    # El README promete que esto se construye con `swiftly` y sin Xcode. Una promesa así se
-    # pudre en silencio: alguien agrega `import XCTest` o un tipo que sólo trae el SDK de
-    # Xcode, y nadie se entera hasta que otra persona clona el repositorio en una máquina
-    # limpia. Este job la mantiene honesta.
-    name: construir sólo con swiftly
+  without-xcode:
+    # The README promises this builds with `swiftly` and no Xcode. A promise like that rots
+    # quietly: someone adds `import XCTest` or a type that only ships with Xcode's SDK, and
+    # nobody finds out until another person clones the repository on a clean machine. This job
+    # keeps it honest.
+    name: build with swiftly only
     runs-on: macos-26
     timeout-minutes: 25
     permissions:
@@ -76,27 +76,27 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - name: Instalar swiftly y una toolchain
+      - name: Install swiftly and a toolchain
         run: |
           set -euo pipefail
           brew install swiftly
           swiftly init --assume-yes --skip-install --no-modify-profile
           swiftly install 6.3.3 --use --assume-yes
 
-      # La imagen del runner TRAE Xcode. Sin comprobar cuál compilador quedó activo, este job
-      # pasaría verde usando justo lo que dice no necesitar, y la promesa del README quedaría
-      # sin custodia. Por eso se verifica el nombre de la toolchain antes de compilar: la de
-      # swiftly se identifica como `swift-X.Y.Z-RELEASE`, la de Xcode como `swiftlang-…`.
-      - name: Construir y testear sin Xcode
+      # The runner image DOES ship Xcode. Without checking which compiler ended up active, this
+      # job would pass green using exactly what it claims not to need, and the README's promise
+      # would have no guard. Hence the toolchain name is verified before building: swiftly's
+      # identifies itself as `swift-X.Y.Z-RELEASE`, Xcode's as `swiftlang-…`.
+      - name: Build and test without Xcode
         run: |
           set -euo pipefail
           export PATH="$HOME/.swiftly/bin:$PATH"
           swift --version
           swift --version | grep -q 'swift-6\.3\.3-RELEASE' \
-            || { echo "::error::el compilador activo NO es el de swiftly"; exit 1; }
-          # Por `make`, que es la ruta que el README manda usar y donde vive la resolución de
-          # la toolchain. Correr `swift build` directo acá dejaría sin probar justamente el
-          # camino que se arregló (el proxy de swiftly resuelve distinto bajo make).
+            || { echo "::error::the active compiler is NOT swiftly's"; exit 1; }
+          # Through `make`, which is the path the README tells people to use and where toolchain
+          # resolution lives. Running `swift build` directly here would leave untested exactly
+          # the path that was fixed (swiftly's proxy resolves differently under make).
           make toolchain
           make build
           make test
@@ -110,10 +110,10 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - run: brew install swiftlint
-      - run: swiftlint --strict
+      - run: swiftlint lint --quiet --strict
 
-  higiene:
-    name: higiene del repositorio
+  hygiene:
+    name: repository hygiene
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:
@@ -121,27 +121,27 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      # Este repositorio es público y el proyecto entero trata de un token. Un token de
-      # organización de Sentry empieza con `sntrys_`; uno de usuario, con `sntryu_`.
-      - name: Ningún token de Sentry en el árbol
+      # This repository is public and the whole project is about a token. A Sentry organization
+      # token starts with `sntrys_`; a user one with `sntryu_`.
+      - name: No Sentry token in the tree
         run: |
           set -euo pipefail
           if grep -rInE 'sntry[su]_[A-Za-z0-9_=-]{10,}' --exclude-dir=.git .; then
-            echo "::error::hay algo con forma de token de Sentry en el repositorio"
+            echo "::error::something shaped like a Sentry token is in the repository"
             exit 1
           fi
 
-      # Las fixtures se publican. Las respuestas reales traen títulos de error con URLs
-      # internas y datos del negocio; las de acá son inventadas y tienen que seguir siéndolo.
+      # The fixtures get published. Real responses carry error titles with internal URLs and
+      # business data; the ones here are invented and have to stay that way.
       #
-      # El patrón busca la organización real, NO la cadena `sentry.io`: las fixtures usan
-      # `ejemplo.sentry.io` a propósito, para que el permalink tenga la forma verdadera. Un
-      # guardia contra `sentry.io` a secas se dispararía con las fixtures correctas, que es la
-      # forma más rápida de que alguien lo desactive.
-      - name: Las fixtures no traen datos reales
+      # The pattern looks for the real organization, NOT the string `sentry.io`: the fixtures use
+      # `example.sentry.io` on purpose, so the permalink has the true shape. A guard against
+      # `sentry.io` alone would fire on correct fixtures, which is the fastest way to get a guard
+      # switched off.
+      - name: The fixtures carry no real data
         run: |
           set -euo pipefail
           if grep -rInE 'bioalergia|doctoralia|[0-9]{7,8}-[0-9kK]' Tests/CentinelaCoreTests/Fixtures/; then
-            echo "::error::una fixture trae un nombre real o algo con forma de RUT"
+            echo "::error::a fixture carries a real name or something shaped like a national ID"
             exit 1
           fi

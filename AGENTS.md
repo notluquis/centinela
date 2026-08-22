@@ -1,56 +1,112 @@
-# Instrucciones para agentes de IA
+# Instructions for AI agents
 
-Este proyecto es una aplicación de barra de menús que lee la API de Sentry con un token. Las reglas de abajo no son preferencias de estilo: cada una nombra algo que ya pasó.
+This is a menu bar app that reads Sentry's API with a token. The rules below are not style
+preferences: each one names something that already happened.
 
-## Reglas que no se negocian
+## Non-negotiable
 
-**1. Sólo lectura, siempre.** Nada que escriba en Sentry: ni resolver, ni asignar, ni silenciar, ni publicar releases. No debe existir el código, ni siquiera desactivado ni detrás de una bandera. La propiedad que se protege es que el token pueda ser de sólo lectura; en cuanto haya una ruta de escritura, el usuario necesita un token con más poder y la garantía se vacía.
+**1. Read-only, always.** Nothing that writes to Sentry: no resolving, no assigning, no muting,
+no publishing releases. The code must not exist, not even disabled and not behind a flag. The
+property being protected is that the token *can* be read-only; the moment there is a write path,
+the user needs a more powerful token and the guarantee is empty.
 
-**2. El token va en el llavero.** Nunca en `UserDefaults`, nunca en un archivo, nunca en un log, nunca en un mensaje de error. Un token de organización de Sentry no caduca solo. El proyecto empezó porque el token estaba en `~/.sentryclirc` en texto plano.
+**2. The token lives in the Keychain.** Never in `UserDefaults`, never in a file, never in a log,
+never in an error message. A Sentry organization token does not expire on its own. This project
+started because the token was sitting in `~/.sentryclirc` in plain text.
 
-**3. Nada de datos reales en el repositorio.** Las fixtures son inventadas y así se quedan: las respuestas de verdad traen títulos de error con URLs internas y datos del negocio, y esto es público. Hay un job de CI que falla si aparece algo con forma de token de Sentry o un nombre real en las fixtures. Los dos guardias se probaron inyectando la violación, no sólo mirándolos pasar.
+**3. No real data in the repository.** The fixtures are invented and stay that way: real
+responses carry error titles with internal URLs and business data, and this is public. A CI job
+fails if something shaped like a Sentry token or a real name shows up in the fixtures. Both
+guards were probed by injecting the violation, not by watching them pass.
 
-**4. Nada se escribe en disco en ejecución.** `URLSessionConfiguration.ephemeral`, sin caché, sin cookies. Si algún día hace falta persistir algo, que no sean títulos de issues.
+**4. Nothing is written to disk at run time.** `URLSessionConfiguration.ephemeral`, no cache, no
+cookies. If something ever has to be persisted, it should not be issue titles.
 
-**5. Un número medido o nada.** El README afirma tiempos y tamaños de la API. Si vas a cambiar uno, córrelo; si vas a agregar uno, mídelo. Un número copiado de la documentación de Sentry no es un número medido.
+**5. A measured number or none at all.** The README states API timings and sizes. If you change
+one, run it; if you add one, measure it. A number copied out of Sentry's documentation is not a
+measured number.
 
-## Lo que hay que entender antes de tocar el cliente
+**6. English.** Interface, source, comments, documentation, commit messages. This is a public
+repository.
 
-**El reparto barato/caro es la arquitectura, no una optimización.** `refrescarLoBarato()` corre en cada ciclo y pide `events-stats` (378 ms / 937 B) y `uptime` (490 ms). `refrescarLoCaro()` pide la lista de issues (1047 ms / 10,6 KB) y **sólo** se llama al abrir el panel. Mover la lista al ciclo periódico multiplica por once el tráfico de la aplicación para que nadie mire el resultado.
+## What to understand before touching the client
 
-**No hay `ETag` en la API de Sentry.** Se midió: ninguna de estas rutas lo devuelve, así que no existe el 304. Si alguien propone "cachear con revalidación condicional", la respuesta es que no hay con qué.
+**The cheap/expensive split is the architecture, not an optimization.** `refreshCheap()` runs
+every cycle and asks for `events-stats` (378 ms / 937 B) and `uptime` (490 ms).
+`refreshExpensive()` asks for the issue list (1047 ms / 10.6 KB) and is called **only** when the
+panel opens. Moving the list into the periodic cycle multiplies the app's traffic elevenfold so
+that nobody looks at the result.
 
-**Las tres formas raras de la respuesta.** Están comentadas en el código, en el sitio exacto donde muerden, y cada una tiene su test:
+**There is no `ETag` in Sentry's API.** Measured: none of these routes returns one, so there is
+no 304. If someone proposes "cache with conditional revalidation", the answer is that there is
+nothing to revalidate against.
 
-| Campo | Lo que uno esperaría | Lo que manda Sentry |
+**Sentry announces deprecations through headers.** `X-Sentry-Deprecation-Date` and
+`X-Sentry-Replacement-Endpoint`. The client reads them and the panel says so. Do not drop that:
+without it the app finds out about a change on the day it breaks.
+
+**The three odd shapes of the response.** They are commented in the code, at the exact spot where
+they bite, and each has a test:
+
+| Field | What you would expect | What Sentry sends |
 |---|---|---|
-| `issue.count` | número | **texto** (`"13"`), mientras que `userCount` sí es número |
-| fechas | un formato | **dos**: con y sin fracción de segundo, en la misma respuesta |
-| `events-stats.data` | objetos | pares heterogéneos `[epoch, [{"count": n}]]` |
+| `issue.count` | a number | **text** (`"13"`), while `userCount` really is a number |
+| dates | one format | **two**: with and without fractional seconds, in the same response |
+| `events-stats.data` | objects | heterogeneous pairs `[epoch, [{"count": n}]]` |
 
-Declarar `count` como `Int` no rompe ese campo: hace fallar el arreglo completo con `typeMismatch`.
+Declaring `count` as `Int` does not break that field: it fails the whole array with
+`typeMismatch`.
 
-## Trampas de la toolchain
+**Trailing slashes are load-bearing.** `…/projects` without one returns a flat 404 with no
+redirect (measured against sentry.io).
 
-**`XCTest` no existe fuera de Xcode.** La suite usa Swift Testing y así debe quedarse: con XCTest deja de correr en una máquina con sólo `swiftly`, que es el flujo que el README documenta.
+## Toolchain traps
 
-**Swift Testing exporta su propio `Issue`.** Por eso el modelo se llama `Incidencia`. Si renombras a `Issue`, cualquier archivo con `import Testing` deja de compilar con `failed to produce diagnostic for expression`, que no menciona la ambigüedad por ningún lado.
+**`XCTest` does not exist outside Xcode.** The suite uses Swift Testing and must keep doing so:
+with XCTest it stops running on a machine with only `swiftly`, which is the workflow the README
+documents.
 
-**Un valor por omisión no se evalúa en el actor principal.** `init(ajustes: Ajustes = Ajustes())` sobre un tipo `@MainActor` da `#ActorIsolatedCall`. Va como `Ajustes? = nil` y se resuelve dentro.
+**Swift Testing exports its own `Issue`.** That is why the model is called `SentryIssue`. If you
+rename it to `Issue`, any file with `import Testing` stops compiling with
+`failed to produce diagnostic for expression`, which mentions the ambiguity nowhere.
 
-## Idioma y estilo
+**A default parameter value is not evaluated on the main actor.**
+`init(settings: AppSettings = AppSettings())` on a `@MainActor` type gives `#ActorIsolatedCall`.
+It goes as `AppSettings? = nil` and is resolved inside.
 
-- Español de Chile. Nada de voseo (`revisa`, no `revisá`).
-- Los identificadores están en español, salvo los que vienen de la API o de Apple.
-- Los comentarios explican **por qué**, no qué. Un comentario que parafrasea la línea siguiente se borra.
-- Los mensajes de commit y los PR se escriben como registro público: sin segunda persona, sin agradecimientos, sin "como dijiste".
+**`swiftlint` needs `sourcekitdInProc.framework` from Xcode.** `make lint` points
+`DYLD_FRAMEWORK_PATH` at the swiftly toolchain and fails when swiftlint is missing. It used to
+skip in silence, which is how 80 violations reached CI unseen.
 
-## Antes de dar algo por terminado
+## SwiftUI traps, measured
+
+**Do not "fix" the panel's `ScrollView` by measuring its content.** It was tried: a
+`PreferenceKey` measuring the content fed back into `.frame(height:)`. Measured with
+`NSHostingView` against the real layout, the original arrangement lays out to its full 250 pt and
+the measured version sits at 91 pt, because the loop "the frame height depends on the preference,
+which depends on the frame height" never converges. `.frame(maxHeight:)` and nothing else.
+
+**A `MenuBarExtra` label only renders `Text` and `Image` reliably.** The sparkline is drawn as an
+`NSImage`: as a SwiftUI shape it showed up in the panel and not in the bar.
+
+**An `LSUIElement` app has to activate itself before opening Settings**, or the window comes up
+behind everything and the button looks broken.
+
+## Before calling something done
 
 ```bash
-swift build -c release   # cero errores y cero avisos
-swift test               # 15 tests, todos verdes
-make app                 # el bundle se arma y la firma verifica
+make build   # zero errors and zero warnings
+make test    # 45 tests, all green
+make lint    # zero violations
+make app     # the bundle assembles and the signature verifies
 ```
 
-Y si agregaste un guardia, rómpelo una vez y confirma que se pone en rojo. Un guardia que no puede fallar imprime exactamente lo mismo que uno que protege.
+And if you added a guard, break it once and confirm it goes red. A guard that cannot fail prints
+exactly the same thing as one that protects.
+
+## Releases
+
+`CHANGELOG.md` is written by hand and the release workflow reads the section for the tag out of
+it, refusing to publish when it is missing. The generated list of pull requests goes underneath,
+categorized by `.github/release.yml`. Do not replace the hand-written half with generated commit
+subjects: a subject line cannot explain why a change matters.

@@ -1,9 +1,9 @@
-# Reglas por omisión más unas pocas que sí importan acá. Las que Stats desactiva por deuda
-# histórica no se copian: este proyecto empieza limpio y conviene que se note cuando deja de
-# estarlo.
-
-# Ojo con correrlo en local: swiftlint necesita `sourcekitdInProc.framework`, que busca dentro
-# de Xcode. Sin Xcode hay que apuntarlo a la toolchain de swiftly, y `make lint` ya lo hace.
+# Default rules plus a few that matter here. The ones Stats disables out of historical debt are
+# not copied over: this project starts clean and it should show when it stops being.
+#
+# Careful running it locally: swiftlint needs `sourcekitdInProc.framework`, which it looks for
+# inside Xcode. Without Xcode it has to be pointed at the swiftly toolchain, and `make lint`
+# already does that.
 opt_in_rules:
   - empty_count
   - explicit_init
@@ -14,34 +14,31 @@ opt_in_rules:
   - toggle_bool
 
 analyzer_rules:
-  # Sólo corre con `swiftlint analyze`, que necesita un log de compilación. Declararlo acá y no
-  # en `opt_in_rules` evita el aviso de que está en la sección equivocada.
+  # Only runs under `swiftlint analyze`, which needs a compile log. Declaring it here rather
+  # than in `opt_in_rules` avoids the warning about being in the wrong section.
   - unused_import
 
 disabled_rules:
   - trailing_whitespace
   - todo
-  # `force_unwrapping` se probó y se sacó, no se omitió por comodidad. Las catorce que marcaba
-  # eran todas sobre literales conocidos en tiempo de compilación (`URL(string: "https://…")!`),
-  # que es justo el caso donde un `!` no puede fallar. La regla no distingue un literal de un
-  # dato de entrada, así que su única salida era rodearla con un ayudante que hiciera el mismo
-  # crash con otro nombre, que es peor que no tenerla. `implicitly_unwrapped_optional`, que sí
-  # queda activa, cubre el patrón que de verdad muerde: una propiedad `T!` que alguien lee antes
-  # de asignarla.
+  # `force_unwrapping` was tried and removed, not skipped for convenience. All fourteen hits
+  # were on literals known at compile time (`URL(string: "https://…")!`), which is exactly the
+  # case where a `!` cannot fail. The rule cannot tell a literal from user input, so its only
+  # way out was wrapping it in a helper that crashes the same way under a different name, which
+  # is worse than not having it. `implicitly_unwrapped_optional`, which stays on, covers the
+  # pattern that actually bites: a `T!` property someone reads before assigning it.
 
 identifier_name:
   min_length: 2
   max_length: 50
-  # `x`, `y` son coordenadas e `i` es un índice de bucle: son los nombres correctos, no nombres
-  # perezosos. El resto de los de una letra sí se renombraron.
+  # `x`, `y` are coordinates and `i` is a loop index: those are the right names, not lazy ones.
+  # Every other single-letter name was renamed.
   excluded: [x, y, i]
 
 type_name:
   max_length: 45
 
 line_length:
-  # 120 y no 110: los comentarios de este repositorio explican el porqué de las cosas y en
-  # español eso ocupa más. Lo que pasaba de 120 se envolvió.
   warning: 120
   error: 140
   ignores_comments: false
@@ -49,6 +46,6 @@ line_length:
 excluded:
   - .build
   - build
-  # Generador de un solo uso que no se distribuye: dibuja el ícono y termina. Linteralo obliga a
-  # nombrar `l` como `lado` en aritmética de dibujo, donde las letras cortas son lo legible.
+  # One-shot generator that is not distributed: it draws the icon and exits. Linting it forces
+  # naming `l` as `side` in drawing arithmetic, where short letters are the readable choice.
   - Tools

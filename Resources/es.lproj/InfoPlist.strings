@@ -1,3 +1,0 @@
-/* El nombre con el que macOS se refiere a la aplicación en menús y ventanas del sistema. */
-"CFBundleName" = "Centinela";
-"CFBundleDisplayName" = "Centinela";

@@ -11,7 +11,7 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  publicar:
+  publish:
     runs-on: macos-26
     timeout-minutes: 25
     permissions:
@@ -19,38 +19,85 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          # `make app` saca la versión de `git describe`, que necesita las etiquetas.
+          # `make app` takes the version from `git describe`, which needs the tags.
           fetch-depth: 0
 
-      - name: Construir y armar
+      - name: Build and bundle
         run: make app
 
-      - name: Verificar el paquete
+      # Building is not proof the bundle is right. This is: without `LSUIElement` the app would
+      # show up in the Dock, and without a signature it will not launch past Gatekeeper.
+      - name: Verify the bundle
         run: |
           set -euo pipefail
           plutil -lint build/Centinela.app/Contents/Info.plist
           test "$(plutil -extract LSUIElement raw build/Centinela.app/Contents/Info.plist)" = "true"
           codesign --verify --verbose=2 build/Centinela.app
 
-      # `ditto` y no `zip`: preserva los atributos extendidos y los enlaces simbólicos del
-      # paquete. Un `.app` comprimido con `zip` pierde la firma y macOS lo rechaza al abrirlo.
-      - name: Comprimir
+      # The version in the bundle has to match the tag being published. Without this check a
+      # mistyped tag ships an artifact that says something else, and nobody notices until an
+      # update check compares the wrong numbers.
+      - name: The bundle version matches the tag
+        run: |
+          set -euo pipefail
+          TAG_VERSION="${GITHUB_REF_NAME#v}"
+          BUNDLE_VERSION="$(plutil -extract CFBundleShortVersionString raw build/Centinela.app/Contents/Info.plist)"
+          echo "tag=$TAG_VERSION bundle=$BUNDLE_VERSION"
+          test "$TAG_VERSION" = "$BUNDLE_VERSION" \
+            || { echo "::error::the tag says $TAG_VERSION and the bundle says $BUNDLE_VERSION"; exit 1; }
+
+      # `ditto` and not `zip`: it preserves the extended attributes and symlinks of the bundle.
+      # A `.app` compressed with `zip` loses its signature and macOS refuses to open it.
+      - name: Compress
         run: ditto -c -k --keepParent build/Centinela.app build/Centinela.zip
 
-      - uses: softprops/action-gh-release@3d0d9888cb7fd7b750713d6e236d1fcb99157228 # v3.0.2
-        with:
-          files: build/Centinela.zip
-          generate_release_notes: true
-          # La compilación es ad-hoc: sin Developer ID, macOS pide confirmación la primera
-          # vez. Se dice acá y no en letra chica.
-          body: |
-            Qué trae esta versión: [CHANGELOG.md](https://github.com/notluquis/centinela/blob/main/CHANGELOG.md).
+      # The notes are assembled here rather than with `--generate-notes` alone. The CHANGELOG
+      # section says WHY the change matters; the generated list says WHAT changed, with links.
+      # Both go in, in that order.
+      - name: Assemble the release notes
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          VERSION="${GITHUB_REF_NAME#v}"
 
-            **Instalar**: descomprime, arrastra a Aplicaciones, y la primera vez ábrela con
-            clic derecho, Abrir. La firma es ad-hoc y sin notarizar, así que Gatekeeper pide
-            confirmación una vez. Notarizar cuesta 99 USD al año y para esto no se justifica.
+          # `index($0, v) == 1` rather than a regular expression: the brackets in "## [0.2.0]"
+          # would be read as a character class and the section would come out empty.
+          awk -v v="## [$VERSION]" '
+            index($0, v) == 1 { found = 1; next }
+            found && /^## \[/ { exit }
+            found { print }
+          ' CHANGELOG.md > notes.md
 
-            Verifica lo que bajaste antes de abrirlo:
+          # Without this, a CHANGELOG missing this version's section would publish a release
+          # with an empty body and nobody would find out until they read it.
+          if [ ! -s notes.md ]; then
+            echo "::error::CHANGELOG.md has no '## [$VERSION]' section." >&2
+            exit 1
+          fi
 
-                codesign -dv --verbose=4 Centinela.app
-                spctl -a -t exec -vvv Centinela.app
+          {
+            echo
+            echo "## Installing"
+            echo
+            echo "Unzip, drag to Applications, and the first time open it with right click, Open."
+            echo "The signature is ad-hoc and not notarized, so Gatekeeper asks once. Notarizing"
+            echo "costs 99 USD a year and does not pay for itself here."
+            echo
+            echo '    codesign -dv --verbose=4 Centinela.app'
+            echo '    spctl -a -t exec -vvv Centinela.app'
+            echo
+            gh api --method POST "repos/$GITHUB_REPOSITORY/releases/generate-notes" \
+              -f tag_name="$GITHUB_REF_NAME" --jq .body
+          } >> notes.md
+
+      # `gh release` ships with the runner. A third-party action for this would be supply-chain
+      # surface with nothing to show for it.
+      - name: Publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" \
+            --title "$GITHUB_REF_NAME" \
+            --notes-file notes.md \
+            build/Centinela.zip
