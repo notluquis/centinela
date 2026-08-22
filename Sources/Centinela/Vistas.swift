@@ -65,17 +65,25 @@ struct PanelPrincipal: View {
     let estado: Estado
     @Environment(\.openSettings) private var abrirAjustes
 
+    /// Una aplicación `LSUIElement` no es la aplicación activa, así que la ventana de Ajustes
+    /// se abre DETRÁS de todo lo demás: el usuario hace clic, no pasa nada visible, y concluye
+    /// que el botón está roto. Hay que activarse antes de pedirla.
+    private func abrirAjustesAlFrente() {
+        NSApplication.shared.activate()
+        abrirAjustes()
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             if !estado.ajustes.configurado {
-                SinConfigurar(abrir: { abrirAjustes() })
+                SinConfigurar(abrir: abrirAjustesAlFrente)
             } else {
                 Encabezado(estado: estado)
                 Divider()
                 Contenido(estado: estado)
             }
             Divider()
-            PieDePanel(estado: estado, abrirAjustes: { abrirAjustes() })
+            PieDePanel(estado: estado, abrirAjustes: abrirAjustesAlFrente)
         }
         .frame(width: 380)
         // El panel es lo único que pide la ruta cara: 1047 ms y 10,6 KB por apertura.
