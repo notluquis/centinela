@@ -7,6 +7,13 @@ Versionado semántico.
 
 ### Agregado
 
+- Inicio de sesión con el flujo de dispositivo de OAuth 2.0 (RFC 8628), con renovación automática bajo el 10 % de vida restante.
+- Aviso de versión nueva leyendo la API de releases de GitHub, una vez al día.
+- Pestaña "Acerca de" con versión, enlaces y búsqueda manual de actualizaciones.
+- Ícono generado desde código (`Tools/generar-icono.swift`).
+- Localización en español del paquete, para que el sistema no titule la ventana de preferencias en inglés.
+- Liquid Glass en los botones del pie, dentro de un `GlassEffectContainer`, siguiendo la guía oficial de Apple.
+
 - Barra de menús con conteo de errores, chispa de la ventana elegida y aviso de caída de uptime.
 - Panel con issues sin resolver, issues por revisar (`is:for_review`) y últimos releases.
 - Token en el llavero de macOS, con detección de token sobre-privilegiado (si puede leer `/audit-logs/`, no es de sólo lectura).

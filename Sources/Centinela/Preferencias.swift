@@ -15,6 +15,8 @@ struct Preferencias: View {
                 .tabItem { Label("Cuenta", systemImage: "person.badge.key") }
             PestanaDeConsulta(estado: estado)
                 .tabItem { Label("Consulta", systemImage: "slider.horizontal.3") }
+            AcercaDe(estado: estado)
+                .tabItem { Label("Acerca de", systemImage: "info.circle") }
         }
         .frame(width: 480, height: 430)
     }

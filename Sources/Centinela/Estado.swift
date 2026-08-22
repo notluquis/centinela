@@ -19,6 +19,7 @@ final class Estado {
     var porRevisar: [Incidencia] = []
     var releases: [Release] = []
 
+    var novedad: BuscadorDeActualizaciones.Novedad?
     var cargando = false
     var ultimoError: String?
     var ultimaActualizacion: Date?
@@ -54,9 +55,30 @@ final class Estado {
 
     // MARK: - Ciclo
 
+    static let repositorio = "notluquis/centinela"
+
+    var versionInstalada: String {
+        Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "0.0.0"
+    }
+
     func arrancar() {
         reprogramar()
         Task { await refrescarLoBarato() }
+        Task { await buscarActualizacion() }
+    }
+
+    /// Una vez al día, no en cada arranque. La API de GitHub limita a 60 peticiones por hora
+    /// sin autenticar, y una aplicación de barra de menús puede reiniciarse muchas veces al día
+    /// mientras alguien la configura.
+    func buscarActualizacion(forzar: Bool = false) async {
+        let clave = "ultimaBusquedaDeActualizacion"
+        let ultima = UserDefaults.standard.double(forKey: clave)
+        let hace = Date().timeIntervalSince1970 - ultima
+        guard forzar || hace > 86_400 else { return }
+        UserDefaults.standard.set(Date().timeIntervalSince1970, forKey: clave)
+
+        let buscador = BuscadorDeActualizaciones(repositorio: Self.repositorio)
+        novedad = await buscador.buscar(versionActual: versionInstalada)
     }
 
     func reprogramar() {

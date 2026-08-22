@@ -134,6 +134,16 @@ private struct Contenido: View {
                 if let error = estado.ultimoError {
                     Aviso(texto: error, simbolo: "exclamationmark.triangle", color: .orange)
                 }
+                if let novedad = estado.novedad {
+                    Link(destination: novedad.pagina) {
+                        Aviso(
+                            texto: "Hay una versión \(novedad.version.description). Corres la \(estado.versionInstalada).",
+                            simbolo: "arrow.down.circle",
+                            color: .accentColor
+                        )
+                    }
+                    .buttonStyle(.plain)
+                }
                 if estado.tokenConDemasiadoPoder {
                     // Ver `ClienteDeSentry.tokenPareceDeSoloLectura()`.
                     Aviso(

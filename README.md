@@ -66,9 +66,9 @@ Centinela **sólo lee**, y hay dos formas de darle acceso.
 
 ### Con el flujo de dispositivo
 
-> **Sin verificar contra Sentry todavía.** El endpoint existe y responde (`POST /oauth/device/code/` devuelve `invalid_client` con un identificador falso, o sea el flujo está vivo en sentry.io), y hay once tests que ejercitan el cliente entero contra un servidor de mentira. Lo que **no** está comprobado es que Sentry acepte un identificador de cliente creado por un usuario: la documentación dice que el de `sentry-cli` viene "built-in", lo que es compatible con que sólo acepte clientes que Sentry mismo registró. Se resuelve con una petición, en cuanto haya un identificador real. Mientras tanto, la vía que sí funciona es el token pegado a mano, más abajo.
+> **Sin probar de punta a punta todavía**, porque hace falta un identificador de cliente real. Lo que sí está verificado: el endpoint existe y responde en sentry.io, y once tests ejercitan el cliente entero contra un servidor de mentira.
 
-Sentry soporta OAuth 2.0 device flow (RFC 8628) desde la versión 26.1.0, que es lo mismo que usa `sentry-cli login`. Clic en "Iniciar sesión con Sentry": la aplicación pide un código, abre el navegador, tú apruebas, y Sentry entrega un token con **exactamente** los permisos que se pidieron.
+Clic en "Iniciar sesión con Sentry": la aplicación pide un código, abre el navegador, tú apruebas, y Sentry entrega un token con **exactamente** los permisos que se pidieron.
 
 Los que pide Centinela, y ningunos más:
 
@@ -78,9 +78,20 @@ org:read  project:read  event:read
 
 Hay un test que se pone rojo si alguien agrega uno de escritura, porque los permisos son parte del contrato con quien usa esto, no un detalle interno.
 
-Falta una cosa para que funcione: un **identificador de cliente OAuth**. En Sentry eso lo entrega una integración **pública** (*Settings, Developer Settings*), que es la que emite `clientId` y `clientSecret`; una integración interna o "custom" entrega un token directo, no credenciales OAuth, y no sirve acá. Cuál de las dos acepta el endpoint de dispositivo es justamente lo que falta comprobar.
+#### Qué hay que crear en Sentry
 
-El identificador se pega en Ajustes. No es secreto (el RFC 8628 trata a estos clientes como públicos) y por eso vive en `UserDefaults` y no en el llavero. El token de acceso y el de refresco sí van al llavero.
+Una **API Application**, que NO está donde uno buscaría:
+
+| | |
+|---|---|
+| Dónde | `https://sentry.io/settings/account/api/applications/` (Ajustes de **tu cuenta**, API, Applications) |
+| Qué NO es | No es una integración interna ni pública de *Developer Settings*: esas entregan un token o son para el flujo de código de autorización. El flujo de dispositivo busca un `ApiApplication` |
+| Qué entrega | `Client ID` y `Client Secret`. Acá sólo se usa el **Client ID** |
+| Requisitos | Ninguno especial: no hay que marcar nada para el flujo de dispositivo, y no hace falta publicar la aplicación. Sólo tiene que estar activa |
+
+Verificado leyendo `src/sentry/web/frontend/oauth_device_authorization.py` en el repositorio de Sentry: el endpoint hace `ApiApplication.objects.get(client_id=..., status=active)` y nada más. Los permisos se validan contra la lista global de Sentry, y contra los de la aplicación sólo si esta marcó `requires_org_level_access`.
+
+El Client ID se pega en Ajustes, pestaña Cuenta. No es secreto (el RFC 8628 trata a estos clientes como públicos) y por eso vive en `UserDefaults` y no en el llavero. El token de acceso y el de refresco sí van al llavero.
 
 El token se renueva solo cuando le queda menos del 10 % de vida, que es el criterio de `sentry-cli`. Si la renovación falla, la sesión **no** se cierra: puede ser que no haya red, y el token viejo sigue sirviendo hasta que Sentry responda 401.
 
@@ -176,6 +187,26 @@ Lo que sí gana Centinela: 10 veces menos en disco, ningún proceso que nazca y 
 
 - **macOS 26 (Tahoe)** dejó la barra transparente por omisión: los íconos quedan sobre el fondo de escritorio, no sobre una barra sólida. Por eso Centinela no fija colores en el ícono y deja que el sistema resuelva el contraste. El único color propio es el rojo de una caída, que es el estado que sí justifica romper la regla.
 - **macOS 27 (Golden Gate)** rehízo el render de la barra y agregó un botón nativo para desplegar los íconos que no caben. En el camino rompió a Bartender, Ice, Thaw, Hidden Bar, Barbee, Sane Bar y Glow, que *administran* íconos ajenos. Agregar el propio es otra operación y no se vio afectada. Verificado sobre macOS 27.0 beta (build 26A5416b).
+
+## Actualizaciones
+
+Centinela **avisa** de versiones nuevas leyendo la API de releases de GitHub una vez al día. No se actualiza sola.
+
+Stats y TheBoringNotch usan [Sparkle](https://sparkle-project.org), que sí instala solo. Acá no sirve, y no es una preferencia:
+
+| Lo que Sparkle pide | Estado acá |
+|---|---|
+| Un certificado de verdad para distribuir | No hay. Su propia documentación dice que las distribuciones ad-hoc "no son ideales para distribución" y hay que re-firmar |
+| Incrustar `Installer.xpc` y activar `SUEnableInstallerLauncherService` | Se podría |
+| Dos excepciones temporales de `mach-lookup` en los entitlements | Rompe la promesa de "dos permisos y se leen enteros" |
+
+Y aunque todo eso se hiciera, el binario instalado seguiría siendo ad-hoc y chocaría con Gatekeeper igual. Avisar y abrir la página es la parte que de verdad sirve.
+
+## Sin atajo de teclado global
+
+Sería lo natural en una aplicación de barra de menús, y **no se puede**: `MenuBarExtra` no expone ninguna forma de abrir su ventana desde código. Es un pedido abierto en el sistema de feedback de Apple ([FB10185203](https://github.com/feedback-assistant/reports/issues/328)), sin resolver a agosto de 2026.
+
+La salida sería abandonar `MenuBarExtra` y manejar un `NSStatusItem` con un `NSPanel` propio, que es un rediseño completo por un atajo. Queda anotado, no hecho.
 
 ## Distribución
 
