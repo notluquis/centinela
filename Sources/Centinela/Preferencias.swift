@@ -70,6 +70,19 @@ private struct PestanaDeCuenta: View {
                           systemImage: "checkmark.seal")
                         .font(.caption)
                         .fixedSize(horizontal: false, vertical: true)
+                    if !sesion.organizacionesParaElegir.isEmpty {
+                        Picker("Elige la organización", selection: Binding(
+                            get: { ajustes.organizacion },
+                            set: { elegido in
+                                if let org = sesion.organizacionesParaElegir.first(where: { $0.slug == elegido }) {
+                                    sesion.elegir(org)
+                                }
+                            }
+                        )) {
+                            Text("Sin elegir").tag("")
+                            ForEach(sesion.organizacionesParaElegir) { Text($0.name).tag($0.slug) }
+                        }
+                    }
                     Button("Cerrar sesión", role: .destructive) { ajustes.cerrarSesion() }
 
                 case .falló(let error):

@@ -16,6 +16,9 @@ final class InicioDeSesion {
 
     private(set) var etapa: Etapa = .inactivo
 
+    /// Se llena cuando el token llega a más de una organización y hay que elegir.
+    private(set) var organizacionesParaElegir: [Organizacion] = []
+
     private let ajustes: Ajustes
     @ObservationIgnored private var tarea: Task<Void, Never>?
 
@@ -46,15 +49,55 @@ final class InicioDeSesion {
                 NSWorkspace.shared.open(codigo.urlCompleta ?? codigo.urlDeVerificacion)
 
                 let concesion = try await flujo.esperarAutorizacion(codigo)
-                etapa = ajustes.guardarSesion(concesion)
-                    ? .listo
-                    : .falló(ajustes.ultimoErrorDeLlavero ?? "no se pudo guardar en el llavero")
+                guard ajustes.guardarSesion(concesion) else {
+                    etapa = .falló(ajustes.ultimoErrorDeLlavero ?? "no se pudo guardar en el llavero")
+                    return
+                }
+                await resolverOrganizacion()
+                etapa = .listo
             } catch is CancellationError {
                 etapa = .inactivo
             } catch {
                 etapa = .falló((error as? LocalizedError)?.errorDescription ?? error.localizedDescription)
             }
         }
+    }
+
+    /// El flujo de dispositivo entrega un token y NADA MÁS: ni la organización ni el proyecto.
+    ///
+    /// Sin este paso, alguien iniciaba sesión con éxito y la aplicación seguía mostrando "Falta
+    /// configurar" para siempre, porque `Ajustes.configurado` exige una organización y ninguna
+    /// capa reportaba error: el token estaba guardado, la etapa decía `.listo`, y el ciclo se
+    /// devolvía en el `guard let cliente`. Un fallo en silencio con todo verde.
+    private func resolverOrganizacion() async {
+        guard ajustes.organizacion.isEmpty else { return }
+        // La organización va vacía a propósito: esta llamada NO cuelga de una, y es
+        // precisamente la que se hace para averiguar cuál es.
+        let credenciales = Credenciales(
+            token: ajustes.token,
+            organizacion: "",
+            host: URL(string: ajustes.host) ?? URL(string: "https://sentry.io")!
+        )
+
+        do {
+            let organizaciones = try await ClienteDeSentry(credenciales: credenciales).organizaciones()
+            switch organizaciones.count {
+            case 0:
+                etapa = .falló("El token no llega a ninguna organización.")
+            case 1:
+                ajustes.organizacion = organizaciones[0].slug
+            default:
+                // Con varias no se adivina: se muestran y la persona elige.
+                organizacionesParaElegir = organizaciones
+            }
+        } catch {
+            etapa = .falló((error as? LocalizedError)?.errorDescription ?? error.localizedDescription)
+        }
+    }
+
+    func elegir(_ organizacion: Organizacion) {
+        ajustes.organizacion = organizacion.slug
+        organizacionesParaElegir = []
     }
 
     func cancelar() {

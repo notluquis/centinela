@@ -154,3 +154,53 @@ struct DeprecacionTests {
         #expect(aviso.reemplazo == nil)
     }
 }
+
+/// El flujo de dispositivo entrega un token y nada más. Para que la aplicación quede
+/// configurada hay que preguntarle a Sentry a qué organizaciones llega ese token.
+@Suite("Organizaciones")
+struct OrganizacionesTests {
+    private func cliente(_ sesion: URLSession, organizacion: String = "") -> ClienteDeSentry {
+        ClienteDeSentry(
+            credenciales: Credenciales(
+                token: "token-de-prueba", organizacion: organizacion,
+                host: URL(string: "https://sentry.example")!
+            ),
+            sesion: sesion
+        )
+    }
+
+    /// La ruta NO lleva prefijo de organización: pedirla con uno da 404, y ese es justo el
+    /// endpoint que se usa cuando todavía no se sabe cuál es la organización.
+    @Test("Se pide a /api/0/organizations/, sin prefijo de organización")
+    func rutaSinPrefijo() async throws {
+        let sesion = Servidor.sesion()
+        Servidor.encolar(sesion, "/api/0/organizations/", "[]")
+        _ = try await cliente(sesion).organizaciones()
+        let pedida = try #require(Servidor.peticiones(sesion).first?.ruta)
+        #expect(pedida.hasSuffix("/api/0/organizations/"))
+        #expect(!pedida.contains("/organizations//"))
+    }
+
+    @Test("Se decodifican slug y nombre")
+    func decodifica() async throws {
+        let sesion = Servidor.sesion()
+        let cuerpo = #"[{"id":"1","slug":"ejemplo","name":"Ejemplo SpA"}]"#
+        Servidor.encolar(sesion, "/api/0/organizations/", cuerpo)
+        let organizaciones = try await cliente(sesion).organizaciones()
+        #expect(organizaciones.map(\.slug) == ["ejemplo"])
+        #expect(organizaciones[0].name == "Ejemplo SpA")
+    }
+
+    /// Sin token no se sale a la red. Sin organización sí, que es la diferencia entre esta
+    /// ruta y todas las demás.
+    @Test("Sin token falla antes de pedir; sin organización no")
+    func credencialesMinimas() async {
+        let sesion = Servidor.sesion()
+        let sinToken = ClienteDeSentry(
+            credenciales: Credenciales(token: "", organizacion: "", host: URL(string: "https://x")!),
+            sesion: sesion
+        )
+        await #expect(throws: ErrorDeSentry.self) { _ = try await sinToken.organizaciones() }
+        #expect(Servidor.peticiones(sesion).isEmpty)
+    }
+}

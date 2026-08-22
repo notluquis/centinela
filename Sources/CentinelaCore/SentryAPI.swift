@@ -92,7 +92,7 @@ public struct ClienteDeSentry: Sendable {
 
     // MARK: - Decodificación
 
-    /// Sentry mezcla dos formatos ISO-8601 en la MISMA respuesta: `lastSeen` de un incidencia llega
+    /// Sentry mezcla dos formatos ISO-8601 en la MISMA respuesta: `lastSeen` de una incidencia llega
     /// como `2026-08-22T18:09:56Z` y `dateCreated` de un release como
     /// `2026-08-22T18:15:40.781127Z`. `.iso8601` a secas revienta con el segundo, y
     /// `.withFractionalSeconds` revienta con el primero. Por eso se prueban los dos.
@@ -116,18 +116,27 @@ public struct ClienteDeSentry: Sendable {
     // MARK: - Transporte
 
     private func pedir(_ ruta: String, _ consulta: [URLQueryItem]) async throws -> Data {
-        guard !credenciales.token.isEmpty, !credenciales.organizacion.isEmpty else {
-            throw ErrorDeSentry.sinCredenciales
-        }
+        guard !credenciales.organizacion.isEmpty else { throw ErrorDeSentry.sinCredenciales }
+        let completa = "api/0/organizations/\(credenciales.organizacion)/\(ruta)/"
+        return try await pedirEnRuta(completa, consulta)
+    }
+
+    /// Igual que `pedir`, pero con la ruta completa: hay endpoints que NO cuelgan de una
+    /// organización, y `organizations/` es justamente el que hace falta para saber cuál es.
+    private func pedirEnRuta(_ ruta: String, _ consulta: [URLQueryItem]) async throws -> Data {
+        guard !credenciales.token.isEmpty else { throw ErrorDeSentry.sinCredenciales }
         // La barra final NO es cosmética: `…/projects` sin ella devuelve 404 seco, sin
         // redirección (medido contra sentry.io). `appendingPathComponent` la conserva; cambiar
         // esta línea por algo que la coma rompe la aplicación entera con un error que no
         // menciona barras por ningún lado.
         var componentes = URLComponents(
-            url: credenciales.host.appendingPathComponent("api/0/organizations/\(credenciales.organizacion)/\(ruta)/"),
+            url: credenciales.host.appendingPathComponent(ruta),
             resolvingAgainstBaseURL: false
         )!
-        componentes.queryItems = consulta
+        // Sólo si hay algo: asignar un arreglo vacío deja la URL terminada en `?` suelto
+        // (`…/organizations/?`). Sentry lo tolera, pero es basura que después aparece en logs
+        // ajenos y en cualquier comparación de URLs.
+        if !consulta.isEmpty { componentes.queryItems = consulta }
 
         var peticion = URLRequest(url: componentes.url!)
         peticion.setValue("Bearer \(credenciales.token)", forHTTPHeaderField: "Authorization")
@@ -158,12 +167,27 @@ public struct ClienteDeSentry: Sendable {
     }
 
     private func pedir<T: Decodable>(_ tipo: T.Type, _ ruta: String, _ consulta: [URLQueryItem]) async throws -> T {
-        let datos = try await pedir(ruta, consulta)
+        try await decodificar(tipo, try await pedir(ruta, consulta), ruta: ruta)
+    }
+
+    private func decodificar<T: Decodable>(_ tipo: T.Type, _ datos: Data, ruta: String) async throws -> T {
         do {
             return try Self.decodificador.decode(T.self, from: datos)
         } catch {
             throw ErrorDeSentry.respuestaInesperada("\(ruta): \(error)")
         }
+    }
+
+    /// Las organizaciones a las que llega el token. NO cuelga de una organización, por eso pasa
+    /// por `pedirEnRuta`.
+    ///
+    /// Existe para cerrar un agujero del inicio de sesión: el flujo de dispositivo entrega un
+    /// token y nada más. Sin esto, alguien iniciaba sesión con éxito y la aplicación seguía
+    /// diciendo "Falta configurar", porque `organizacion` seguía vacía y ninguna capa reportaba
+    /// error.
+    public func organizaciones() async throws -> [Organizacion] {
+        let datos = try await pedirEnRuta("api/0/organizations/", [])
+        return try await decodificar([Organizacion].self, datos, ruta: "organizations")
     }
 
     /// Lee los encabezados de la política de deprecación de Sentry. `internal` para que la

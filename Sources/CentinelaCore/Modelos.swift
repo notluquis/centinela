@@ -3,6 +3,12 @@ import Foundation
 // Los campos de acá salen de mirar respuestas reales de la API, no de la documentación.
 // Los tres que sorprenden están comentados en el sitio donde muerden.
 
+public struct Organizacion: Codable, Sendable, Hashable, Identifiable {
+    public let id: String
+    public let slug: String
+    public let name: String
+}
+
 public struct Proyecto: Codable, Sendable, Hashable {
     public let id: String
     public let slug: String
