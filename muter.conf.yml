@@ -1,0 +1,11 @@
+# Se muta CentinelaCore y no la carcasa de SwiftUI: ahí vive lo que puede estar mal sin que se
+# note (el parseo, la aritmética de la chispa, el llavero, el flujo de dispositivo). Mutar
+# vistas sólo produce mutantes que ningún test puede matar y ruido en el informe.
+executable: /usr/bin/swift
+arguments:
+  - test
+excludeFileList:
+  - Tests
+  - Tools
+mutateFilesInDirectories:
+  - Sources/CentinelaCore

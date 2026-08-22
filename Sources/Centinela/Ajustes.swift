@@ -8,6 +8,7 @@ import Observation
 @Observable
 final class Ajustes {
     static let cuentaDelToken = "token-de-organizacion"
+    static let cuentaDelRefresco = "token-de-refresco"
 
     var organizacion: String {
         didSet { defaults.set(organizacion, forKey: "organizacion") }
@@ -33,6 +34,25 @@ final class Ajustes {
         didSet { defaults.set(maximoIssues, forKey: "maximoIssues") }
     }
 
+    /// Identificador de cliente OAuth para el flujo de dispositivo. Vacío significa "sin
+    /// inicio de sesión": la aplicación cae a pedir un token pegado a mano, que sigue siendo
+    /// válido. No es un secreto (RFC 8628 lo trata como cliente público), así que va en
+    /// `UserDefaults` y no en el llavero.
+    var clientIDOAuth: String {
+        didSet { defaults.set(clientIDOAuth, forKey: "clientIDOAuth") }
+    }
+
+    /// Cuándo vence el token de acceso. Sólo aplica a los tokens obtenidos por OAuth; un token
+    /// pegado a mano no vence solo y acá queda en `nil`.
+    var venceElToken: Date? {
+        didSet { defaults.set(venceElToken?.timeIntervalSince1970 ?? 0, forKey: "venceElToken") }
+    }
+
+    /// Cuánto duraba el token cuando se emitió, para saber qué es "menos del 10 % de vida".
+    var vidaDelToken: TimeInterval {
+        didSet { defaults.set(vidaDelToken, forKey: "vidaDelToken") }
+    }
+
     @ObservationIgnored private let defaults: UserDefaults
 
     init(defaults: UserDefaults = .standard) {
@@ -44,6 +64,45 @@ final class Ajustes {
         intervaloSegundos = guardado > 0 ? guardado : 300
         let tope = defaults.integer(forKey: "maximoIssues")
         maximoIssues = tope > 0 ? tope : 15
+        clientIDOAuth = defaults.string(forKey: "clientIDOAuth") ?? ""
+        let vence = defaults.double(forKey: "venceElToken")
+        venceElToken = vence > 0 ? Date(timeIntervalSince1970: vence) : nil
+        let vida = defaults.double(forKey: "vidaDelToken")
+        vidaDelToken = vida > 0 ? vida : 3600
+    }
+
+    var tokenDeRefresco: String? {
+        (try? Llavero.leer(cuenta: Self.cuentaDelRefresco)) ?? nil
+    }
+
+    /// Guarda lo que devolvió el flujo de dispositivo. Devuelve `false` si el llavero rechazó
+    /// algo, igual que `guardarToken`: quien llama no debe asumir que salió bien.
+    @discardableResult
+    func guardarSesion(_ concesion: FlujoDeDispositivo.Concesion) -> Bool {
+        guard guardarToken(concesion.tokenDeAcceso) else { return false }
+        do {
+            if let refresco = concesion.tokenDeRefresco {
+                try Llavero.guardar(refresco, cuenta: Self.cuentaDelRefresco)
+            }
+            vidaDelToken = max(concesion.vence.timeIntervalSinceNow, 60)
+            venceElToken = concesion.vence
+            return true
+        } catch {
+            ultimoErrorDeLlavero = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+            return false
+        }
+    }
+
+    func cerrarSesion() {
+        guardarToken("")
+        try? Llavero.borrar(cuenta: Self.cuentaDelRefresco)
+        venceElToken = nil
+    }
+
+    /// `true` cuando hay sesión OAuth y al token le queda menos del 10 % de vida.
+    var convieneRefrescar: Bool {
+        guard let vence = venceElToken, tokenDeRefresco != nil else { return false }
+        return FlujoDeDispositivo.convieneRefrescar(vence: vence, vida: vidaDelToken)
     }
 
     /// Lo último que dijo el llavero cuando falló. `nil` si la última operación salió bien.

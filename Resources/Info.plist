@@ -4,9 +4,21 @@
 <dict>
 	<key>CFBundleName</key>
 	<string>Centinela</string>
+	<!-- Sin estas dos claves, SwiftUI arma el título de la ventana de preferencias en inglés
+	     ("Centinela Settings") aunque toda la interfaz esté en español: el sistema decide el
+	     idioma de sus propias cadenas por las localizaciones que declara el paquete, no por lo
+	     que uno escriba adentro. -->
+	<key>CFBundleDevelopmentRegion</key>
+	<string>es</string>
+	<key>CFBundleLocalizations</key>
+	<array>
+		<string>es</string>
+	</array>
 	<key>CFBundleDisplayName</key>
 	<string>Centinela</string>
 	<key>CFBundleExecutable</key>
+	<string>Centinela</string>
+	<key>CFBundleIconFile</key>
 	<string>Centinela</string>
 	<key>CFBundleIdentifier</key>
 	<string>cl.bioalergia.centinela</string>

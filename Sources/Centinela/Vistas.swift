@@ -252,6 +252,10 @@ private struct SinConfigurar: View {
             Text("Centinela necesita el identificador de tu organización en Sentry y un token de sólo lectura.")
                 .font(.callout)
                 .foregroundStyle(.secondary)
+                // Sin esto el texto se corta con puntos suspensivos en vez de envolver: dentro
+                // de un contenedor de ancho fijo, un `Text` prefiere una sola línea salvo que
+                // se le diga que puede crecer hacia abajo.
+                .fixedSize(horizontal: false, vertical: true)
             Button("Abrir ajustes", action: abrir)
         }
         .padding(12)
@@ -270,26 +274,32 @@ private struct PieDePanel: View {
                     .foregroundStyle(.secondary)
             }
             Spacer()
-            Button {
-                Task {
-                    await estado.refrescarLoBarato()
-                    await estado.refrescarLoCaro()
+            // Los tres botones van en un solo contenedor de vidrio. Es lo que pide la guía de
+            // Apple: "combine custom Liquid Glass effects […] using a GlassEffectContainer,
+            // which helps optimize performance while fluidly morphing Liquid Glass shapes into
+            // each other". Sueltos, cada uno abre su propia capa.
+            ContenedorDeVidrio {
+                Button {
+                    Task {
+                        await estado.refrescarLoBarato()
+                        await estado.refrescarLoCaro()
+                    }
+                } label: {
+                    Image(systemName: "arrow.clockwise")
                 }
-            } label: {
-                Image(systemName: "arrow.clockwise")
-            }
-            .botonDeVidrio()
-            .help("Refrescar")
-
-            Button(action: abrirAjustes) { Image(systemName: "gearshape") }
                 .botonDeVidrio()
-                .help("Ajustes")
+                .help("Refrescar")
 
-            Button { NSApplication.shared.terminate(nil) } label: {
-                Image(systemName: "power")
+                Button(action: abrirAjustes) { Image(systemName: "gearshape") }
+                    .botonDeVidrio()
+                    .help("Ajustes")
+
+                Button { NSApplication.shared.terminate(nil) } label: {
+                    Image(systemName: "power")
+                }
+                .botonDeVidrio()
+                .help("Salir")
             }
-            .botonDeVidrio()
-            .help("Salir")
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 8)

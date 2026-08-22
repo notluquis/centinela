@@ -91,6 +91,10 @@ public struct ClienteDeSentry: Sendable {
         guard !credenciales.token.isEmpty, !credenciales.organizacion.isEmpty else {
             throw ErrorDeSentry.sinCredenciales
         }
+        // La barra final NO es cosmética: `…/projects` sin ella devuelve 404 seco, sin
+        // redirección (medido contra sentry.io). `appendingPathComponent` la conserva; cambiar
+        // esta línea por algo que la coma rompe la aplicación entera con un error que no
+        // menciona barras por ningún lado.
         var componentes = URLComponents(
             url: credenciales.host.appendingPathComponent("api/0/organizations/\(credenciales.organizacion)/\(ruta)/"),
             resolvingAgainstBaseURL: false

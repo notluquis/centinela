@@ -2,7 +2,16 @@
 
 Los issues de Sentry en la barra de menús de macOS: un número, una chispa de las últimas horas y el estado de los monitores de uptime, sin abrir el navegador.
 
-No existe aplicación oficial de Sentry para macOS. La extensión de Sentry para Raycast tampoco sirve: sus dos comandos son `mode: "view"` (se puede leer en su manifiesto), o sea buscador, no barra de menús. Esto llena ese hueco.
+No existe aplicación oficial de Sentry para macOS, y tampoco una de terceros. Buscado el 2026-08-22:
+
+| Dónde se buscó | Resultado |
+|---|---|
+| Repositorios de GitHub (4 consultas) | Nada. Todo lo que sale usa "sentry" como sustantivo común: puertos, notch, pomodoro |
+| Extensión de Sentry para Raycast | Sus dos comandos son `mode: "view"`, o sea buscador. Sin comando de barra de menús |
+| Casks de Homebrew | Sólo `sentry-cli` |
+| Plugins de xbar | Uno, apuntando al dominio legacy `app.getsentry.com` y a un solo proyecto |
+
+Esto llena ese hueco.
 
 **Nativa de verdad**: SwiftUI, `MenuBarExtra`, 668 KB de aplicación. No es un contenedor web ni un script dentro de otra aplicación.
 
@@ -51,11 +60,31 @@ Luego: clic en el ícono → **Abrir ajustes** → organización y token.
 
 Requiere macOS 14 o superior. **No requiere Xcode**. Ver [Construir](#construir).
 
-## El token
+## Iniciar sesión
 
-Centinela **sólo lee**. El token que le des debería reflejarlo.
+Centinela **sólo lee**, y hay dos formas de darle acceso.
 
-1. En Sentry: *Settings → Developer Settings → Organization Tokens → Create New Token*.
+### Con el flujo de dispositivo (recomendado)
+
+Sentry soporta OAuth 2.0 device flow (RFC 8628) desde la versión 26.1.0, que es lo mismo que usa `sentry-cli login`. Clic en "Iniciar sesión con Sentry": la aplicación pide un código, abre el navegador, tú apruebas, y Sentry entrega un token con **exactamente** los permisos que se pidieron.
+
+Los que pide Centinela, y ningunos más:
+
+```
+org:read  project:read  event:read
+```
+
+Hay un test que se pone rojo si alguien agrega uno de escritura, porque los permisos son parte del contrato con quien usa esto, no un detalle interno.
+
+Falta una cosa para que funcione: un **identificador de cliente OAuth**. Sentry lo entrega al crear una integración (*Settings, Developer Settings, Custom Integrations*). Se pega en Ajustes, no es secreto (el RFC trata a estos clientes como públicos) y por eso vive en `UserDefaults` y no en el llavero. El token de acceso y el de refresco sí van al llavero.
+
+El token se renueva solo cuando le queda menos del 10 % de vida, que es el criterio de `sentry-cli`. Si la renovación falla, la sesión **no** se cierra: puede ser que no haya red, y el token viejo sigue sirviendo hasta que Sentry responda 401.
+
+### Con un token pegado a mano
+
+Sigue funcionando, y es la única vía en instancias anteriores a Sentry 26.1.0 (ahí el endpoint no existe y la aplicación lo dice con esas palabras en vez de dar un error genérico).
+
+1. En Sentry: *Settings, Developer Settings, Organization Tokens, Create New Token*.
 2. Dale exactamente estos permisos y ninguno más:
 
 | Permiso | Para qué |
@@ -131,7 +160,11 @@ Lo que sí gana Centinela: 10 veces menos en disco, ningún proceso que nazca y 
 - `@Observable` (Observation), no `ObservableObject`.
 - Llavero para el token, no un archivo de puntos.
 - `SMAppService` para arrancar con la sesión. La forma vieja (`SMLoginItemSetEnabled` más un ejecutable auxiliar) quedó obsoleta en macOS 13. El estado no es un booleano: `.requiresApproval` significa registrado pero pendiente de que el usuario lo apruebe, y la interfaz lo dice en vez de mostrar el interruptor abajo.
-- Liquid Glass (macOS 26+) sólo en los botones del pie, detrás de `#available`. El fondo del panel **no** se toca: `MenuBarExtra(.window)` ya lo dibuja con el material del sistema y apilar otro encima se ve turbio, no vidrioso.
+- Liquid Glass según la guía oficial de Apple ([Adopting Liquid Glass](https://developer.apple.com/documentation/technologyoverviews/adopting-liquid-glass)), que dice tres cosas que acá se siguen al pie de la letra:
+  1. *"Instead of creating buttons with custom Liquid Glass effects, adopt the look and feel of the material with minimal code by using one of the button style APIs"*. Por eso `.buttonStyle(.glass)` y no un fondo dibujado a mano.
+  2. *"Audit the backgrounds of sheets and popovers […] remove those custom background views"*. Por eso el fondo del panel no se toca: `MenuBarExtra(.window)` ya lo dibuja el sistema, y apilar otro material encima se ve turbio, no vidrioso.
+  3. *"Combine custom Liquid Glass effects […] using a GlassEffectContainer, which helps optimize performance while fluidly morphing Liquid Glass shapes into each other"*. Por eso los tres botones del pie van en un solo contenedor y no sueltos.
+  Todo detrás de `#available(macOS 26.0)`: en 14 y 15 cae al estilo plano, que es el correcto ahí.
 - `URLSession` efímera: sin caché en disco, sin cookies, sin nada escrito.
 
 ## La barra de menús en macOS 26 y 27
@@ -151,6 +184,21 @@ Verificar lo que bajaste:
 codesign -dv --verbose=4 Centinela.app
 spctl -a -t exec -vvv Centinela.app
 ```
+
+## Por qué consulta en vez de esperar un aviso
+
+Sentry sí tiene webhooks, y no sirven acá. Sus notificaciones son un POST a una URL, y para recibir uno hay que ser **alcanzable desde internet público**: un servidor, un túnel, algo que esté siempre encendido. Una aplicación de escritorio no es nada de eso, y montar un relay para no consultar cada cinco minutos es cambiar una consulta barata por una pieza de infraestructura que hay que mantener y pagar.
+
+Tampoco hay API de streaming: ni SSE ni websocket para issues.
+
+Lo que sí se hace para no consultar de más:
+
+| Medida | Efecto |
+|---|---|
+| El panel pide al abrirse | Cuando miras, los datos son de ese segundo, no del último ciclo |
+| El ciclo pide sólo las dos rutas baratas | 1,5 KB, no 10,6 KB |
+| `Timer` con 20 % de tolerancia | Deja que el sistema junte el despertar con otros en vez de sacar el procesador de reposo sólo para esto |
+| Se detiene al suspender el equipo y refresca al despertar | Cero peticiones mientras la tapa está cerrada |
 
 ## Lo que NO hace, a propósito
 

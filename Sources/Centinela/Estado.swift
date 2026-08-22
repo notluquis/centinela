@@ -29,12 +29,15 @@ final class Estado {
     @ObservationIgnored private var dormido = false
 
     var ajustes: Ajustes
+    let sesion: InicioDeSesion
 
     // El parámetro es opcional y no `= Ajustes()`: los valores por omisión se evalúan en un
     // contexto sin aislamiento, y `Ajustes` está en el actor principal. Con el default directo
     // el compilador rechaza la llamada (`#ActorIsolatedCall`).
     init(ajustes: Ajustes? = nil) {
-        self.ajustes = ajustes ?? Ajustes()
+        let a = ajustes ?? Ajustes()
+        self.ajustes = a
+        self.sesion = InicioDeSesion(ajustes: a)
         observarSuspension()
     }
 
@@ -93,7 +96,12 @@ final class Estado {
     // MARK: - Peticiones
 
     func refrescarLoBarato() async {
-        guard !dormido, let cliente else { return }
+        guard !dormido else { return }
+        // Antes de pedir nada: si el token OAuth está por vencer, se renueva. Va acá y no en un
+        // temporizador aparte porque lo que importa es tener un token vivo justo cuando se va a
+        // usar, no haber intentado renovar mientras la máquina dormía.
+        await sesion.refrescarSiHaceFalta()
+        guard let cliente else { return }
         cargando = true
         defer { cargando = false }
         do {

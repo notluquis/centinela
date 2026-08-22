@@ -22,3 +22,24 @@ extension View {
         }
     }
 }
+
+/// Agrupa varios elementos de vidrio en una sola capa.
+///
+/// La guía oficial de Apple para adoptar Liquid Glass lo dice sin rodeos: si aplicas efectos de
+/// vidrio a elementos propios, combínalos en un `GlassEffectContainer`, que optimiza el render y
+/// hace que las formas se fundan entre sí al moverse. Tres botones sueltos abren tres capas.
+///
+/// En macOS 14 y 15 el contenedor no existe y esto es un `HStack` normal, que es lo correcto ahí.
+struct ContenedorDeVidrio<Contenido: View>: View {
+    @ViewBuilder let contenido: Contenido
+
+    var body: some View {
+        if #available(macOS 26.0, *) {
+            GlassEffectContainer(spacing: 6) {
+                HStack(spacing: 6) { contenido }
+            }
+        } else {
+            HStack(spacing: 6) { contenido }
+        }
+    }
+}

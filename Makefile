@@ -54,6 +54,10 @@ app: build
 	@if [ -d "$(BUILD_DIR)/$(APP)_$(APP).bundle" ]; then \
 		cp -R "$(BUILD_DIR)/$(APP)_$(APP).bundle" $(APP_DIR)/Contents/Resources/; \
 	fi
+	# Las localizaciones viajan como carpetas `.lproj` dentro de Resources. Es lo que hace que
+	# el sistema titule la ventana de preferencias en español.
+	cp -R Resources/*.lproj $(APP_DIR)/Contents/Resources/
+	cp Resources/Centinela.icns $(APP_DIR)/Contents/Resources/
 	codesign --force --options runtime --entitlements Centinela.entitlements \
 		--sign "$(IDENTITY)" $(APP_DIR)
 	@echo "Listo: $(APP_DIR) (versión $(VERSION), build $(BUILD), firma '$(IDENTITY)')"

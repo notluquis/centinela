@@ -1,0 +1,39 @@
+name: mutación
+
+# Semanal y a mano, nunca en cada PR: una corrida de mutación tarda mucho más que la suite y
+# su resultado no es un sí/no, es una lista para leer.
+on:
+  schedule:
+    - cron: "0 6 * * 1"
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: mutacion
+  cancel-in-progress: true
+
+jobs:
+  mutar:
+    # `macos-26` y no una máquina sin Xcode: muter NO compila sin Xcode. Falla con
+    # `no such module 'XCTest'`, exactamente el mismo muro que obligó a que la suite de este
+    # proyecto use Swift Testing. Por eso la mutación vive en CI y no en el flujo local.
+    runs-on: macos-26
+    timeout-minutes: 60
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Instalar muter
+        run: brew install muter-mutation-testing/formulae/muter
+
+      - name: Mutar
+        # Sin `--format xcode`: se quiere el informe legible, no anotaciones en el diff.
+        run: muter run --output-json muter-informe.json || true
+
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: informe-de-mutacion
+          path: muter-informe.json
+          retention-days: 30
