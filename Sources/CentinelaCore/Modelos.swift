@@ -40,35 +40,35 @@ public struct Incidencia: Codable, Sendable, Identifiable, Hashable {
     }
 
     public init(from decoder: any Decoder) throws {
-        let c = try decoder.container(keyedBy: CodingKeys.self)
-        id = try c.decode(String.self, forKey: .id)
-        shortId = try c.decode(String.self, forKey: .shortId)
-        title = try c.decode(String.self, forKey: .title)
-        culprit = try c.decodeIfPresent(String.self, forKey: .culprit)
-        level = try c.decodeIfPresent(String.self, forKey: .level)
-        substatus = try c.decodeIfPresent(String.self, forKey: .substatus)
-        permalink = try c.decode(URL.self, forKey: .permalink)
-        lastSeen = try c.decode(Date.self, forKey: .lastSeen)
-        userCount = try c.decodeIfPresent(Int.self, forKey: .userCount) ?? 0
-        project = try c.decode(Proyecto.self, forKey: .project)
-        isUnhandled = try c.decodeIfPresent(Bool.self, forKey: .isUnhandled)
-        count = Int(try c.decode(String.self, forKey: .count)) ?? 0
+        let cont = try decoder.container(keyedBy: CodingKeys.self)
+        id = try cont.decode(String.self, forKey: .id)
+        shortId = try cont.decode(String.self, forKey: .shortId)
+        title = try cont.decode(String.self, forKey: .title)
+        culprit = try cont.decodeIfPresent(String.self, forKey: .culprit)
+        level = try cont.decodeIfPresent(String.self, forKey: .level)
+        substatus = try cont.decodeIfPresent(String.self, forKey: .substatus)
+        permalink = try cont.decode(URL.self, forKey: .permalink)
+        lastSeen = try cont.decode(Date.self, forKey: .lastSeen)
+        userCount = try cont.decodeIfPresent(Int.self, forKey: .userCount) ?? 0
+        project = try cont.decode(Proyecto.self, forKey: .project)
+        isUnhandled = try cont.decodeIfPresent(Bool.self, forKey: .isUnhandled)
+        count = Int(try cont.decode(String.self, forKey: .count)) ?? 0
     }
 
     public func encode(to encoder: any Encoder) throws {
-        var c = encoder.container(keyedBy: CodingKeys.self)
-        try c.encode(id, forKey: .id)
-        try c.encode(shortId, forKey: .shortId)
-        try c.encode(title, forKey: .title)
-        try c.encodeIfPresent(culprit, forKey: .culprit)
-        try c.encodeIfPresent(level, forKey: .level)
-        try c.encodeIfPresent(substatus, forKey: .substatus)
-        try c.encode(permalink, forKey: .permalink)
-        try c.encode(lastSeen, forKey: .lastSeen)
-        try c.encode(userCount, forKey: .userCount)
-        try c.encode(project, forKey: .project)
-        try c.encodeIfPresent(isUnhandled, forKey: .isUnhandled)
-        try c.encode(String(count), forKey: .count)
+        var cont = encoder.container(keyedBy: CodingKeys.self)
+        try cont.encode(id, forKey: .id)
+        try cont.encode(shortId, forKey: .shortId)
+        try cont.encode(title, forKey: .title)
+        try cont.encodeIfPresent(culprit, forKey: .culprit)
+        try cont.encodeIfPresent(level, forKey: .level)
+        try cont.encodeIfPresent(substatus, forKey: .substatus)
+        try cont.encode(permalink, forKey: .permalink)
+        try cont.encode(lastSeen, forKey: .lastSeen)
+        try cont.encode(userCount, forKey: .userCount)
+        try cont.encode(project, forKey: .project)
+        try cont.encodeIfPresent(isUnhandled, forKey: .isUnhandled)
+        try cont.encode(String(count), forKey: .count)
     }
 
     public var severidad: Severidad { Severidad(textoDeSentry: level) }
@@ -104,9 +104,9 @@ public struct Release: Codable, Sendable, Identifiable, Hashable {
     /// La API devuelve el SHA completo tanto en `version` como en `shortVersion` cuando el
     /// release se nombró con un SHA, así que acortar es cosa nuestra.
     public var etiqueta: String {
-        let v = shortVersion
-        let pareceSHA = v.count == 40 && v.allSatisfy(\.isHexDigit)
-        return pareceSHA ? String(v.prefix(7)) : v
+        let texto = shortVersion
+        let pareceSHA = texto.count == 40 && texto.allSatisfy(\.isHexDigit)
+        return pareceSHA ? String(texto.prefix(7)) : texto
     }
 }
 

@@ -5,6 +5,10 @@ import SwiftUI
 /// Pestaña "Acerca de", con el mismo contenido que Stats y TheBoringNotch ponen en la suya:
 /// qué versión corre, dónde vive el código, y si hay algo más nuevo.
 struct AcercaDe: View {
+    private static let licencia = URL(
+        string: "https://github.com/\(Estado.repositorio)/blob/main/LICENSE"
+    )!
+
     let estado: Estado
     @State private var buscando = false
 
@@ -41,7 +45,8 @@ struct AcercaDe: View {
             // Sparkle NO: su documentación de caja de arena dice que una firma ad-hoc no sirve
             // para distribuir, y pide incrustar Installer.xpc más dos excepciones de mach-lookup.
             // Esto avisa y abre la página; bajar y reemplazar es cosa de la persona.
-            Text("Centinela avisa de versiones nuevas, no se actualiza sola: la firma es ad-hoc y un instalador automático chocaría con Gatekeeper igual.")
+            Text("Centinela avisa de versiones nuevas, no se actualiza sola: la firma es ad-hoc"
+                + " y un instalador automático chocaría con Gatekeeper igual.")
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
@@ -49,7 +54,7 @@ struct AcercaDe: View {
 
             HStack(spacing: 16) {
                 Link("Código", destination: URL(string: "https://github.com/\(Estado.repositorio)")!)
-                Link("Licencia MIT", destination: URL(string: "https://github.com/\(Estado.repositorio)/blob/main/LICENSE")!)
+                Link("Licencia MIT", destination: Self.licencia)
                 Link("Reportar algo", destination: URL(string: "https://github.com/\(Estado.repositorio)/issues")!)
             }
             .font(.callout)

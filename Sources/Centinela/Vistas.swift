@@ -137,7 +137,8 @@ private struct Contenido: View {
                 if let novedad = estado.novedad {
                     Link(destination: novedad.pagina) {
                         Aviso(
-                            texto: "Hay una versión \(novedad.version.description). Corres la \(estado.versionInstalada).",
+                            texto: "Hay una versión \(novedad.version.description)."
+                                + " Corres la \(estado.versionInstalada).",
                             simbolo: "arrow.down.circle",
                             color: .accentColor
                         )
@@ -147,7 +148,8 @@ private struct Contenido: View {
                 if estado.tokenConDemasiadoPoder {
                     // Ver `ClienteDeSentry.tokenPareceDeSoloLectura()`.
                     Aviso(
-                        texto: "Este token puede leer la bitácora de auditoría, o sea trae permisos de escritura. Un widget no los necesita.",
+                        texto: "Este token puede leer la bitácora de auditoría, o sea trae permisos"
+                            + " de escritura. Un widget no los necesita.",
                         simbolo: "key.slash",
                         color: .orange
                     )

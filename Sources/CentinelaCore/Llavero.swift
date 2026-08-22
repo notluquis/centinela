@@ -71,7 +71,7 @@ public enum Llavero {
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: servicio,
             kSecAttrAccount as String: cuenta,
-            kSecAttrSynchronizable as String: false,
+            kSecAttrSynchronizable as String: false
         ]
     }
 }

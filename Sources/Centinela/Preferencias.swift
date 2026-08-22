@@ -55,7 +55,8 @@ private struct PestanaDeCuenta: View {
                             .font(.system(.title3, design: .monospaced))
                             .textSelection(.enabled)
                     }
-                    Text("Apruébalo en el navegador. Si no se abrió solo, entra a \(url.absoluteString) y escribe el código.")
+                    Text("Apruébalo en el navegador. Si no se abrió solo, entra a"
+                        + " \(url.absoluteString) y escribe el código.")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
@@ -81,19 +82,13 @@ private struct PestanaDeCuenta: View {
                 case .inactivo:
                     Button("Iniciar sesión con Sentry", action: sesion.entrar)
                         .disabled(ajustes.clientIDOAuth.isEmpty)
-                    if ajustes.clientIDOAuth.isEmpty {
-                        Text("Falta el identificador de cliente OAuth. Ver el README, sección «Iniciar sesión». Mientras tanto puedes pegar un token abajo.")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                            .fixedSize(horizontal: false, vertical: true)
-                    }
                 }
 
-                TextField("Identificador de cliente OAuth", text: Binding(
+                TextField("Cliente OAuth", text: Binding(
                     get: { ajustes.clientIDOAuth },
                     set: { ajustes.clientIDOAuth = $0.trimmingCharacters(in: .whitespaces) }
                 ))
-                .help("Se obtiene creando una integración en Sentry: Settings, Developer Settings.")
+                .help("Viene puesto el de Centinela. Cámbialo sólo si registraste el tuyo.")
             }
 
             Section("O pega un token") {
@@ -130,7 +125,8 @@ private struct PestanaDeCuenta: View {
                         .foregroundStyle(.orange)
                         .fixedSize(horizontal: false, vertical: true)
                 }
-                Text("Dale sólo `org:read`, `project:read` y `event:read`: Centinela no escribe nada en Sentry. El token se guarda en el llavero, nunca en un archivo.")
+                Text("Dale sólo `org:read`, `project:read` y `event:read`: Centinela no escribe"
+                    + " nada en Sentry. El token se guarda en el llavero, nunca en un archivo.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
@@ -173,7 +169,10 @@ private struct PestanaDeConsulta: View {
                     set: { ajustes.maximoIssues = $0 }
                 ), in: 5...50, step: 5)
             } footer: {
-                Text("Cada ciclo pide dos rutas baratas (la serie de errores y el estado de uptime). La lista de issues, que es diez veces más pesada, se pide sólo al abrir el panel. Sentry no ofrece webhooks a una aplicación de escritorio: sus notificaciones necesitan una URL pública.")
+                Text("Cada ciclo pide dos rutas baratas (la serie de errores y el estado de"
+                    + " uptime). La lista de issues, que es diez veces más pesada, se pide sólo al"
+                    + " abrir el panel. Sentry no ofrece webhooks a una aplicación de escritorio:"
+                    + " sus notificaciones necesitan una URL pública.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)

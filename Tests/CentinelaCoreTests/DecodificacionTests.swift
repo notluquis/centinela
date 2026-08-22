@@ -101,7 +101,7 @@ struct DecodificacionTests {
     @Test("Un nivel desconocido no rompe y cae en error", arguments: [
         ("warning", Severidad.warning),
         ("fatal", Severidad.fatal),
-        ("algo-que-sentry-invente-manana", Severidad.error),
+        ("algo-que-sentry-invente-manana", Severidad.error)
     ])
     func nivelDesconocido(texto: String, esperado: Severidad) {
         #expect(Severidad(textoDeSentry: texto) == esperado)

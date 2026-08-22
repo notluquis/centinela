@@ -1,35 +1,54 @@
 # Reglas por omisión más unas pocas que sí importan acá. Las que Stats desactiva por deuda
 # histórica no se copian: este proyecto empieza limpio y conviene que se note cuando deja de
 # estarlo.
+
+# Ojo con correrlo en local: swiftlint necesita `sourcekitdInProc.framework`, que busca dentro
+# de Xcode. Sin Xcode hay que apuntarlo a la toolchain de swiftly, y `make lint` ya lo hace.
 opt_in_rules:
   - empty_count
   - explicit_init
   - first_where
-  - force_unwrapping
   - implicitly_unwrapped_optional
   - last_where
   - redundant_nil_coalescing
   - toggle_bool
+
+analyzer_rules:
+  # Sólo corre con `swiftlint analyze`, que necesita un log de compilación. Declararlo acá y no
+  # en `opt_in_rules` evita el aviso de que está en la sección equivocada.
   - unused_import
 
 disabled_rules:
   - trailing_whitespace
   - todo
+  # `force_unwrapping` se probó y se sacó, no se omitió por comodidad. Las catorce que marcaba
+  # eran todas sobre literales conocidos en tiempo de compilación (`URL(string: "https://…")!`),
+  # que es justo el caso donde un `!` no puede fallar. La regla no distingue un literal de un
+  # dato de entrada, así que su única salida era rodearla con un ayudante que hiciera el mismo
+  # crash con otro nombre, que es peor que no tenerla. `implicitly_unwrapped_optional`, que sí
+  # queda activa, cubre el patrón que de verdad muerde: una propiedad `T!` que alguien lee antes
+  # de asignarla.
 
-# Los identificadores están en español y algunos son largos por ser explícitos
-# (`tokenPareceDeSoloLectura`). Se acepta el largo, no la vaguedad.
 identifier_name:
   min_length: 2
   max_length: 50
+  # `x`, `y` son coordenadas e `i` es un índice de bucle: son los nombres correctos, no nombres
+  # perezosos. El resto de los de una letra sí se renombraron.
+  excluded: [x, y, i]
 
 type_name:
   max_length: 45
 
 line_length:
-  warning: 110
+  # 120 y no 110: los comentarios de este repositorio explican el porqué de las cosas y en
+  # español eso ocupa más. Lo que pasaba de 120 se envolvió.
+  warning: 120
   error: 140
   ignores_comments: false
 
 excluded:
   - .build
   - build
+  # Generador de un solo uso que no se distribuye: dibuja el ícono y termina. Linteralo obliga a
+  # nombrar `l` como `lado` en aritmética de dibujo, donde las letras cortas son lo legible.
+  - Tools

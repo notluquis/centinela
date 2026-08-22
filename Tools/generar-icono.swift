@@ -27,7 +27,7 @@ func dibujar(lado: Int) -> CGImage {
         colorsSpace: CGColorSpace(name: CGColorSpace.sRGB)!,
         colors: [
             CGColor(red: 0.42, green: 0.29, blue: 0.75, alpha: 1),
-            CGColor(red: 0.21, green: 0.14, blue: 0.45, alpha: 1),
+            CGColor(red: 0.21, green: 0.14, blue: 0.45, alpha: 1)
         ] as CFArray,
         locations: [0, 1]
     )!

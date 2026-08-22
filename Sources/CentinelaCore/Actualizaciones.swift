@@ -29,14 +29,14 @@ public struct BuscadorDeActualizaciones: Sendable {
             partes = numeros
         }
 
-        public static func < (a: Version, b: Version) -> Bool {
+        public static func < (izq: Version, der: Version) -> Bool {
             // Se comparan rellenando con ceros: `1.2` y `1.2.0` son la misma versión, y `1.10`
             // es mayor que `1.9`. Comparar los textos daría lo contrario.
-            let largo = max(a.partes.count, b.partes.count)
+            let largo = max(izq.partes.count, der.partes.count)
             for i in 0..<largo {
-                let x = i < a.partes.count ? a.partes[i] : 0
-                let y = i < b.partes.count ? b.partes[i] : 0
-                if x != y { return x < y }
+                let unaParte = i < izq.partes.count ? izq.partes[i] : 0
+                let otraParte = i < der.partes.count ? der.partes[i] : 0
+                if unaParte != otraParte { return unaParte < otraParte }
             }
             return false
         }

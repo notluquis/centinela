@@ -29,6 +29,6 @@ let package = Package(
             path: "Tests/CentinelaCoreTests",
             resources: [.copy("Fixtures")],
             swiftSettings: [.swiftLanguageMode(.v5)]
-        ),
+        )
     ]
 )

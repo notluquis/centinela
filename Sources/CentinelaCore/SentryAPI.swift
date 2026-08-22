@@ -74,15 +74,15 @@ public struct ClienteDeSentry: Sendable {
         let sin = ISO8601DateFormatter()
         sin.formatOptions = [.withInternetDateTime]
 
-        let d = JSONDecoder()
-        d.dateDecodingStrategy = .custom { decodificador in
+        let decodificador = JSONDecoder()
+        decodificador.dateDecodingStrategy = .custom { decodificador in
             let texto = try decodificador.singleValueContainer().decode(String.self)
             if let fecha = con.date(from: texto) ?? sin.date(from: texto) { return fecha }
             throw DecodingError.dataCorrupted(
                 .init(codingPath: decodificador.codingPath, debugDescription: "fecha no ISO-8601: \(texto)")
             )
         }
-        return d
+        return decodificador
     }()
 
     // MARK: - Transporte
@@ -147,7 +147,7 @@ public struct ClienteDeSentry: Sendable {
             .init(name: "interval", value: intervalo),
             .init(name: "yAxis", value: "count()"),
             .init(name: "query", value: "event.type:error"),
-            .init(name: "project", value: "-1"),
+            .init(name: "project", value: "-1")
         ])
         return try SerieDeEventos(json: datos)
     }
@@ -166,7 +166,7 @@ public struct ClienteDeSentry: Sendable {
             .init(name: "query", value: "is:unresolved"),
             .init(name: "statsPeriod", value: ventana.rawValue),
             .init(name: "limit", value: String(limite)),
-            .init(name: "project", value: "-1"),
+            .init(name: "project", value: "-1")
         ])
     }
 
@@ -175,7 +175,7 @@ public struct ClienteDeSentry: Sendable {
             .init(name: "query", value: "is:unresolved is:for_review"),
             .init(name: "statsPeriod", value: ventana.rawValue),
             .init(name: "limit", value: String(limite)),
-            .init(name: "project", value: "-1"),
+            .init(name: "project", value: "-1")
         ])
     }
 

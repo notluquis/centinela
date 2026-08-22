@@ -3,17 +3,48 @@ import Testing
 
 @testable import CentinelaCore
 
-/// Estos son los tests de integración del proyecto: ejercitan el flujo COMPLETO de inicio de
-/// sesión contra un servidor de mentira, incluida la espera y el reintento.
-///
-/// Un `XCUITest` de verdad no es posible acá: XCUITest viene con Xcode y este proyecto se
-/// construye con la toolchain suelta. Interceptar el transporte a nivel de `URLProtocol` es lo
-/// más lejos que se llega sin Xcode, y alcanza para lo que de verdad puede fallar: el orden de
-/// los pasos, los cuatro errores del RFC 8628 y la rotación del token de refresco.
+// Estos son los tests de integración del proyecto: ejercitan el flujo COMPLETO de inicio de
+// sesión contra un servidor de mentira, incluida la espera y el reintento.
+//
+// Un `XCUITest` de verdad no es posible acá: XCUITest viene con Xcode y este proyecto se
+// construye con la toolchain suelta. Interceptar el transporte a nivel de `URLProtocol` es lo
+// más lejos que se llega sin Xcode, y alcanza para lo que de verdad puede fallar: el orden de
+// los pasos, los cuatro errores del RFC 8628 y la rotación del token de refresco.
 // `.serialized` no es decoración: Swift Testing corre en paralelo por omisión y `URLProtocol`
 // se registra por proceso, así que sin esto los tests se roban las respuestas encoladas entre
 // ellos y fallan con "sin respuesta encolada". El comentario de arriba decía que la suite iba
 // en serie antes de que efectivamente lo fuera.
+/// Una respuesta encolada en el servidor de mentira. Fuera de la suite porque anidarla tres
+/// niveles (suite, clase, struct) es más profundo de lo que el linter acepta, con razón. No va
+/// `private` porque la propiedad estática que la usa tampoco lo es.
+struct Respuesta {
+    let ruta: String
+    let estado: Int
+    let cuerpo: String
+}
+
+/// Anota cuánto se durmió en cada vuelta del sondeo.
+///
+/// Es una clase con candado y no un `var` capturado por la clausura: `dormir` es `@Sendable`,
+/// así que mutar un local desde adentro es una carrera. Hoy sale como aviso porque el paquete
+/// está en modo de lenguaje 5; en modo 6 es un error, y el test tendría que reescribirse igual.
+final class Cronometro: @unchecked Sendable {
+    private let candado = NSLock()
+    private var valores: [TimeInterval] = []
+
+    func anotar(_ segundos: TimeInterval) {
+        candado.lock()
+        defer { candado.unlock() }
+        valores.append(segundos)
+    }
+
+    var anotados: [TimeInterval] {
+        candado.lock()
+        defer { candado.unlock() }
+        return valores
+    }
+}
+
 @Suite("Flujo de dispositivo (OAuth 2.0, RFC 8628)", .serialized)
 struct FlujoDeDispositivoTests {
     // MARK: - Servidor de mentira
@@ -21,11 +52,11 @@ struct FlujoDeDispositivoTests {
     /// Respuestas encoladas por ruta. `URLProtocol` se registra por proceso, así que la suite va
     /// en serie y cada test limpia lo suyo.
     final class Servidor: URLProtocol, @unchecked Sendable {
-        nonisolated(unsafe) static var respuestas: [(ruta: String, estado: Int, cuerpo: String)] = []
+        nonisolated(unsafe) static var respuestas: [Respuesta] = []
         nonisolated(unsafe) static var peticiones: [(ruta: String, cuerpo: String)] = []
 
         static func encolar(_ ruta: String, _ cuerpo: String, estado: Int = 200) {
-            respuestas.append((ruta, estado, cuerpo))
+            respuestas.append(Respuesta(ruta: ruta, estado: estado, cuerpo: cuerpo))
         }
 
         static func limpiar() {
@@ -39,8 +70,8 @@ struct FlujoDeDispositivoTests {
             return URLSession(configuration: conf)
         }
 
-        override class func canInit(with request: URLRequest) -> Bool { true }
-        override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
+        override static func canInit(with request: URLRequest) -> Bool { true }
+        override static func canonicalRequest(for request: URLRequest) -> URLRequest { request }
         override func stopLoading() {}
 
         override func startLoading() {
@@ -50,24 +81,24 @@ struct FlujoDeDispositivoTests {
             let ruta = request.url?.absoluteString ?? ""
             // `httpBody` viene vacío cuando URLSession ya subió el cuerpo a un stream; se lee de
             // ahí, que es lo que pasa con los POST de formulario.
-            let cuerpoEnviado = request.httpBody.map { String(decoding: $0, as: UTF8.self) }
+            let cuerpoEnviado = request.httpBody.flatMap { String(bytes: $0, encoding: .utf8) }
                 ?? request.httpBodyStream.map { flujo in
                     flujo.open()
                     defer { flujo.close() }
                     var datos = Data()
                     var buffer = [UInt8](repeating: 0, count: 4096)
                     while flujo.hasBytesAvailable {
-                        let n = flujo.read(&buffer, maxLength: buffer.count)
-                        if n <= 0 { break }
-                        datos.append(buffer, count: n)
+                        let leidos = flujo.read(&buffer, maxLength: buffer.count)
+                        if leidos <= 0 { break }
+                        datos.append(buffer, count: leidos)
                     }
-                    return String(decoding: datos, as: UTF8.self)
+                    return String(bytes: datos, encoding: .utf8) ?? ""
                 } ?? ""
             Servidor.peticiones.append((ruta, cuerpoEnviado))
 
             let indice = Servidor.respuestas.firstIndex { ruta.contains($0.ruta) }
             let elegida = indice.map { Servidor.respuestas.remove(at: $0) }
-                ?? (ruta: ruta, estado: 500, cuerpo: #"{"error":"sin respuesta encolada"}"#)
+                ?? Respuesta(ruta: ruta, estado: 500, cuerpo: #"{"error":"sin respuesta encolada"}"#)
 
             let http = HTTPURLResponse(
                 url: request.url!, statusCode: elegida.estado,
@@ -121,20 +152,20 @@ struct FlujoDeDispositivoTests {
     func esperaYAprobacion() async throws {
         Servidor.limpiar()
         defer { Servidor.limpiar() }
-        Servidor.encolar("/oauth/token/", #"{"error":"authorization_pending"}"#)
-        Servidor.encolar("/oauth/token/", #"{"error":"authorization_pending"}"#)
+        Servidor.encolar("/oauth/token/", #"{"error":"authorization_pending"}"#, estado: 400)
+        Servidor.encolar("/oauth/token/", #"{"error":"authorization_pending"}"#, estado: 400)
         Servidor.encolar("/oauth/token/", #"{"access_token":"AT-1","refresh_token":"RT-1","expires_in":3600}"#)
 
         let codigo = FlujoDeDispositivo.Codigo(
             deviceCode: "DEV-1", userCode: "X", urlDeVerificacion: URL(string: "https://x")!,
             urlCompleta: nil, expiraEn: 600, intervalo: 5
         )
-        var esperas: [TimeInterval] = []
-        let concesion = try await flujo().esperarAutorizacion(codigo) { esperas.append($0) }
+        let cronometro = Cronometro()
+        let concesion = try await flujo().esperarAutorizacion(codigo) { cronometro.anotar($0) }
 
         #expect(concesion.tokenDeAcceso == "AT-1")
         #expect(concesion.tokenDeRefresco == "RT-1")
-        #expect(esperas == [5, 5, 5])
+        #expect(cronometro.anotados == [5, 5, 5])
     }
 
     /// El RFC 8628 obliga a subir el intervalo 5 segundos cada vez que llega `slow_down`.
@@ -143,27 +174,30 @@ struct FlujoDeDispositivoTests {
     func slowDown() async throws {
         Servidor.limpiar()
         defer { Servidor.limpiar() }
-        Servidor.encolar("/oauth/token/", #"{"error":"slow_down"}"#)
-        Servidor.encolar("/oauth/token/", #"{"error":"slow_down"}"#)
+        Servidor.encolar("/oauth/token/", #"{"error":"slow_down"}"#, estado: 400)
+        Servidor.encolar("/oauth/token/", #"{"error":"slow_down"}"#, estado: 400)
         Servidor.encolar("/oauth/token/", #"{"access_token":"AT","expires_in":60}"#)
 
         let codigo = FlujoDeDispositivo.Codigo(
             deviceCode: "D", userCode: "X", urlDeVerificacion: URL(string: "https://x")!,
             urlCompleta: nil, expiraEn: 600, intervalo: 5
         )
-        var esperas: [TimeInterval] = []
-        _ = try await flujo().esperarAutorizacion(codigo) { esperas.append($0) }
-        #expect(esperas == [5, 10, 15])
+        let cronometro = Cronometro()
+        _ = try await flujo().esperarAutorizacion(codigo) { cronometro.anotar($0) }
+        #expect(cronometro.anotados == [5, 10, 15])
     }
 
     @Test("Los dos finales malos del RFC llegan como errores distintos", arguments: [
         (#"{"error":"access_denied"}"#, FlujoDeDispositivo.Falla.rechazadoPorLaPersona),
-        (#"{"error":"expired_token"}"#, FlujoDeDispositivo.Falla.codigoVencido),
+        (#"{"error":"expired_token"}"#, FlujoDeDispositivo.Falla.codigoVencido)
     ])
     func finalesMalos(cuerpo: String, esperado: FlujoDeDispositivo.Falla) async {
         Servidor.limpiar()
         defer { Servidor.limpiar() }
-        Servidor.encolar("/oauth/token/", cuerpo)
+        // 400, que es lo que devuelve sentry.io de verdad para los errores del RFC. Con 200
+        // el test pasaría aunque el cliente lanzara ante cualquier no-2xx, que es un refactor
+        // razonable y rompería el flujo entero.
+        Servidor.encolar("/oauth/token/", cuerpo, estado: 400)
 
         let codigo = FlujoDeDispositivo.Codigo(
             deviceCode: "D", userCode: "X", urlDeVerificacion: URL(string: "https://x")!,

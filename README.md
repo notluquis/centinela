@@ -66,8 +66,6 @@ Centinela **sólo lee**, y hay dos formas de darle acceso.
 
 ### Con el flujo de dispositivo
 
-> **Sin probar de punta a punta todavía**, porque hace falta un identificador de cliente real. Lo que sí está verificado: el endpoint existe y responde en sentry.io, y once tests ejercitan el cliente entero contra un servidor de mentira.
-
 Clic en "Iniciar sesión con Sentry": la aplicación pide un código, abre el navegador, tú apruebas, y Sentry entrega un token con **exactamente** los permisos que se pidieron.
 
 Los que pide Centinela, y ningunos más:
@@ -78,22 +76,35 @@ org:read  project:read  event:read
 
 Hay un test que se pone rojo si alguien agrega uno de escritura, porque los permisos son parte del contrato con quien usa esto, no un detalle interno.
 
-#### Qué hay que crear en Sentry
+**No hay nada que configurar.** El identificador de cliente viene en el código, que es donde corresponde: el RFC 8628 trata a estos clientes como públicos y no hay secreto que proteger. `sentry-cli` hace lo mismo con el suyo.
 
-Una **API Application**, que NO está donde uno buscaría:
+Verificado contra sentry.io el 2026-08-22:
+
+```
+POST /oauth/device/code/  {client_id, scope: "org:read project:read event:read"}
+→ 200 {"device_code":"98f0…","user_code":"CZCS-FSLC",
+       "verification_uri":"https://sentry.io/oauth/device/",
+       "verification_uri_complete":"…?user_code=CZCS-FSLC",
+       "expires_in":600,"interval":5}
+
+POST /oauth/token/  (sin aprobar todavía)
+→ 400 {"error":"authorization_pending"}
+```
+
+El token se renueva solo cuando le queda menos del 10 % de vida, que es el criterio de `sentry-cli`. Sentry rota el token de refresco, así que la renovación se queda con el nuevo cuando viene y con el viejo cuando no; hay un test para cada rama. Si la renovación falla, la sesión **no** se cierra: puede ser que no haya red, y el token viejo sigue sirviendo hasta que Sentry responda 401.
+
+#### Registrar tu propio cliente
+
+Sólo si prefieres que el diálogo de aprobación diga tu nombre y no "Centinela". Lo que hay que crear es una **API Application**, que no está donde uno buscaría:
 
 | | |
 |---|---|
-| Dónde | `https://sentry.io/settings/account/api/applications/` (Ajustes de **tu cuenta**, API, Applications) |
-| Qué NO es | No es una integración interna ni pública de *Developer Settings*: esas entregan un token o son para el flujo de código de autorización. El flujo de dispositivo busca un `ApiApplication` |
-| Qué entrega | `Client ID` y `Client Secret`. Acá sólo se usa el **Client ID** |
-| Requisitos | Ninguno especial: no hay que marcar nada para el flujo de dispositivo, y no hace falta publicar la aplicación. Sólo tiene que estar activa |
+| Dónde | `https://sentry.io/settings/account/api/applications/`, o sea ajustes de **tu cuenta**, no de la organización |
+| Tipo | **Public Client**. Es el que la propia pantalla describe como "for CLIs, native apps […] uses PKCE, device authorization, and refresh token rotation" |
+| Redirect URIs | Vacío. El flujo de dispositivo no redirige a ninguna parte, por eso existe |
+| Qué NO es | No es una integración interna ni pública de *Developer Settings*: esas entregan un token o son para el flujo de código de autorización |
 
-Verificado leyendo `src/sentry/web/frontend/oauth_device_authorization.py` en el repositorio de Sentry: el endpoint hace `ApiApplication.objects.get(client_id=..., status=active)` y nada más. Los permisos se validan contra la lista global de Sentry, y contra los de la aplicación sólo si esta marcó `requires_org_level_access`.
-
-El Client ID se pega en Ajustes, pestaña Cuenta. No es secreto (el RFC 8628 trata a estos clientes como públicos) y por eso vive en `UserDefaults` y no en el llavero. El token de acceso y el de refresco sí van al llavero.
-
-El token se renueva solo cuando le queda menos del 10 % de vida, que es el criterio de `sentry-cli`. Si la renovación falla, la sesión **no** se cierra: puede ser que no haya red, y el token viejo sigue sirviendo hasta que Sentry responda 401.
+El endpoint hace `ApiApplication.objects.get(client_id=…, status=active)` y nada más (`src/sentry/web/frontend/oauth_device_authorization.py`): no hay que marcar nada ni publicar la aplicación. El Client ID se pega en Ajustes, pestaña Cuenta.
 
 ### Con un token pegado a mano
 

@@ -46,6 +46,7 @@ struct ChispaTests {
     @Test("El resumen distingue cero de algo")
     func resumen() {
         #expect(Chispa.resumen([0, 0], ventana: .veinticuatroHoras) == "Sin errores en 24 horas.")
-        #expect(Chispa.resumen([1, 4], ventana: .veinticuatroHoras) == "5 errores en 24 horas, pico de 4 por intervalo.")
+        let conErrores = Chispa.resumen([1, 4], ventana: .veinticuatroHoras)
+        #expect(conErrores == "5 errores en 24 horas, pico de 4 por intervalo.")
     }
 }

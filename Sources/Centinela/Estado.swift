@@ -36,16 +36,16 @@ final class Estado {
     // contexto sin aislamiento, y `Ajustes` está en el actor principal. Con el default directo
     // el compilador rechaza la llamada (`#ActorIsolatedCall`).
     init(ajustes: Ajustes? = nil) {
-        let a = ajustes ?? Ajustes()
-        self.ajustes = a
-        self.sesion = InicioDeSesion(ajustes: a)
+        let losAjustes = ajustes ?? Ajustes()
+        self.ajustes = losAjustes
+        self.sesion = InicioDeSesion(ajustes: losAjustes)
         observarSuspension()
     }
 
     deinit {
         // `deinit` no corre en el actor principal; se saca el observador sin tocar `self`.
         let centro = NSWorkspace.shared.notificationCenter
-        for o in observadores { centro.removeObserver(o) }
+        for observador in observadores { centro.removeObserver(observador) }
     }
 
     private var cliente: ClienteDeSentry? {
@@ -84,15 +84,15 @@ final class Estado {
     func reprogramar() {
         temporizador?.invalidate()
         let cada = ajustes.intervaloSegundos
-        let t = Timer(timeInterval: cada, repeats: true) { [weak self] _ in
+        let temporizadorNuevo = Timer(timeInterval: cada, repeats: true) { [weak self] _ in
             Task { @MainActor in await self?.refrescarLoBarato() }
         }
         // Tolerancia generosa: le deja al sistema juntar este despertar con otros en vez de
         // sacar el procesador de reposo sólo para nosotros. En una aplicación que consulta
         // cada varios minutos, la precisión al segundo no compra nada y sí cuesta batería.
-        t.tolerance = cada * 0.2
-        RunLoop.main.add(t, forMode: .common)
-        temporizador = t
+        temporizadorNuevo.tolerance = cada * 0.2
+        RunLoop.main.add(temporizadorNuevo, forMode: .common)
+        temporizador = temporizadorNuevo
     }
 
     /// Al suspender el equipo se detiene el temporizador y al despertar se refresca de
@@ -100,19 +100,24 @@ final class Estado {
     /// formas, pero con datos de antes de dormir en pantalla hasta el ciclo siguiente.
     private func observarSuspension() {
         let centro = NSWorkspace.shared.notificationCenter
-        observadores.append(centro.addObserver(forName: NSWorkspace.willSleepNotification, object: nil, queue: .main) { [weak self] _ in
+        let alDormir = centro.addObserver(
+            forName: NSWorkspace.willSleepNotification, object: nil, queue: .main
+        ) { [weak self] _ in
             Task { @MainActor in
                 self?.dormido = true
                 self?.temporizador?.invalidate()
             }
-        })
-        observadores.append(centro.addObserver(forName: NSWorkspace.didWakeNotification, object: nil, queue: .main) { [weak self] _ in
+        }
+        let alDespertar = centro.addObserver(
+            forName: NSWorkspace.didWakeNotification, object: nil, queue: .main
+        ) { [weak self] _ in
             Task { @MainActor in
                 self?.dormido = false
                 self?.reprogramar()
                 await self?.refrescarLoBarato()
             }
-        })
+        }
+        observadores.append(contentsOf: [alDormir, alDespertar])
     }
 
     // MARK: - Peticiones

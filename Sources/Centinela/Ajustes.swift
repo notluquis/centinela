@@ -64,7 +64,9 @@ final class Ajustes {
         intervaloSegundos = guardado > 0 ? guardado : 300
         let tope = defaults.integer(forKey: "maximoIssues")
         maximoIssues = tope > 0 ? tope : 15
-        clientIDOAuth = defaults.string(forKey: "clientIDOAuth") ?? ""
+        // Vacío en `UserDefaults` significa "usa el de Centinela", no "no hay ninguno".
+        let guardadoOAuth = defaults.string(forKey: "clientIDOAuth") ?? ""
+        clientIDOAuth = guardadoOAuth.isEmpty ? FlujoDeDispositivo.clienteDeCentinela : guardadoOAuth
         let vence = defaults.double(forKey: "venceElToken")
         venceElToken = vence > 0 ? Date(timeIntervalSince1970: vence) : nil
         let vida = defaults.double(forKey: "vidaDelToken")
@@ -72,7 +74,7 @@ final class Ajustes {
     }
 
     var tokenDeRefresco: String? {
-        (try? Llavero.leer(cuenta: Self.cuentaDelRefresco)) ?? nil
+        (try? Llavero.leer(cuenta: Self.cuentaDelRefresco))
     }
 
     /// Guarda lo que devolvió el flujo de dispositivo. Devuelve `false` si el llavero rechazó
@@ -148,8 +150,8 @@ final class Ajustes {
     var configurado: Bool { !organizacion.isEmpty && !token.isEmpty }
 
     func credenciales() -> Credenciales? {
-        let t = token
-        guard !t.isEmpty, !organizacion.isEmpty, let url = URL(string: host) else { return nil }
-        return Credenciales(token: t, organizacion: organizacion, host: url)
+        let elToken = token
+        guard !elToken.isEmpty, !organizacion.isEmpty, let url = URL(string: host) else { return nil }
+        return Credenciales(token: elToken, organizacion: organizacion, host: url)
     }
 }

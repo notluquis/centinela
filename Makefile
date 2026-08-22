@@ -40,8 +40,17 @@ build:
 test:
 	$(SWIFT) test
 
+# swiftlint necesita `sourcekitdInProc.framework`, que sólo busca dentro de Xcode. Con la
+# toolchain de swiftly hay que apuntárselo a mano o se cae con un `Fatal error` de dlopen.
+SOURCEKIT := $(if $(TOOLCHAIN),$(TOOLCHAIN)/usr/lib)
+
 lint:
-	@command -v swiftlint >/dev/null 2>&1 && swiftlint --strict || echo "swiftlint no está instalado; se omite"
+	@command -v swiftlint >/dev/null 2>&1 || { \
+		echo "swiftlint no está instalado: brew install swiftlint"; \
+		echo "(esto ANTES se saltaba en silencio, y así llegaron 80 violaciones a CI)"; \
+		exit 1; \
+	}
+	DYLD_FRAMEWORK_PATH="$(SOURCEKIT)" swiftlint lint --quiet --strict
 
 app: build
 	rm -rf $(APP_DIR)

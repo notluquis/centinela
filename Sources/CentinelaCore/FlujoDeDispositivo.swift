@@ -10,6 +10,15 @@ import Foundation
 /// Requiere Sentry 26.1.0 o superior. En instancias más viejas no existe el endpoint y hay que
 /// caer al token pegado a mano, que es lo que hace `Ajustes`.
 public struct FlujoDeDispositivo: Sendable {
+    /// Identificador de cliente de la aplicación registrada en Sentry para Centinela.
+    ///
+    /// Va en el código a propósito. El RFC 8628 trata a estos clientes como **públicos**: no
+    /// hay secreto que proteger, el identificador viaja en cada petición y su función es
+    /// nombrar la aplicación en la pantalla donde la persona aprueba. `sentry-cli` hace lo
+    /// mismo con el suyo. Quien prefiera registrar el propio lo pega en Ajustes y este queda
+    /// sin usar.
+    public static let clienteDeCentinela = "ba7385bf68de9e4f134f5c3da81d1080c822f04c5578556a0786c01a453219f2"
+
     /// Lo único que Centinela pide. No incluye ni `project:write` ni `event:write`, que sí pide
     /// `sentry-cli` porque sube sourcemaps.
     public static let permisos = ["org:read", "project:read", "event:read"]
@@ -72,7 +81,7 @@ public struct FlujoDeDispositivo: Sendable {
 
         let cuerpo = try await postFormulario("oauth/device/code/", [
             "client_id": clientID,
-            "scope": Self.permisos.joined(separator: " "),
+            "scope": Self.permisos.joined(separator: " ")
         ])
         guard
             let deviceCode = cuerpo["device_code"] as? String,
@@ -108,7 +117,7 @@ public struct FlujoDeDispositivo: Sendable {
             let cuerpo = try? await postFormulario("oauth/token/", [
                 "client_id": clientID,
                 "device_code": codigo.deviceCode,
-                "grant_type": "urn:ietf:params:oauth:grant-type:device_code",
+                "grant_type": "urn:ietf:params:oauth:grant-type:device_code"
             ])
             guard let cuerpo else { continue }
 
@@ -145,7 +154,7 @@ public struct FlujoDeDispositivo: Sendable {
         let cuerpo = try await postFormulario("oauth/token/", [
             "client_id": clientID,
             "refresh_token": tokenDeRefresco,
-            "grant_type": "refresh_token",
+            "grant_type": "refresh_token"
         ])
         guard let token = cuerpo["access_token"] as? String else {
             throw Falla.respuesta((cuerpo["error"] as? String) ?? "refresh sin access_token")
