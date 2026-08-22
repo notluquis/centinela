@@ -22,7 +22,7 @@ struct LlaveroTests {
 
         // Con caracteres que no son ASCII: el valor viaja como `Data` en UTF-8 y una conversión
         // descuidada los perdería en silencio.
-        let secreto = "sntrys_ñÑáé—\(UUID().uuidString)"
+        let secreto = "sntrys_ñÑáé·\(UUID().uuidString)"
         try Llavero.guardar(secreto, cuenta: cuenta)
         #expect(try Llavero.leer(cuenta: cuenta) == secreto)
     }

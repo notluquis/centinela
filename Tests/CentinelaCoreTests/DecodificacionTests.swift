@@ -8,7 +8,7 @@ import Testing
 /// títulos de incidencias reales traen URLs y datos del negocio, y este repositorio es público.
 ///
 /// Se usa Swift Testing y no XCTest por dos motivos que apuntan al mismo lado: es el marco por
-/// omisión desde 2026, y `XCTest` **no viene** en una toolchain de swiftly —sólo con Xcode—,
+/// omisión desde 2026, y `XCTest` **no viene** en una toolchain de swiftly (sólo con Xcode),
 /// así que con XCTest la suite no correría en una máquina sin Xcode, que es justo el flujo que
 /// este proyecto documenta.
 @Suite("Decodificación de las respuestas de Sentry")
@@ -42,7 +42,7 @@ struct DecodificacionTests {
         #expect(incidencias[0].lastSeen.timeIntervalSince1970 == 1_787_422_196)
         // `.123` y no `.123456`: `ISO8601DateFormatter` con `.withFractionalSeconds` trunca a
         // milisegundos, y Sentry manda microsegundos. Da igual para lo que hace esta aplicación
-        // —ordenar y mostrar "hace 3 minutos"— pero quien compare fechas al microsegundo contra
+        // (ordenar y mostrar "hace 3 minutos"), pero quien compare fechas al microsegundo contra
         // la API se va a preguntar dónde se perdieron.
         #expect(abs(incidencias[1].lastSeen.timeIntervalSince1970 - 1_787_418_000.123456) < 0.001)
 

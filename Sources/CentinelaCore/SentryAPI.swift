@@ -155,7 +155,7 @@ public struct ClienteDeSentry: Sendable {
 
     // MARK: - Lo caro: sólo al abrir el panel
 
-    /// 1047 ms y 10,6 KB medidos — la ruta más cara de la API. Por eso no va en el ciclo
+    /// 1047 ms y 10,6 KB medidos: la ruta más cara de la API. Por eso no va en el ciclo
     /// periódico: se pide cuando alguien abre el panel y quiere leer los títulos.
     public func issuesSinResolver(ventana: Ventana, limite: Int = 15) async throws -> [Incidencia] {
         try await pedir([Incidencia].self, "incidencias", [
@@ -189,8 +189,8 @@ public struct ClienteDeSentry: Sendable {
     /// Si esta llamada devuelve 200, el token trae permisos de escritura y el widget está
     /// corriendo con más poder del que necesita: se avisa en la interfaz.
     ///
-    /// Existe porque el primer token que se usó acá era el de `sentry-cli` —el mismo que sube
-    /// sourcemaps y publica releases— y leía la auditoría sin problema.
+    /// Existe porque el primer token que se usó acá era el de `sentry-cli` (el mismo que sube
+    /// sourcemaps y publica releases) y leía la auditoría sin problema.
     public func tokenPareceDeSoloLectura() async -> Bool {
         do {
             _ = try await pedir("audit-logs", [.init(name: "per_page", value: "1")])

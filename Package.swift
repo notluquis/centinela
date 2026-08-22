@@ -3,8 +3,8 @@ import PackageDescription
 
 // El objetivo está partido en dos a propósito, y no por gusto arquitectónico: `CentinelaCore`
 // no importa AppKit ni SwiftUI, así que su suite corre en un runner de CI sin sesión gráfica.
-// Todo lo que puede estar mal —el parseo de la respuesta de Sentry, la normalización de la
-// chispa, la lectura del llavero— vive ahí. `Centinela` es sólo la carcasa que dibuja.
+// Todo lo que puede estar mal (el parseo de la respuesta de Sentry, la normalización de la
+// chispa, la lectura del llavero) vive ahí. `Centinela` es sólo la carcasa que dibuja.
 let package = Package(
     name: "Centinela",
     platforms: [.macOS(.v14)],

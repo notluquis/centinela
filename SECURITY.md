@@ -19,7 +19,7 @@ Nada de lo que devuelve Sentry se escribe en disco.
 Caja de arena activada. Dos permisos, y se pueden leer enteros en `Centinela.entitlements`:
 
 - `com.apple.security.app-sandbox`
-- `com.apple.security.network.client` — salir a la red
+- `com.apple.security.network.client`: salir a la red
 
 No pide archivos, ni cámara, ni contactos, ni servidor de red entrante. Si algún día aparece uno más, se ve en el diff.
 

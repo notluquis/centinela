@@ -2,7 +2,7 @@
 
 Los issues de Sentry en la barra de menús de macOS: un número, una chispa de las últimas horas y el estado de los monitores de uptime, sin abrir el navegador.
 
-No existe aplicación oficial de Sentry para macOS. La extensión de Sentry para Raycast tampoco sirve: sus dos comandos son `mode: "view"` — se puede leer en su manifiesto —, o sea buscador, no barra de menús. Esto llena ese hueco.
+No existe aplicación oficial de Sentry para macOS. La extensión de Sentry para Raycast tampoco sirve: sus dos comandos son `mode: "view"` (se puede leer en su manifiesto), o sea buscador, no barra de menús. Esto llena ese hueco.
 
 **Nativa de verdad**: SwiftUI, `MenuBarExtra`, 668 KB de aplicación. No es un contenedor web ni un script dentro de otra aplicación.
 
@@ -49,7 +49,7 @@ open /Applications/Centinela.app
 
 Luego: clic en el ícono → **Abrir ajustes** → organización y token.
 
-Requiere macOS 14 o superior. **No requiere Xcode** — ver [Construir](#construir).
+Requiere macOS 14 o superior. **No requiere Xcode**. Ver [Construir](#construir).
 
 ## El token
 
@@ -104,15 +104,15 @@ Dato al margen: **Objective-C sí compila** con las CLT solas (`clang -framework
 
 ### Dos trampas que costaron tiempo acá
 
-**`XCTest` no existe fuera de Xcode.** Viene con Xcode, no con la toolchain. La suite usa **Swift Testing**, que sí viene incluida — y que además es el marco por omisión desde 2026. Si migras tests viejos, no es opcional: con XCTest la suite deja de correr en una máquina sin Xcode.
+**`XCTest` no existe fuera de Xcode.** Viene con Xcode, no con la toolchain. La suite usa **Swift Testing**, que sí viene incluida y que además es el marco por omisión desde 2026. Si migras tests viejos, no es opcional: con XCTest la suite deja de correr en una máquina sin Xcode.
 
-**Swift Testing exporta su propio `Issue`.** Por eso el modelo de acá se llama `Incidencia` y no `Issue`: en un archivo con `import Testing`, el nombre corto se resuelve al de ellos. El síntoma no dice nada útil —el compilador emite `failed to produce diagnostic for expression` sobre la llamada a `decode`— y se pierde un buen rato revisando el `Codable`.
+**Swift Testing exporta su propio `Issue`.** Por eso el modelo de acá se llama `Incidencia` y no `Issue`: en un archivo con `import Testing`, el nombre corto se resuelve al de ellos. El síntoma no dice nada útil (el compilador emite `failed to produce diagnostic for expression` sobre la llamada a `decode`) y se pierde un buen rato revisando el `Codable`.
 
 ### Por qué no hay `.xcodeproj`
 
 Un `project.pbxproj` es un archivo generado de decenas de miles de líneas que nadie revisa en un diff y que entra en conflicto con sólo abrirlo. Para una aplicación de un binario y sin extensiones, `swift build` más doce líneas de `Makefile` hacen lo mismo y se leen enteras.
 
-El paquete está partido en dos objetivos por una razón concreta: `CentinelaCore` no importa AppKit ni SwiftUI, así que su suite corre sin sesión gráfica, en CI o en una terminal por SSH. Ahí vive todo lo que puede estar mal de una forma que no se ve —el parseo de las respuestas, la aritmética de la chispa, el llavero—; `Centinela` es sólo la carcasa que dibuja.
+El paquete está partido en dos objetivos por una razón concreta: `CentinelaCore` no importa AppKit ni SwiftUI, así que su suite corre sin sesión gráfica, en CI o en una terminal por SSH. Ahí vive todo lo que puede estar mal de una forma que no se ve (el parseo de las respuestas, la aritmética de la chispa, el llavero); `Centinela` es sólo la carcasa que dibuja.
 
 ## Qué es "nativo" acá, concretamente
 
@@ -125,19 +125,19 @@ El paquete está partido en dos objetivos por una razón concreta: `CentinelaCor
 
 **Centinela gasta más memoria residente, no menos.** El tiempo de ejecución de SwiftUI cuesta cerca de 20 MB y no hay forma de no pagarlos: SwiftBar es AppKit y por eso arranca en 6. Si el criterio es la RAM, SwiftBar gana y conviene saberlo antes de instalar nada.
 
-Lo que sí gana Centinela: 10 veces menos en disco, ningún proceso que nazca y muera cada cinco minutos para siempre, y no depender de que una segunda aplicación siga instalada y siga funcionando — que en macOS 27, con la barra de menús rehecha, dejó de ser una suposición gratis.
+Lo que sí gana Centinela: 10 veces menos en disco, ningún proceso que nazca y muera cada cinco minutos para siempre, y no depender de que una segunda aplicación siga instalada y siga funcionando, que en macOS 27, con la barra de menús rehecha, dejó de ser una suposición gratis.
 
-- `MenuBarExtra` con `.menuBarExtraStyle(.window)` — un `NSMenu` no puede dibujar una chispa ni filas de dos líneas.
+- `MenuBarExtra` con `.menuBarExtraStyle(.window)`: un `NSMenu` no puede dibujar una chispa ni filas de dos líneas.
 - `@Observable` (Observation), no `ObservableObject`.
 - Llavero para el token, no un archivo de puntos.
-- `SMAppService` para arrancar con la sesión — la forma vieja (`SMLoginItemSetEnabled` más un ejecutable auxiliar) quedó obsoleta en macOS 13. El estado no es un booleano: `.requiresApproval` significa registrado pero pendiente de que el usuario lo apruebe, y la interfaz lo dice en vez de mostrar el interruptor abajo.
+- `SMAppService` para arrancar con la sesión. La forma vieja (`SMLoginItemSetEnabled` más un ejecutable auxiliar) quedó obsoleta en macOS 13. El estado no es un booleano: `.requiresApproval` significa registrado pero pendiente de que el usuario lo apruebe, y la interfaz lo dice en vez de mostrar el interruptor abajo.
 - Liquid Glass (macOS 26+) sólo en los botones del pie, detrás de `#available`. El fondo del panel **no** se toca: `MenuBarExtra(.window)` ya lo dibuja con el material del sistema y apilar otro encima se ve turbio, no vidrioso.
 - `URLSession` efímera: sin caché en disco, sin cookies, sin nada escrito.
 
 ## La barra de menús en macOS 26 y 27
 
 - **macOS 26 (Tahoe)** dejó la barra transparente por omisión: los íconos quedan sobre el fondo de escritorio, no sobre una barra sólida. Por eso Centinela no fija colores en el ícono y deja que el sistema resuelva el contraste. El único color propio es el rojo de una caída, que es el estado que sí justifica romper la regla.
-- **macOS 27 (Golden Gate)** rehízo el render de la barra y agregó un botón nativo para desplegar los íconos que no caben. En el camino rompió a Bartender, Ice, Thaw, Hidden Bar, Barbee, Sane Bar y Glow, que *administran* íconos ajenos. Agregar el propio es otra operación y no se vio afectada — verificado sobre macOS 27.0 beta (build 26A5416b).
+- **macOS 27 (Golden Gate)** rehízo el render de la barra y agregó un botón nativo para desplegar los íconos que no caben. En el camino rompió a Bartender, Ice, Thaw, Hidden Bar, Barbee, Sane Bar y Glow, que *administran* íconos ajenos. Agregar el propio es otra operación y no se vio afectada. Verificado sobre macOS 27.0 beta (build 26A5416b).
 
 ## Distribución
 

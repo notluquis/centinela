@@ -2,7 +2,7 @@ import Foundation
 
 /// La chispa (sparkline) que va al lado del número, en la barra.
 ///
-/// Acá vive sólo la aritmética —normalizar una serie a puntos entre 0 y 1— porque es lo único
+/// Acá vive sólo la aritmética (normalizar una serie a puntos entre 0 y 1) porque es lo único
 /// que puede estar mal de una forma que no se ve a simple vista. El dibujo va en el objetivo
 /// de la aplicación, donde no hay nada que testear.
 public enum Chispa {

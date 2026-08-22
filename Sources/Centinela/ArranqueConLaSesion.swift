@@ -3,8 +3,8 @@ import ServiceManagement
 
 /// Arrancar al iniciar sesión, con `SMAppService` (macOS 13+).
 ///
-/// La forma vieja —un ejecutable auxiliar en `Contents/Library/LoginItems` registrado con
-/// `SMLoginItemSetEnabled`— quedó obsoleta en macOS 13 y obliga a empaquetar un segundo binario.
+/// La forma vieja (un ejecutable auxiliar en `Contents/Library/LoginItems` registrado con
+/// `SMLoginItemSetEnabled`) quedó obsoleta en macOS 13 y obliga a empaquetar un segundo binario.
 /// `SMAppService.mainApp` registra la aplicación misma: sin auxiliar, sin código extra, y el
 /// usuario la ve y la puede apagar en Ajustes del Sistema → General → Ítems de inicio.
 ///

@@ -18,7 +18,7 @@ struct ChispaTests {
     }
 
     /// El caso que importa: sin errores la serie es todo ceros y `maximo - minimo` da 0.
-    /// Dividir ahí produce `NaN`, que Core Graphics NO reporta como error — dibuja nada, y el
+    /// Dividir ahí produce `NaN`, que Core Graphics NO reporta como error: dibuja nada, y el
     /// widget se ve "sin datos" justo cuando el sistema está sano.
     @Test("Una serie plana da línea al medio y nunca NaN", arguments: [[0, 0, 0, 0], [5, 5, 5]])
     func plana(valores: [Int]) {

@@ -13,9 +13,9 @@ public struct Proyecto: Codable, Sendable, Hashable {
 ///
 /// Se llama `Incidencia` y no `Issue` por una razón concreta: Swift Testing exporta su propio
 /// `Testing.Issue`, y en cualquier archivo de tests con `import Testing` el nombre corto se
-/// resuelve al de ellos. El síntoma no dice nada — el compilador emite
+/// resuelve al de ellos. El síntoma no dice nada: el compilador emite
 /// `failed to produce diagnostic for expression` sobre la llamada a `decode`, sin mencionar la
-/// ambigüedad — y se pierde un buen rato buscando el error en el `Codable`.
+/// ambigüedad, y se pierde un buen rato buscando el error en el `Codable`.
 public struct Incidencia: Codable, Sendable, Identifiable, Hashable {
     public let id: String
     public let shortId: String

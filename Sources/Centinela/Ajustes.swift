@@ -21,8 +21,8 @@ final class Ajustes {
         didSet { defaults.set(ventana.rawValue, forKey: "ventana") }
     }
 
-    /// Cinco minutos por defecto. Con el límite medido de la API —40 peticiones por ventana
-    /// por ruta, 25 concurrentes— se podría pedir mucho más seguido; el techo no es Sentry
+    /// Cinco minutos por defecto. Con el límite medido de la API (40 peticiones por ventana
+    /// por ruta, 25 concurrentes) se podría pedir mucho más seguido; el techo no es Sentry
     /// sino la batería y el hecho de que un error que apareció hace tres minutos no se
     /// atiende distinto que uno de hace cinco.
     var intervaloSegundos: TimeInterval {
