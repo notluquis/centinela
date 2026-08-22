@@ -28,6 +28,14 @@ to publish when it is missing, so a release never goes out with an empty body.
 
 ### Added
 
+- **The panel's three lists are a segmented picker instead of one long scroll**: Unresolved, For
+  review and Releases, each with its count, so a category is one click away rather than a scroll
+  away. Apple's guidance for `.segmented` is "use this style when there are two to five options",
+  and Stats organizes its window the same way with an `NSSegmentedControl`.
+- Warnings that are not a category you browse to (an over-privileged token, a route Sentry is
+  retiring, a network error) sit above the picker, always visible.
+- The Keychain accounts are injectable, so tests and probes never touch the real ones. They were
+  not, and a layout probe overwrote and then deleted a live session token.
 - Release notes are assembled automatically: the CHANGELOG section for the tag plus the list
   GitHub generates from merged pull requests, categorized by `.github/release.yml`.
 - The release workflow checks that the version inside the bundle matches the tag. A mistyped tag

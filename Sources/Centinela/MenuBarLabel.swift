@@ -1,0 +1,62 @@
+import CentinelaCore
+import SwiftUI
+
+struct MenuBarLabel: View {
+    let state: AppState
+
+    var body: some View {
+        HStack(spacing: 3) {
+            Image(systemName: symbol)
+            if state.totalErrors > 0 {
+                Text(state.totalErrors, format: .number)
+            }
+            // As an image rather than a live `Path`: a `MenuBarExtra` label is drawn by the
+            // system, and up there `Text` and `Image` are the only things that render
+            // reliably. A vector shape showed up in the panel and NOT in the bar, which is
+            // exactly where it was wanted.
+            if let sparkline = Sparkline.image(state.series.points.map(\.count)) {
+                Image(nsImage: sparkline)
+            }
+        }
+        .accessibilityLabel(accessibleDescription)
+        // No fixed colour: in the macOS 26 and 27 menu bar the background is transparent with
+        // the wallpaper behind it, so a colour of our own stops contrasting depending on the
+        // desktop. A template symbol is resolved by the system, which knows whether things are
+        // light or dark. Only an outage is painted red, the one state that justifies breaking
+        // the rule.
+        .foregroundStyle(state.hasOutage ? AnyShapeStyle(.red) : AnyShapeStyle(.primary))
+    }
+
+    private var symbol: String {
+        if state.hasOutage { return "bolt.horizontal.circle.fill" }
+        return state.totalErrors > 0 ? "exclamationmark.triangle.fill" : "checkmark.seal"
+    }
+
+    private var accessibleDescription: String {
+        var parts = [Sparkline.summary(state.series.points.map(\.count), window: state.settings.window)]
+        if state.hasOutage { parts.insert("A service is down.", at: 0) }
+        return parts.joined(separator: " ")
+    }
+}
+
+/// Draws the sparkline inside the panel. The arithmetic lives in `Sparkline.normalize`, which
+/// does have tests.
+struct SparklinePath: View {
+    let values: [Int]
+
+    var body: some View {
+        GeometryReader { geo in
+            Path { path in
+                let points = Sparkline.normalize(values)
+                guard points.count > 1 else { return }
+                for (index, point) in points.enumerated() {
+                    // `y` comes with 0 at the bottom; in Core Graphics 0 is the top.
+                    let spot = CGPoint(x: point.x * geo.size.width, y: (1 - point.y) * geo.size.height)
+                    if index == 0 { path.move(to: spot) } else { path.addLine(to: spot) }
+                }
+            }
+            .stroke(style: StrokeStyle(lineWidth: 1.2, lineCap: .round, lineJoin: .round))
+        }
+        .accessibilityHidden(true)
+    }
+}
