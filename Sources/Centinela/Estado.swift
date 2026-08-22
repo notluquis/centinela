@@ -100,7 +100,9 @@ final class Estado {
         // Antes de pedir nada: si el token OAuth está por vencer, se renueva. Va acá y no en un
         // temporizador aparte porque lo que importa es tener un token vivo justo cuando se va a
         // usar, no haber intentado renovar mientras la máquina dormía.
-        await sesion.refrescarSiHaceFalta()
+        if let falloDeRenovacion = await sesion.refrescarSiHaceFalta() {
+            ultimoError = falloDeRenovacion
+        }
         guard let cliente else { return }
         cargando = true
         defer { cargando = false }

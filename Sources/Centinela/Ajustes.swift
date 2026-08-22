@@ -115,15 +115,16 @@ final class Ajustes {
     /// (`errSecMissingEntitlement`, -34018).
     var ultimoErrorDeLlavero: String?
 
+    /// Copia en memoria del token. El llavero es una llamada sincrónica al sistema y `token`
+    /// lo consulta `configurado`, que SwiftUI reevalúa en CADA dibujo del panel: sin esta caché
+    /// el panel toca el llavero decenas de veces por segundo mientras está abierto.
+    @ObservationIgnored private var tokenEnMemoria: String?
+
     var token: String {
-        do {
-            let valor = try Llavero.leer(cuenta: Self.cuentaDelToken) ?? ""
-            return valor
-        } catch {
-            // El getter no puede reportar sin volverse mutante; el error se recoge al escribir,
-            // que es cuando el usuario está mirando.
-            return ""
-        }
+        if let tokenEnMemoria { return tokenEnMemoria }
+        let valor = (try? Llavero.leer(cuenta: Self.cuentaDelToken)).flatMap { $0 } ?? ""
+        tokenEnMemoria = valor
+        return valor
     }
 
     /// Devuelve `true` si el llavero aceptó la operación. Quien llama NO debe asumir que sí.
@@ -135,6 +136,7 @@ final class Ajustes {
             } else {
                 try Llavero.guardar(nuevo, cuenta: Self.cuentaDelToken)
             }
+            tokenEnMemoria = nuevo
             ultimoErrorDeLlavero = nil
             return true
         } catch {

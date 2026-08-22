@@ -66,19 +66,27 @@ final class InicioDeSesion {
     /// Renueva el token si le queda poca vida. Se llama antes de cada ciclo, no en un
     /// temporizador propio: si la aplicación estuvo dormida tres días, lo que importa es
     /// renovar cuando vuelve, no haber intentado mientras no había red.
-    func refrescarSiHaceFalta() async {
-        guard ajustes.convieneRefrescar, let refresco = ajustes.tokenDeRefresco else { return }
+    /// Devuelve el error si lo hubo, para que quien llama decida dónde mostrarlo.
+    @discardableResult
+    func refrescarSiHaceFalta() async -> String? {
+        guard ajustes.convieneRefrescar, let refresco = ajustes.tokenDeRefresco else { return nil }
         let flujo = FlujoDeDispositivo(
             host: URL(string: ajustes.host) ?? URL(string: "https://sentry.io")!,
             clientID: ajustes.clientIDOAuth
         )
         do {
             ajustes.guardarSesion(try await flujo.refrescar(refresco))
+            return nil
         } catch {
             // Un fallo de renovación NO cierra la sesión: puede ser que no haya red. El token
             // viejo sigue guardado y el ciclo siguiente vuelve a intentar. Si de verdad está
             // revocado, la API responde 401 y eso sí se le muestra al usuario.
-            etapa = .falló((error as? LocalizedError)?.errorDescription ?? error.localizedDescription)
+            //
+            // Y NO se toca `etapa`: eso es lo que mira la ventana de Ajustes, así que un corte
+            // de red de dos segundos durante un ciclo de fondo cambiaría "Sesión iniciada" por
+            // un error con botón de reintentar, que es mentira. El aviso va al panel, junto al
+            // resto de los errores de red.
+            return (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
         }
     }
 }

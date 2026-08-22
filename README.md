@@ -64,7 +64,9 @@ Requiere macOS 14 o superior. **No requiere Xcode**. Ver [Construir](#construir)
 
 Centinela **sólo lee**, y hay dos formas de darle acceso.
 
-### Con el flujo de dispositivo (recomendado)
+### Con el flujo de dispositivo
+
+> **Sin verificar contra Sentry todavía.** El endpoint existe y responde (`POST /oauth/device/code/` devuelve `invalid_client` con un identificador falso, o sea el flujo está vivo en sentry.io), y hay once tests que ejercitan el cliente entero contra un servidor de mentira. Lo que **no** está comprobado es que Sentry acepte un identificador de cliente creado por un usuario: la documentación dice que el de `sentry-cli` viene "built-in", lo que es compatible con que sólo acepte clientes que Sentry mismo registró. Se resuelve con una petición, en cuanto haya un identificador real. Mientras tanto, la vía que sí funciona es el token pegado a mano, más abajo.
 
 Sentry soporta OAuth 2.0 device flow (RFC 8628) desde la versión 26.1.0, que es lo mismo que usa `sentry-cli login`. Clic en "Iniciar sesión con Sentry": la aplicación pide un código, abre el navegador, tú apruebas, y Sentry entrega un token con **exactamente** los permisos que se pidieron.
 
@@ -76,7 +78,9 @@ org:read  project:read  event:read
 
 Hay un test que se pone rojo si alguien agrega uno de escritura, porque los permisos son parte del contrato con quien usa esto, no un detalle interno.
 
-Falta una cosa para que funcione: un **identificador de cliente OAuth**. Sentry lo entrega al crear una integración (*Settings, Developer Settings, Custom Integrations*). Se pega en Ajustes, no es secreto (el RFC trata a estos clientes como públicos) y por eso vive en `UserDefaults` y no en el llavero. El token de acceso y el de refresco sí van al llavero.
+Falta una cosa para que funcione: un **identificador de cliente OAuth**. En Sentry eso lo entrega una integración **pública** (*Settings, Developer Settings*), que es la que emite `clientId` y `clientSecret`; una integración interna o "custom" entrega un token directo, no credenciales OAuth, y no sirve acá. Cuál de las dos acepta el endpoint de dispositivo es justamente lo que falta comprobar.
+
+El identificador se pega en Ajustes. No es secreto (el RFC 8628 trata a estos clientes como públicos) y por eso vive en `UserDefaults` y no en el llavero. El token de acceso y el de refresco sí van al llavero.
 
 El token se renueva solo cuando le queda menos del 10 % de vida, que es el criterio de `sentry-cli`. Si la renovación falla, la sesión **no** se cierra: puede ser que no haya red, y el token viejo sigue sirviendo hasta que Sentry responda 401.
 
