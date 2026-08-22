@@ -1,0 +1,18 @@
+[
+  {
+    "id": "7000001",
+    "name": "Uptime Monitoring for https://ejemplo.cl",
+    "url": "https://ejemplo.cl",
+    "status": "active",
+    "uptimeStatus": 1,
+    "intervalSeconds": 60
+  },
+  {
+    "id": "7000002",
+    "name": "Uptime Monitoring for https://caido.ejemplo.cl",
+    "url": "https://caido.ejemplo.cl",
+    "status": "active",
+    "uptimeStatus": 0,
+    "intervalSeconds": 60
+  }
+]

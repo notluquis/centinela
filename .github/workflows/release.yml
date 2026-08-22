@@ -1,0 +1,53 @@
+name: release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions: {}
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  publicar:
+    runs-on: macos-26
+    timeout-minutes: 25
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # `make app` saca la versión de `git describe`, que necesita las etiquetas.
+          fetch-depth: 0
+
+      - name: Construir y armar
+        run: make app
+
+      - name: Verificar el paquete
+        run: |
+          set -euo pipefail
+          plutil -lint build/Centinela.app/Contents/Info.plist
+          test "$(plutil -extract LSUIElement raw build/Centinela.app/Contents/Info.plist)" = "true"
+          codesign --verify --verbose=2 build/Centinela.app
+
+      # `ditto` y no `zip`: preserva los atributos extendidos y los enlaces simbólicos del
+      # paquete. Un `.app` comprimido con `zip` pierde la firma y macOS lo rechaza al abrirlo.
+      - name: Comprimir
+        run: ditto -c -k --keepParent build/Centinela.app build/Centinela.zip
+
+      - uses: softprops/action-gh-release@3d0d9888cb7fd7b750713d6e236d1fcb99157228 # v3.0.2
+        with:
+          files: build/Centinela.zip
+          generate_release_notes: true
+          # La compilación es ad-hoc: sin Developer ID, macOS pide confirmación la primera
+          # vez. Se dice acá y no en letra chica.
+          body: |
+            Firma ad-hoc, sin notarizar. La primera vez macOS va a pedir confirmación:
+            clic derecho sobre la aplicación → Abrir.
+
+            Verifica lo que bajaste antes de abrirlo:
+
+                codesign -dv --verbose=4 Centinela.app
+                spctl -a -t exec -vvv Centinela.app

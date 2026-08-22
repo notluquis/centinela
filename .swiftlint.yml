@@ -1,0 +1,35 @@
+# Reglas por omisión más unas pocas que sí importan acá. Las que Stats desactiva por deuda
+# histórica no se copian: este proyecto empieza limpio y conviene que se note cuando deja de
+# estarlo.
+opt_in_rules:
+  - empty_count
+  - explicit_init
+  - first_where
+  - force_unwrapping
+  - implicitly_unwrapped_optional
+  - last_where
+  - redundant_nil_coalescing
+  - toggle_bool
+  - unused_import
+
+disabled_rules:
+  - trailing_whitespace
+  - todo
+
+# Los identificadores están en español y algunos son largos por ser explícitos
+# (`tokenPareceDeSoloLectura`). Se acepta el largo, no la vaguedad.
+identifier_name:
+  min_length: 2
+  max_length: 50
+
+type_name:
+  max_length: 45
+
+line_length:
+  warning: 110
+  error: 140
+  ignores_comments: false
+
+excluded:
+  - .build
+  - build

@@ -1,0 +1,12 @@
+{
+  "data": [
+    [1787335200, [{ "count": 0 }]],
+    [1787338800, [{ "count": 1 }]],
+    [1787342400, [{ "count": 4 }]],
+    [1787346000, []]
+  ],
+  "isMetricsData": false,
+  "start": 1787335200,
+  "end": 1787349600,
+  "meta": { "fields": { "time": "date", "count": "integer" } }
+}

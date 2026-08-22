@@ -1,0 +1,140 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# Sin permisos por omisión. Cada job pide sólo lo que usa.
+permissions: {}
+
+# Un push nuevo cancela la corrida anterior de la misma rama.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  construir:
+    name: construir y testear
+    # `macos-26` fija la imagen en vez de seguir a `macos-latest`, que cambia de versión de
+    # Xcode sin aviso y convierte un fallo de compilación ajeno en un fallo nuestro.
+    runs-on: macos-26
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    steps:
+      # No se usa `step-security/harden-runner` acá: bloquea el tráfico saliente sólo en
+      # runners de Linux. En macOS no hace nada, y una defensa que no defiende es peor que
+      # ninguna, porque se cita como si defendiera.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Versiones del entorno
+        run: |
+          swift --version
+          xcodebuild -version
+
+      - name: Construir
+        run: swift build -c release
+
+      # La suite es de `CentinelaCore`, que no importa AppKit ni SwiftUI: corre sin sesión
+      # gráfica. Es la razón por la que el paquete está partido en dos objetivos.
+      - name: Tests
+        run: swift test
+
+      - name: Armar el paquete de aplicación
+        run: make app
+
+      # Que compile no prueba que el bundle esté bien armado. Esto sí: sin `LSUIElement` la
+      # aplicación aparecería en el Dock, y sin firma no arranca en un Mac con Gatekeeper.
+      - name: Verificar el paquete
+        run: |
+          set -euo pipefail
+          plutil -lint build/Centinela.app/Contents/Info.plist
+          test "$(plutil -extract LSUIElement raw build/Centinela.app/Contents/Info.plist)" = "true"
+          test -x build/Centinela.app/Contents/MacOS/Centinela
+          codesign --verify --verbose=2 build/Centinela.app
+
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: Centinela-app
+          path: build/Centinela.app
+          retention-days: 7
+
+  sin-xcode:
+    # El README promete que esto se construye con `swiftly` y sin Xcode. Una promesa así se
+    # pudre en silencio: alguien agrega `import XCTest` o un tipo que sólo trae el SDK de
+    # Xcode, y nadie se entera hasta que otra persona clona el repositorio en una máquina
+    # limpia. Este job la mantiene honesta.
+    name: construir sólo con swiftly
+    runs-on: macos-26
+    timeout-minutes: 25
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Instalar swiftly y una toolchain
+        run: |
+          set -euo pipefail
+          brew install swiftly
+          swiftly init --assume-yes --skip-install --no-modify-profile
+          swiftly install 6.3.3 --use --assume-yes
+
+      # La imagen del runner TRAE Xcode. Sin comprobar cuál compilador quedó activo, este job
+      # pasaría verde usando justo lo que dice no necesitar, y la promesa del README quedaría
+      # sin custodia. Por eso se verifica el nombre de la toolchain antes de compilar: la de
+      # swiftly se identifica como `swift-X.Y.Z-RELEASE`, la de Xcode como `swiftlang-…`.
+      - name: Construir y testear sin Xcode
+        run: |
+          set -euo pipefail
+          export PATH="$HOME/.swiftly/bin:$PATH"
+          swift --version
+          swift --version | grep -q 'swift-6\.3\.3-RELEASE' \
+            || { echo "::error::el compilador activo NO es el de swiftly"; exit 1; }
+          swift build -c release
+          swift test
+
+  lint:
+    name: swiftlint
+    runs-on: macos-26
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - run: brew install swiftlint
+      - run: swiftlint --strict
+
+  higiene:
+    name: higiene del repositorio
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      # Este repositorio es público y el proyecto entero trata de un token. Un token de
+      # organización de Sentry empieza con `sntrys_`; uno de usuario, con `sntryu_`.
+      - name: Ningún token de Sentry en el árbol
+        run: |
+          set -euo pipefail
+          if grep -rInE 'sntry[su]_[A-Za-z0-9_=-]{10,}' --exclude-dir=.git .; then
+            echo "::error::hay algo con forma de token de Sentry en el repositorio"
+            exit 1
+          fi
+
+      # Las fixtures se publican. Las respuestas reales traen títulos de error con URLs
+      # internas y datos del negocio; las de acá son inventadas y tienen que seguir siéndolo.
+      #
+      # El patrón busca la organización real, NO la cadena `sentry.io`: las fixtures usan
+      # `ejemplo.sentry.io` a propósito, para que el permalink tenga la forma verdadera. Un
+      # guardia contra `sentry.io` a secas se dispararía con las fixtures correctas, que es la
+      # forma más rápida de que alguien lo desactive.
+      - name: Las fixtures no traen datos reales
+        run: |
+          set -euo pipefail
+          if grep -rInE 'bioalergia|doctoralia|[0-9]{7,8}-[0-9kK]' Tests/CentinelaCoreTests/Fixtures/; then
+            echo "::error::una fixture trae un nombre real o algo con forma de RUT"
+            exit 1
+          fi

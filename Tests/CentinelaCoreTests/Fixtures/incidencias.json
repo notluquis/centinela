@@ -1,0 +1,29 @@
+[
+  {
+    "id": "1000000001",
+    "shortId": "EJEMPLO-API-1A",
+    "title": "TypeError: no se pudo leer la propiedad de un valor indefinido",
+    "culprit": "src/rutas/ejemplo.ts",
+    "level": "error",
+    "substatus": "escalating",
+    "permalink": "https://ejemplo.sentry.io/issues/1000000001/",
+    "lastSeen": "2026-08-22T18:09:56Z",
+    "userCount": 3,
+    "isUnhandled": false,
+    "count": "13",
+    "project": { "id": "4500000000000001", "slug": "ejemplo-api", "name": "ejemplo-api", "platform": "node" }
+  },
+  {
+    "id": "1000000002",
+    "shortId": "EJEMPLO-WEB-2B",
+    "title": "Error de red al enviar el formulario",
+    "culprit": null,
+    "level": "warning",
+    "substatus": null,
+    "permalink": "https://ejemplo.sentry.io/issues/1000000002/",
+    "lastSeen": "2026-08-22T17:00:00.123456Z",
+    "userCount": 0,
+    "count": "1",
+    "project": { "id": "4500000000000002", "slug": "ejemplo-web", "name": "ejemplo-web", "platform": "javascript" }
+  }
+]
