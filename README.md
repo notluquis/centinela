@@ -119,11 +119,13 @@ El paquete está partido en dos objetivos por una razón concreta: `CentinelaCor
 | | Centinela | SwiftBar + un script |
 |---|---|---|
 | En disco | **0,67 MB** | 7,1 MB |
-| Residente | 8,8 MB | 7,8 MB |
+| Residente | 25 MB | **6–8 MB** |
 | Por ciclo | nada: `async` dentro del proceso | **+19 MB y 1,5 s**, un intérprete que arranca de cero |
 | Depende de | nada | de que SwiftBar siga instalado y siga funcionando |
 
-Los dos números de memoria residente son parecidos y no se van a vender como si no lo fueran. La diferencia real está en la última fila: cada cinco minutos, para siempre.
+**Centinela gasta más memoria residente, no menos.** El tiempo de ejecución de SwiftUI cuesta cerca de 20 MB y no hay forma de no pagarlos: SwiftBar es AppKit y por eso arranca en 6. Si el criterio es la RAM, SwiftBar gana y conviene saberlo antes de instalar nada.
+
+Lo que sí gana Centinela: 10 veces menos en disco, ningún proceso que nazca y muera cada cinco minutos para siempre, y no depender de que una segunda aplicación siga instalada y siga funcionando — que en macOS 27, con la barra de menús rehecha, dejó de ser una suposición gratis.
 
 - `MenuBarExtra` con `.menuBarExtraStyle(.window)` — un `NSMenu` no puede dibujar una chispa ni filas de dos líneas.
 - `@Observable` (Observation), no `ObservableObject`.
