@@ -2,8 +2,20 @@
 #
 # No hay `.xcodeproj` a propósito. Un `project.pbxproj` es un archivo generado de decenas de
 # miles de líneas que ninguna persona revisa en un diff y que entra en conflicto con sólo
-# abrirlo. Para una aplicación de un binario y sin extensiones, `swift build` más doce líneas
+# abrirlo. Para una aplicación de un binario y sin extensiones, `swift build` más unas líneas
 # de `Makefile` hacen lo mismo y se leen enteras.
+
+# El compilador se resuelve al BINARIO REAL de la toolchain, no al `swift` del PATH.
+#
+# Con swiftly instalado, `~/.swiftly/bin/swift` es un proxy que decide la toolchain en tiempo
+# de ejecución. Bajo `make` esa decisión sale distinta que bajo una shell interactiva: SwiftPM
+# termina compilando el manifiesto con `/Library/Developer/CommandLineTools/usr/bin/swiftc`,
+# cuyo `PackageDescription` no conoce `swiftLanguageMode`, y `Package.swift` falla a parsear
+# con un error que no menciona nada de esto. Preguntarle a swiftly dónde vive la toolchain y
+# usar esa ruta saca al proxy del medio.
+SWIFTLY   := $(shell command -v swiftly 2>/dev/null)
+TOOLCHAIN := $(if $(SWIFTLY),$(shell $(SWIFTLY) use --print-location 2>/dev/null))
+SWIFT     ?= $(if $(TOOLCHAIN),$(TOOLCHAIN)/usr/bin/swift,swift)
 
 APP           := Centinela
 BUNDLE_ID     := cl.bioalergia.centinela
@@ -12,17 +24,21 @@ BUILD         ?= $(shell git rev-list --count HEAD 2>/dev/null || echo 1)
 CONFIG        ?= release
 BUILD_DIR     := .build/$(CONFIG)
 APP_DIR       := build/$(APP).app
-# Sin identidad de firma se firma ad-hoc. Es suficiente para correrlo en la máquina donde se
+# Sin identidad de firma se firma ad-hoc. Alcanza para correrlo en la máquina donde se
 # construyó; para repartirlo hace falta un Developer ID (ver README, "Distribución").
 IDENTITY      ?= -
 
-.PHONY: build app run test lint clean instalar
+.PHONY: build app run test lint clean instalar toolchain
+
+toolchain:
+	@echo "swift: $(SWIFT)"
+	@$(SWIFT) --version | head -1
 
 build:
-	swift build -c $(CONFIG)
+	$(SWIFT) build -c $(CONFIG)
 
 test:
-	swift test
+	$(SWIFT) test
 
 lint:
 	@command -v swiftlint >/dev/null 2>&1 && swiftlint --strict || echo "swiftlint no está instalado; se omite"
