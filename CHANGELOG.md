@@ -17,14 +17,21 @@ to publish when it is missing, so a release never goes out with an empty body.
 
 ### Fixed
 
-- **The issue list was invisible in the panel.** A previous attempt measured the content with a
-  `PreferenceKey` and fed it back into `.frame(height:)`, on the theory that the `ScrollView` was
-  collapsing. Measured with `NSHostingView` against the real layout, that was backwards: the
-  original arrangement lays out to its full height and the measured version sits at 91 pt,
-  because the loop "the frame height depends on the preference, which depends on the frame
-  height" never converges. Reverted, with the measurement written down so nobody tries it again.
+- **The issue list was invisible in the panel.** Two guesses were wrong before the app was
+  instrumented and asked. It reported a scroll viewport of **0.5 pt** while the content wanted
+  54: the panel is a `VStack` and the scroll area is its only flexible child, so everything the
+  window shaved off came out of the list. It has a minimum height now. Along the way, an earlier
+  attempt that measured the content with a `PreferenceKey` and fed it back into
+  `.frame(height:)` turned out to make it worse (91 pt against 250 pt, measured with
+  `NSHostingView`), and that is written down in the code so nobody tries it again.
+- **The panel said "Not configured yet" while the menu bar counted errors above it.** Both read
+  the same two values. The token had been cached behind `@ObservationIgnored`, so `isConfigured`
+  depended on something SwiftUI cannot observe: the panel was built while the Keychain was empty
+  and nothing ever told it to look again. The token is an observed stored property now, loaded
+  once, with a regression test that fails against the old design.
 - The footer said "Updated in 0 seconds": `lastUpdated` is essentially `now` when the panel
   draws, and the relative formatter read it as the future.
+- "1 events" and "1 people": counts are inflected now.
 
 ### Added
 
