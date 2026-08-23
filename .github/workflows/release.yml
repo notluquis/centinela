@@ -167,7 +167,13 @@ jobs:
             echo "::error::SPARKLE_PRIVATE_KEY is not set: the update would be unverifiable"
             exit 1
           fi
-          VERSION_TAG=$(curl -sL https://api.github.com/repos/sparkle-project/Sparkle/releases/latest | python3 -c 'import json,sys;print(json.load(sys.stdin)["tag_name"])')
+          # The version comes from `Package.resolved`, not from asking GitHub for its latest
+          # release. Two reasons, and the second is what broke v0.6.0: signing with a different
+          # version of the tools than the app is built against is not reproducible, and the
+          # unauthenticated API call hits the shared runner rate limit, which arrives as a JSON
+          # error object and a `KeyError: 'tag_name'` rather than as anything readable.
+          VERSION_TAG=$(python3 -c 'import json;pins=json.load(open("Package.resolved"))["pins"];print(next(p["state"]["version"] for p in pins if p["identity"]=="sparkle"))')
+          [ -n "$VERSION_TAG" ] || { echo "::error::no Sparkle version in Package.resolved"; exit 1; }
           curl -sL "https://github.com/sparkle-project/Sparkle/releases/download/${VERSION_TAG}/Sparkle-${VERSION_TAG}.tar.xz" -o sparkle.tar.xz
           mkdir -p sparkle && tar -xJf sparkle.tar.xz -C sparkle
           SIGN=$(find sparkle -name sign_update -type f -not -path '*old_dsa*' | head -1)

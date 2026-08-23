@@ -44,8 +44,10 @@ struct MenuBarLabel: View {
     }
 
     private var tint: AnyShapeStyle {
-        if !watching { return AnyShapeStyle(.secondary) }
-        return state.hasOutage ? AnyShapeStyle(.red) : AnyShapeStyle(.primary)
+        // Signed out was drawn in `.secondary` and it washed out: the menu bar background is the
+        // wallpaper, so a dimmed glyph loses its contrast against a light desktop and reads as a
+        // rendering fault rather than a state. The crossed-out eye already carries the meaning.
+        state.hasOutage ? AnyShapeStyle(.red) : AnyShapeStyle(.primary)
     }
 
     private var accessibleDescription: String {
