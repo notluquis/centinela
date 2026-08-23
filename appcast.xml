@@ -6,6 +6,39 @@
     <description>Your Sentry issues in the macOS menu bar.</description>
     <language>en</language>
     <item>
+      <title>Version 0.5.0</title>
+      <sparkle:version>32</sparkle:version>
+      <sparkle:shortVersionString>0.5.0</sparkle:shortVersionString>
+      <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+      <description sparkle:format="markdown">### Fixed
+
+- **macOS stopped asking for the Keychain password on every update.** The cause was not a bug to
+  work around: with an ad-hoc signature the app's designated requirement is literally its code
+  hash, so every build was, to the Keychain, a different application asking for someone else's
+  item. Builds are signed with a self-signed certificate now, which makes the requirement
+  identity-based and stable. Measured on the same read: 7709 ms and a dialog before, 18 ms and
+  none after. The release workflow fails if a build ever comes out hash-signed, because a release
+  signed ad-hoc would put the dialog back for everyone who updates.
+
+  Three documented alternatives were tried first and none works without a stable identity: the
+  data protection keychain returns `errSecMissingEntitlement`, `SecAccessCreate(nil)` trusts only
+  the app that is about to stop existing, and `security -A` did not remove the delay. The
+  certificate is **not** a Developer ID: Gatekeeper still asks for right-click-to-open,
+  notarization is still impossible, and `disable-library-validation` is still required, because
+  library validation wants a real team identifier and a self-signed certificate has none. All of
+  it is in `SECURITY.md` with the numbers.
+
+### Changed
+
+- The update dialog shows the changelog itself instead of GitHub's release page. It was pointing
+  at the page, so Sparkle rendered its chrome too: "Compare", "github-actions released this" and a
+  commit list around the actual notes. Sparkle accepts `sparkle:format="markdown"` on
+  `&lt;description&gt;`, so the section goes in verbatim with no conversion step to get wrong.</description>
+      <sparkle:fullReleaseNotesLink>https://github.com/notluquis/centinela/releases/tag/v0.5.0</sparkle:fullReleaseNotesLink>
+      <pubDate>Sun, 23 Aug 2026 20:05:01 +0000</pubDate>
+      <enclosure url="https://github.com/notluquis/centinela/releases/download/v0.5.0/Centinela.zip" sparkle:edSignature="Azs6OlSWM6pMxmIG3G5/q9tVIe1+bCY/4lbk1Z7yov0Z2KYkrBCXvmJj3FoAJit7FfGPqI7VNpQjjzqmZ0ubAw==" length="2577440" type="application/octet-stream" />
+    </item>
+    <item>
       <title>Version 0.4.0</title>
       <sparkle:version>26</sparkle:version>
       <sparkle:shortVersionString>0.4.0</sparkle:shortVersionString>
