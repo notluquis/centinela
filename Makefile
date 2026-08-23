@@ -21,9 +21,14 @@ SWIFT     ?= $(if $(TOOLCHAIN),$(TOOLCHAIN)/usr/bin/swift,swift)
 # swiftly toolchain it has to be pointed at it by hand or it dies with a dlopen `Fatal error`.
 SOURCEKIT := $(if $(TOOLCHAIN),$(TOOLCHAIN)/usr/lib)
 
-# Where SwiftPM unpacked Sparkle's XCFramework. Resolved rather than hardcoded so it survives
-# a version bump.
-SPARKLE       := $(shell find .build/artifacts -maxdepth 5 -name Sparkle.framework -type d 2>/dev/null | head -1)
+# Where SwiftPM unpacked Sparkle's XCFramework. Resolved rather than hardcoded so it survives a
+# version bump.
+#
+# `=` and NOT `:=`: an immediate assignment is evaluated when the Makefile is PARSED, which is
+# before `swift build` has downloaded the artifact. On a machine that already had it the variable
+# was fine and on a clean CI runner it came out empty, so the recipe ran `cp -R "" …`. Lazy
+# assignment evaluates it when the recipe actually uses it, by which time `build` has run.
+SPARKLE        = $(shell find .build/artifacts -maxdepth 5 -name Sparkle.framework -type d 2>/dev/null | head -1)
 
 APP           := Centinela
 BUNDLE_ID     := cl.bioalergia.centinela
@@ -72,6 +77,7 @@ app: build
 	# Sparkle travels inside the bundle. It arrives ad-hoc signed from its own project, which is
 	# consistent with how this app is signed.
 	mkdir -p $(APP_DIR)/Contents/Frameworks
+	@test -n "$(SPARKLE)" || { echo "Sparkle.framework not found under .build/artifacts. Run 'swift package resolve'."; exit 1; }
 	cp -R "$(SPARKLE)" $(APP_DIR)/Contents/Frameworks/
 	# `swift build` writes an rpath pointing at the build directory, which does not exist on
 	# anyone else's machine. Without this the app launches to a dyld error about Sparkle.
