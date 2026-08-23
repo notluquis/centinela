@@ -28,7 +28,13 @@ struct MainPanel: View {
         .frame(width: 380)
         // The panel is the only thing that asks for the expensive route: 1047 ms and 10.6 KB
         // per opening.
-        .task { await state.refreshExpensive() }
+        //
+        // Keyed on `isConfigured` rather than a bare `.task`, which runs once per appearance and
+        // never again. Signing in with the panel already open ran it while there was no client,
+        // it returned at the guard, and the issue list stayed empty over a menu bar counting 539
+        // errors until somebody closed and reopened the panel. The key makes it run again the
+        // moment there is something to ask.
+        .task(id: state.settings.isConfigured) { await state.refreshExpensive() }
     }
 }
 

@@ -6,6 +6,10 @@ The release workflow reads the section for the tag being published out of this f
 
 ## [Unreleased]
 
+### Fixed
+
+- **Signing in with the panel already open left the issue list empty over a menu bar counting 539 errors.** The cheap cycle was fixed in 0.6.0 to run the moment a session appears, but the expensive route hangs off the panel's `.task`, which runs once per appearance and never again: it had already run and returned at `guard let client` while there was still no token. It is keyed on the session being usable now, so it runs again the moment there is something to ask. Same shape as the bug above it, one level down, which is the argument for keying rather than adding another call site.
+
 ## [0.6.0] — 2026-08-23
 
 ### Fixed
