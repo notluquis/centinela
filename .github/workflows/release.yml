@@ -50,8 +50,21 @@ jobs:
           # Without this, codesign blocks on a dialog nobody can answer on a runner.
           security set-key-partition-list -S apple-tool:,apple: -s -k "$KEYCHAIN_PASSWORD" build.keychain >/dev/null
           security list-keychains -d user -s build.keychain $(security list-keychains -d user | tr -d '"')
-          rm -f certificate.p12
-          security find-identity -v -p codesigning build.keychain
+
+          # The certificate has to be TRUSTED, not merely present. `security find-identity -v`
+          # lists valid identities only, and a self-signed certificate is not valid until the
+          # system trusts it for code signing, so without this the Makefile finds nothing and
+          # silently falls back to ad-hoc. The next step catches that, but this is the fix.
+          # Trust is scoped to code signing with `-p codeSign`, not granted for everything.
+          openssl pkcs12 -in <(echo "$CERTIFICATE_P12" | base64 --decode) \
+            -passin "pass:$CERTIFICATE_PASSWORD" -clcerts -nokeys -out certificate.pem -legacy
+          sudo security add-trusted-cert -d -r trustRoot -p codeSign \
+            -k /Library/Keychains/System.keychain certificate.pem
+          rm -f certificate.p12 certificate.pem
+
+          security find-identity -v -p codesigning | tee identities.txt
+          grep -q "Centinela Signing" identities.txt \
+            || { echo "::error::the certificate imported but is not a valid signing identity"; exit 1; }
 
       - name: Build and bundle
         run: make app
