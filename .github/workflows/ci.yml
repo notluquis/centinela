@@ -3,7 +3,16 @@ name: ci
 on:
   push:
     branches: [main]
+    # The release workflow commits `appcast.xml` back to main. Without this, publishing a version
+    # triggers a second full run of everything, macOS runners included, over a file no test reads.
+    paths-ignore:
+      - appcast.xml
+      - CHANGELOG.md
   pull_request:
+  schedule:
+    # Mondays 07:00 UTC, for the without-Xcode guard below.
+    - cron: "0 7 * * 1"
+  workflow_dispatch:
 
 # No permissions by default. Each job asks for exactly what it uses.
 permissions: {}
@@ -44,6 +53,14 @@ jobs:
       - name: Test
         run: make test
 
+      # swiftlint runs here rather than in a job of its own. It needs macOS, and macOS runners
+      # are the scarce resource: with one job per check, two of the four sat queued for over ten
+      # minutes while the Linux job finished in five seconds. The tree is already checked out.
+      - name: Lint
+        run: |
+          brew install swiftlint
+          swiftlint lint --quiet --strict
+
       - name: Assemble the app bundle
         run: make app
 
@@ -68,6 +85,12 @@ jobs:
     # quietly: someone adds `import XCTest` or a type that only ships with Xcode's SDK, and
     # nobody finds out until another person clones the repository on a clean machine. This job
     # keeps it honest.
+    #
+    # Weekly rather than on every push. What it guards against arrives with a dependency or an
+    # import, not with a commit, and it costs a macOS runner: while it queued for ten minutes,
+    # the checks that do gate a change were waiting behind it. `workflow_dispatch` is there for
+    # the day someone touches the toolchain on purpose.
+    if: github.event_name != 'push' && github.event_name != 'pull_request'
     name: build with swiftly only
     runs-on: macos-26
     timeout-minutes: 25
@@ -101,16 +124,6 @@ jobs:
           make build
           make test
 
-  lint:
-    name: swiftlint
-    runs-on: macos-26
-    timeout-minutes: 10
-    permissions:
-      contents: read
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - run: brew install swiftlint
-      - run: swiftlint lint --quiet --strict
 
   hygiene:
     name: repository hygiene
