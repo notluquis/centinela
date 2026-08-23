@@ -39,6 +39,17 @@ displaying keychain prompt for /Applications/Centinela.app
 
 A keychain item carries a **partition list** alongside its access control list, and for an application with no team identifier the only partition ID available is its code hash. The certificate makes the designated requirement stable; nothing makes the partition stable without a team identifier, so every build is a different partition and the prompt comes back. Answering "Always Allow" adds that build's hash to the list, which is why it asks once per update rather than once ever.
 
+**What was tried instead, and measured.** None of it works, and one is worse than doing nothing:
+
+| Attempt | Result |
+|---|---|
+| Same install path across builds | Still prompts. The path is not what is checked |
+| Item written with an empty trusted-application list (`SecAccessCreate(name, [], …)`) | Prompts **even for the binary that wrote it**: 5646 ms against 10 ms for an ordinary item. An empty list means "ask", not "allow anyone" |
+| Data protection keychain | `errSecMissingEntitlement`. `keychain-access-groups` needs a team identifier |
+| Reading with an unrelated process (`/usr/bin/security`) | Prompts too, so the item is genuinely bound to a signature and not readable by anything running as the user |
+
+Every combination reachable without a team identifier prompts once the code hash changes.
+
 **What would actually end it.** The partition IDs are `teamid:<id>`, `cdhash:<hash>` and `apple:`; the first admits any build carrying that team identifier, the second exactly one build, the third only software signed by Apple. So the only stable partition for an application that is not Apple's is `teamid:`, which needs Apple Developer Program membership — the same thing already missing for Gatekeeper and notarization further down. Changing a partition list requires the keychain password, so the app cannot repair its own, and neither can the updater.
 
 **How the wrong row got measured**, because the shape of the mistake is worth more than the correction: the two binaries under test lived at different paths. The ACL subject stores the path next to the requirement, so the probe was never a model of an update, where the path never changes. Re-run today, the same two binaries prompt. The generalisable rule is to print the value that is supposed to differ, assert it differs, and check that everything else does not.
