@@ -22,10 +22,17 @@ inside somebody else's app.
 | Where | What | When it is fetched |
 |---|---|---|
 | Menu bar | Errors in the chosen window, with a sparkline | Every cycle (5 min by default) |
-| Menu bar | Red icon when an uptime monitor is down | Every cycle |
-| Panel | Unresolved issues, with project, events and affected people | When the panel opens |
-| Panel | New issues for review (`is:for_review`) | When the panel opens |
-| Panel | Latest releases and how many new issues each brought | When the panel opens |
+| Menu bar | Red icon when an uptime monitor or a cron is down | Every cycle |
+| Panel, Issues | Unresolved, for review, **escalating**, **regressed** | When the panel opens |
+| Panel, Health | Uptime, cron monitors, crash-free sessions, errors by project | Uptime and crons every cycle; the rest on open |
+| Panel, Releases | Latest releases and how many new issues each brought | When the panel opens |
+
+Escalating and regressed are Sentry's own triage rather than ours: the first means it decided an
+issue is getting worse, the second that it came back after being marked resolved. Both arrive with
+`substatus` set, which is how the rows tell them apart.
+
+Everything can be narrowed **by project** and, when there is more than one, **by environment**.
+Both travel through a single place in the client so no query can quietly ignore them.
 
 That split is where being light comes from, and it is measured against a real organization:
 
@@ -369,6 +376,15 @@ Check what you downloaded:
 codesign -dv --verbose=4 Centinela.app
 spctl -a -t exec -vvv Centinela.app
 ```
+
+## What is not verified
+
+Two things are in the code without live data behind them, and they say so rather than pretending:
+
+| | Why |
+|---|---|
+| **Cron monitors** | The organization this was built against has none. The decoder comes from Sentry's published OpenAPI schema (`getsentry/sentry-api-schema`) and the fixture is derived from it, the same way the device flow was handled before there was a client id to try |
+| **Incidents and alert rules** | Deliberately absent. No data to look at, and Sentry does not publish their schema either, so a decoder would be a guess. They get added when there is something to check them against |
 
 ## What it does NOT do, on purpose
 

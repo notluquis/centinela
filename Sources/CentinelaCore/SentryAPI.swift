@@ -55,16 +55,26 @@ public struct DeprecationNotice: Sendable, Equatable {
 
 public struct SentryClient: Sendable {
     private let credentials: Credentials
+    /// `nil` means every project, which is what `project=-1` says to Sentry.
+    private let projectID: String?
+    /// `nil` means every environment. Today the organization this was built for has only
+    /// `production`, so nothing is being mixed. The day a `staging` appears, an unfiltered count
+    /// silently folds it in, which is the kind of wrong number nobody notices.
+    private let environment: String?
     private let session: URLSession
     /// Called when a response carries Sentry's deprecation headers.
     private let onDeprecation: (@Sendable (DeprecationNotice) -> Void)?
 
     public init(
         credentials: Credentials,
+        projectID: String? = nil,
+        environment: String? = nil,
         session: URLSession? = nil,
         onDeprecation: (@Sendable (DeprecationNotice) -> Void)? = nil
     ) {
         self.credentials = credentials
+        self.projectID = projectID
+        self.environment = environment
         self.onDeprecation = onDeprecation
         if let session {
             self.session = session
@@ -190,6 +200,14 @@ public struct SentryClient: Sendable {
         )
     }
 
+    /// Project and environment, in one place. Every query goes through here so none of them can
+    /// quietly ignore the filter the user chose.
+    private var scope: [URLQueryItem] {
+        var items = [URLQueryItem(name: "project", value: projectID ?? "-1")]
+        if let environment { items.append(.init(name: "environment", value: environment)) }
+        return items
+    }
+
     // MARK: - The cheap calls: this is what every cycle asks for
 
     /// 378 ms and 937 B measured against a real organization: three times faster and eleven
@@ -200,9 +218,8 @@ public struct SentryClient: Sendable {
             .init(name: "statsPeriod", value: window.rawValue),
             .init(name: "interval", value: interval),
             .init(name: "yAxis", value: "count()"),
-            .init(name: "query", value: "event.type:error"),
-            .init(name: "project", value: "-1")
-        ])
+            .init(name: "query", value: "event.type:error")
+        ] + scope)
         return try EventSeries(json: data)
     }
 
@@ -216,21 +233,31 @@ public struct SentryClient: Sendable {
     /// 1047 ms and 10.6 KB measured: the most expensive route in the API. That is why it is not
     /// in the periodic cycle: it is fetched when someone opens the panel and wants to read.
     public func unresolvedIssues(window: TimeWindow, limit: Int = 15) async throws -> [SentryIssue] {
-        try await get([SentryIssue].self, "issues", [
-            .init(name: "query", value: "is:unresolved"),
-            .init(name: "statsPeriod", value: window.rawValue),
-            .init(name: "limit", value: String(limit)),
-            .init(name: "project", value: "-1")
-        ])
+        try await issues(matching: "is:unresolved", window: window, limit: limit)
     }
 
     public func issuesForReview(window: TimeWindow = .fourteenDays, limit: Int = 10) async throws -> [SentryIssue] {
+        try await issues(matching: "is:unresolved is:for_review", window: window, limit: limit)
+    }
+
+    /// Issues Sentry itself flagged as getting worse. They come back with `substatus: escalating`.
+    public func escalatingIssues(window: TimeWindow = .fourteenDays, limit: Int = 10) async throws -> [SentryIssue] {
+        try await issues(matching: "is:unresolved is:escalating", window: window, limit: limit)
+    }
+
+    /// Issues that came back after being marked resolved (`substatus: regressed`).
+    public func regressedIssues(window: TimeWindow = .fourteenDays, limit: Int = 10) async throws -> [SentryIssue] {
+        try await issues(matching: "is:unresolved is:regressed", window: window, limit: limit)
+    }
+
+    /// The four issue lists differ only in the search query, so they share one call. Adding a
+    /// fifth is a line, and none of them can forget the project or environment filter.
+    private func issues(matching query: String, window: TimeWindow, limit: Int) async throws -> [SentryIssue] {
         try await get([SentryIssue].self, "issues", [
-            .init(name: "query", value: "is:unresolved is:for_review"),
+            .init(name: "query", value: query),
             .init(name: "statsPeriod", value: window.rawValue),
-            .init(name: "limit", value: String(limit)),
-            .init(name: "project", value: "-1")
-        ])
+            .init(name: "limit", value: String(limit))
+        ] + scope)
     }
 
     public func latestReleases(limit: Int = 5) async throws -> [Release] {
@@ -239,6 +266,50 @@ public struct SentryClient: Sendable {
 
     public func projects() async throws -> [Project] {
         try await get([Project].self, "projects", [])
+    }
+
+    /// Crash-free session rate for the window, as a fraction (1.0 means no crashes).
+    ///
+    /// `nil` rather than 0 when the organization sends no session data at all: an app with no
+    /// release health configured is not an app that crashes constantly, and showing 0% would say
+    /// exactly that.
+    public func crashFreeRate(window: TimeWindow) async throws -> Double? {
+        let data = try await get("sessions", [
+            .init(name: "field", value: "crash_free_rate(session)"),
+            .init(name: "statsPeriod", value: window.rawValue)
+        ] + scope)
+        guard
+            let root = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+            let groups = root["groups"] as? [[String: Any]],
+            let totals = groups.first?["totals"] as? [String: Any],
+            let rate = totals["crash_free_rate(session)"] as? NSNumber
+        else { return nil }
+        return rate.doubleValue
+    }
+
+    /// Cron monitors. See `CronMonitor`: the shape comes from Sentry's published schema, not from
+    /// a response, because there are none to look at yet.
+    public func cronMonitors() async throws -> [CronMonitor] {
+        try await get([CronMonitor].self, "monitors", [])
+    }
+
+    /// Errors per project for the window, joined against the project list so the result carries
+    /// slugs rather than opaque numbers.
+    public func errorsByProject(window: TimeWindow) async throws -> [ProjectErrorCount] {
+        async let statsData = get("stats_v2", [
+            .init(name: "field", value: "sum(quantity)"),
+            .init(name: "groupBy", value: "project"),
+            .init(name: "statsPeriod", value: window.rawValue),
+            .init(name: "category", value: "error")
+        ])
+        async let projectList = projects()
+        return try await ProjectErrorCount.from(statsJSON: statsData, projects: projectList)
+    }
+
+    /// The environments that have data. Used to offer a filter only when there is more than one.
+    public func environments() async throws -> [String] {
+        struct Environment: Decodable { let name: String }
+        return try await get([Environment].self, "environments", []).map(\.name)
     }
 
     /// The organizations this token can reach. Does NOT hang off an organization, hence

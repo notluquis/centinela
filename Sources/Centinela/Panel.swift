@@ -48,19 +48,9 @@ struct PanelHeader: View {
             SparklinePath(values: state.series.points.map(\.count))
                 .frame(height: 34)
                 .foregroundStyle(.tint)
-            ForEach(state.monitors.filter(\.isActive)) { monitor in
-                HStack(spacing: 6) {
-                    Circle()
-                        .fill(monitor.isHealthy ? .green : .red)
-                        .frame(width: 7, height: 7)
-                    Text(monitor.url.host() ?? monitor.name)
-                        .font(.callout)
-                    Spacer()
-                    Text(monitor.isHealthy ? "up" : "down")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-            }
+            // Uptime used to be repeated here. It lives in the Health section now, and the menu
+            // bar icon already turns red when something is down, so the header stays the count
+            // and the shape of the last few hours.
         }
         .padding(12)
     }
@@ -72,9 +62,17 @@ struct PanelHeader: View {
 /// this style when there are two to five options", and there are exactly three. Stats does the
 /// same with an `NSSegmentedControl` in its window. Scrolling past one category to reach the
 /// next is the thing this replaces.
+/// The panel's top-level lists.
+///
+/// A segmented picker and not one long scroll: Apple's guidance for `.segmented` is "use this
+/// style when there are two to five options", and grouping by what someone is looking for keeps it
+/// inside that. Stats organizes its window the same way with an `NSSegmentedControl`.
+///
+/// The four issue states live one level down rather than as four more segments, which would blow
+/// past the five and put "Regressed" next to "Releases" as if they were the same kind of thing.
 enum PanelSection: String, CaseIterable, Identifiable {
-    case unresolved
-    case forReview
+    case issues
+    case health
     case releases
 
     var id: Self { self }
@@ -83,20 +81,40 @@ enum PanelSection: String, CaseIterable, Identifiable {
     /// documentation asks for.
     var label: String {
         switch self {
+        case .issues: "Issues"
+        case .health: "Health"
+        case .releases: "Releases"
+        }
+    }
+}
+
+/// Which issues to show. All four are the same route with a different search query.
+enum IssueFilter: String, CaseIterable, Identifiable {
+    case unresolved
+    case forReview
+    case escalating
+    case regressed
+
+    var id: Self { self }
+
+    var label: String {
+        switch self {
         case .unresolved: "Unresolved"
         case .forReview: "For review"
-        case .releases: "Releases"
+        case .escalating: "Escalating"
+        case .regressed: "Regressed"
         }
     }
 }
 
 struct PanelContent: View {
     let state: AppState
-    @State private var section: PanelSection = .unresolved
+    @State private var section: PanelSection = .issues
+    @State private var filter: IssueFilter = .unresolved
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            // The notices sit ABOVE the picker and outside the scroll area: an over-privileged
+            // The notices sit ABOVE the pickers and outside the scroll area: an over-privileged
             // token or a route Sentry is retiring is not a category you browse to, it is
             // something you have to see.
             notices
@@ -110,19 +128,34 @@ struct PanelContent: View {
             .pickerStyle(.segmented)
             .labelsHidden()
             .padding(.horizontal, 12)
-            .padding(.vertical, 8)
+            .padding(.top, 8)
+
+            if section == .issues {
+                Picker("Issues", selection: $filter) {
+                    ForEach(IssueFilter.allCases) { option in
+                        Text(issues(option).isEmpty ? option.label : "\(option.label) \(issues(option).count)")
+                            .tag(option)
+                    }
+                }
+                .pickerStyle(.segmented)
+                .labelsHidden()
+                .controlSize(.small)
+                .padding(.horizontal, 12)
+                .padding(.top, 6)
+            }
 
             ScrollView {
                 VStack(alignment: .leading, spacing: 0) {
                     switch section {
-                    case .unresolved:
-                        IssueSection(issues: state.issues)
-                    case .forReview:
-                        IssueSection(issues: state.forReview)
+                    case .issues:
+                        IssueSection(issues: issues(filter))
+                    case .health:
+                        HealthSection(state: state)
                     case .releases:
                         ReleaseSection(releases: state.releases)
                     }
                 }
+                .padding(.top, 8)
                 .padding(.bottom, 8)
             }
             // `minHeight` is the load-bearing half, and it is what decides the panel's size.
@@ -146,10 +179,19 @@ struct PanelContent: View {
         }
     }
 
+    private func issues(_ option: IssueFilter) -> [SentryIssue] {
+        switch option {
+        case .unresolved: state.issues
+        case .forReview: state.forReview
+        case .escalating: state.escalating
+        case .regressed: state.regressed
+        }
+    }
+
     private func count(_ option: PanelSection) -> Int {
         switch option {
-        case .unresolved: state.issues.count
-        case .forReview: state.forReview.count
+        case .issues: state.issues.count
+        case .health: state.monitors.filter(\.isActive).count + state.crons.filter(\.isActive).count
         case .releases: state.releases.count
         }
     }

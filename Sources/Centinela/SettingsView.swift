@@ -19,6 +19,7 @@ struct SettingsView: View {
                 .tabItem { Label("About", systemImage: "info.circle") }
         }
         .frame(width: 480, height: 430)
+        .task { await state.loadEnvironments() }
     }
 }
 
@@ -182,6 +183,29 @@ private struct QueryTab: View {
                     get: { settings.maxIssues },
                     set: { settings.maxIssues = $0 }
                 ), in: 5...50, step: 5)
+
+                Picker("Project", selection: Binding(
+                    get: { settings.selectedProjectID ?? "" },
+                    set: { settings.selectedProjectID = $0.isEmpty ? nil : $0 }
+                )) {
+                    Text("All projects").tag("")
+                    ForEach(state.errorsByProject) { entry in
+                        Text(entry.slug ?? entry.projectID).tag(entry.projectID)
+                    }
+                }
+
+                // Only offered when there is something to choose between. With a single
+                // environment the control would be a dropdown with one entry, and picking it
+                // would change nothing.
+                if state.environments.count > 1 {
+                    Picker("Environment", selection: Binding(
+                        get: { settings.selectedEnvironment ?? "" },
+                        set: { settings.selectedEnvironment = $0.isEmpty ? nil : $0 }
+                    )) {
+                        Text("All environments").tag("")
+                        ForEach(state.environments, id: \.self) { Text($0).tag($0) }
+                    }
+                }
             } footer: {
                 Text("Each cycle asks for two cheap routes (the error series and uptime status)."
                     + " The issue list, which is ten times heavier, is only fetched when the"

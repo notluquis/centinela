@@ -8,6 +8,48 @@ to publish when it is missing, so a release never goes out with an empty body.
 
 ## [Unreleased]
 
+## [0.4.0] — 2026-08-23
+
+Six more Sentry surfaces, all verified against the live organization except the one that has no
+data to verify against, which says so.
+
+### Added
+
+- **Escalating and regressed issues.** Sentry's own triage: escalating means it decided the issue
+  is getting worse, regressed means it came back after being resolved. Same route as the other
+  lists with a different search, so `substatus` and `priority` stopped being decoded and discarded.
+- **A Health section**: uptime, cron monitors, crash-free session rate, and errors broken down by
+  project. One question ("is anything on fire") rather than four segments.
+- **Filter by project and by environment.** Every query goes through one place that carries both,
+  so no route can quietly ignore what was picked. The environment control only appears when there
+  is more than one to choose between.
+- Issue rows show `culprit`, which says where the error happened. It was decoded from the first
+  commit and never displayed.
+
+### Changed
+
+- **The panel is three sections with a sub-filter** instead of one flat list of categories:
+  Issues (unresolved, for review, escalating, regressed), Health and Releases.
+- Uptime moved out of the header, where it was about to be duplicated, into Health. The menu bar
+  icon already turns red when something is down.
+- Cron monitors join the cheap cycle (349 ms measured): a failing cron belongs next to an outage,
+  not behind a click. Crash-free and the per-project breakdown are fetched when the panel opens.
+
+### Not verified
+
+- **Cron monitors.** The organization has none, so the decoder is built from Sentry's published
+  OpenAPI schema and the fixture is derived from it. Same treatment the device flow got before
+  there was a client id to try it with.
+- **Incidents and alert rules** are deliberately absent: there is no data and Sentry does not
+  publish their schema either, so a decoder would be a guess.
+
+### Fixed
+
+- CI was not red, it was starved: every push asked for four macOS runners and two of them sat
+  queued for over ten minutes. swiftlint moved into the build job, the without-Xcode guard became
+  weekly, and the appcast commit the release bot pushes no longer triggers anything. Two runners
+  per push instead of four.
+
 ## [0.3.0] — 2026-08-23
 
 ### Added

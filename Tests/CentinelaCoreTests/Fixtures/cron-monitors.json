@@ -1,0 +1,25 @@
+[
+  {
+    "id": "9000001",
+    "name": "Nightly digest",
+    "slug": "nightly-digest",
+    "status": "active",
+    "isMuted": false,
+    "dateCreated": "2026-08-01T03:00:00Z"
+  },
+  {
+    "id": "9000002",
+    "name": "Silenced job",
+    "slug": "silenced-job",
+    "status": "active",
+    "isMuted": true,
+    "dateCreated": "2026-08-01T03:00:00Z"
+  },
+  {
+    "id": "9000003",
+    "name": "Disabled job",
+    "slug": "disabled-job",
+    "status": "disabled",
+    "dateCreated": "2026-08-01T03:00:00Z"
+  }
+]

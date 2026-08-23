@@ -23,6 +23,14 @@ struct IssueSection: View {
                         Text(issue.title)
                             .lineLimit(2)
                             .font(.callout)
+                        // `culprit` says where it happened, which is the next thing anyone wants
+                        // after the title. It was decoded from the first commit and never shown.
+                        if let culprit = issue.culprit, !culprit.isEmpty {
+                            Text(culprit)
+                                .lineLimit(1)
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
+                        }
                         HStack(spacing: 6) {
                             Text(issue.project.slug)
                             Text("·")
@@ -81,5 +89,97 @@ struct NotConfigured: View {
             Button("Open Settings", action: open)
         }
         .padding(12)
+    }
+}
+
+/// Everything that answers "is anything on fire right now": uptime, cron monitors, crash-free
+/// sessions and where the errors are coming from.
+///
+/// They are one section rather than four segments because they are one question. Splitting them
+/// would put "Crons" next to "Releases" as if a person browsing had to choose between them.
+struct HealthSection: View {
+    let state: AppState
+
+    var body: some View {
+        if let rate = state.crashFree {
+            HStack {
+                Circle()
+                    .fill(rate >= 0.99 ? .green : rate >= 0.95 ? .orange : .red)
+                    .frame(width: 7, height: 7)
+                Text("Crash-free sessions")
+                Spacer()
+                Text(rate, format: .percent.precision(.fractionLength(1)))
+                    .foregroundStyle(.secondary)
+            }
+            .font(.callout)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 3)
+        }
+
+        ForEach(state.monitors.filter(\.isActive)) { monitor in
+            HealthRow(
+                healthy: monitor.isHealthy,
+                name: monitor.url.host() ?? monitor.name,
+                detail: monitor.isHealthy ? "up" : "down"
+            )
+        }
+
+        ForEach(state.crons.filter(\.isActive)) { cron in
+            // Sentry's schema types the status as a free-form string, so anything that is not
+            // plainly a failure is shown as fine rather than guessed at.
+            HealthRow(
+                healthy: cron.status != "error",
+                name: cron.name,
+                detail: cron.status
+            )
+        }
+
+        if !state.errorsByProject.isEmpty {
+            Text("Errors by project")
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(.secondary)
+                .padding(.horizontal, 12)
+                .padding(.top, 10)
+            ForEach(state.errorsByProject) { entry in
+                HStack {
+                    Text(entry.slug ?? entry.projectID)
+                        .font(.callout)
+                    Spacer()
+                    Text(entry.count, format: .number)
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                }
+                .padding(.horizontal, 12)
+                .padding(.vertical, 3)
+            }
+        }
+
+        if state.crashFree == nil && state.monitors.isEmpty && state.crons.isEmpty
+            && state.errorsByProject.isEmpty {
+            Text("Nothing here.")
+                .font(.callout)
+                .foregroundStyle(.secondary)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 4)
+        }
+    }
+}
+
+private struct HealthRow: View {
+    let healthy: Bool
+    let name: String
+    let detail: String
+
+    var body: some View {
+        HStack(spacing: 6) {
+            Circle()
+                .fill(healthy ? .green : .red)
+                .frame(width: 7, height: 7)
+            Text(name).font(.callout)
+            Spacer()
+            Text(detail).font(.caption).foregroundStyle(.secondary)
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 3)
     }
 }

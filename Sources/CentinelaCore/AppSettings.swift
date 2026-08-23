@@ -55,6 +55,17 @@ public final class AppSettings {
         didSet { defaults.set(tokenLife, forKey: "vidaDelToken") }
     }
 
+    /// The project to ask about, or `nil` for every one. Stored as the numeric id Sentry uses.
+    public var selectedProjectID: String? {
+        didSet { defaults.set(selectedProjectID ?? "", forKey: "proyectoElegido") }
+    }
+
+    /// The environment to ask about, or `nil` for every one. Today the organization has only
+    /// `production`, so the control stays hidden until there is something to choose between.
+    public var selectedEnvironment: String? {
+        didSet { defaults.set(selectedEnvironment ?? "", forKey: "entornoElegido") }
+    }
+
     /// The last thing the Keychain said when it refused. `nil` when the last write went fine.
     ///
     /// It exists because an earlier version used `try?` in both directions: a failed write left
@@ -100,6 +111,10 @@ public final class AppSettings {
         tokenExpiresAt = savedExpiry > 0 ? Date(timeIntervalSince1970: savedExpiry) : nil
         let savedLife = defaults.double(forKey: "vidaDelToken")
         tokenLife = savedLife > 0 ? savedLife : 3600
+        let savedProject = defaults.string(forKey: "proyectoElegido") ?? ""
+        selectedProjectID = savedProject.isEmpty ? nil : savedProject
+        let savedEnvironment = defaults.string(forKey: "entornoElegido") ?? ""
+        selectedEnvironment = savedEnvironment.isEmpty ? nil : savedEnvironment
         token = (try? Keychain.read(account: tokenAccount)).flatMap { $0 } ?? ""
     }
 

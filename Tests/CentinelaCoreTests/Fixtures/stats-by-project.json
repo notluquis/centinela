@@ -1,0 +1,8 @@
+{
+  "start": "2026-08-22T00:00:00Z",
+  "end": "2026-08-23T00:00:00Z",
+  "groups": [
+    { "by": { "project": 4511816140324864 }, "totals": { "sum(quantity)": 1 } },
+    { "by": { "project": 4511380596523008 }, "totals": { "sum(quantity)": 13 } }
+  ]
+}
