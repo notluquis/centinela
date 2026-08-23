@@ -21,6 +21,10 @@ SWIFT     ?= $(if $(TOOLCHAIN),$(TOOLCHAIN)/usr/bin/swift,swift)
 # swiftly toolchain it has to be pointed at it by hand or it dies with a dlopen `Fatal error`.
 SOURCEKIT := $(if $(TOOLCHAIN),$(TOOLCHAIN)/usr/lib)
 
+# Where SwiftPM unpacked Sparkle's XCFramework. Resolved rather than hardcoded so it survives
+# a version bump.
+SPARKLE       := $(shell find .build/artifacts -maxdepth 5 -name Sparkle.framework -type d 2>/dev/null | head -1)
+
 APP           := Centinela
 BUNDLE_ID     := cl.bioalergia.centinela
 VERSION       ?= $(shell git describe --tags --abbrev=0 2>/dev/null | sed 's/^v//' | grep . || echo 0.0.0)
@@ -65,6 +69,21 @@ app: build
 	fi
 	cp -R Resources/*.lproj $(APP_DIR)/Contents/Resources/
 	cp Resources/Centinela.icns $(APP_DIR)/Contents/Resources/
+	# Sparkle travels inside the bundle. It arrives ad-hoc signed from its own project, which is
+	# consistent with how this app is signed.
+	mkdir -p $(APP_DIR)/Contents/Frameworks
+	cp -R "$(SPARKLE)" $(APP_DIR)/Contents/Frameworks/
+	# `swift build` writes an rpath pointing at the build directory, which does not exist on
+	# anyone else's machine. Without this the app launches to a dyld error about Sparkle.
+	install_name_tool -add_rpath @executable_path/../Frameworks $(APP_DIR)/Contents/MacOS/$(APP) 2>/dev/null || true
+	# Signed from the inside out. `--deep` is discouraged by Apple and gets the nested XPC
+	# services wrong; each piece is signed in order instead.
+	codesign --force --options runtime --sign "$(IDENTITY)" \
+		$(APP_DIR)/Contents/Frameworks/Sparkle.framework/Versions/B/XPCServices/*.xpc
+	codesign --force --options runtime --sign "$(IDENTITY)" \
+		$(APP_DIR)/Contents/Frameworks/Sparkle.framework/Versions/B/Updater.app
+	codesign --force --options runtime --sign "$(IDENTITY)" \
+		$(APP_DIR)/Contents/Frameworks/Sparkle.framework
 	codesign --force --options runtime --entitlements Centinela.entitlements \
 		--sign "$(IDENTITY)" $(APP_DIR)
 	@echo "Done: $(APP_DIR) (version $(VERSION), build $(BUILD), signature '$(IDENTITY)')"

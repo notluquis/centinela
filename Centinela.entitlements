@@ -14,5 +14,19 @@
 	<true/>
 	<key>com.apple.security.network.client</key>
 	<true/>
+	<!-- The only two lines here that are not "reach the network", and they exist for exactly
+	     one reason: a sandboxed app cannot replace itself, so Sparkle installs the update from
+	     `Installer.xpc` and needs to be able to look those services up by name. The suffixes
+	     are Sparkle's own convention (`-spks` for the status service, `-spki` for the
+	     installer). No team identifier is involved, which is why this works with an ad-hoc
+	     signature. -->
+	<!-- PRUEBA: sin esto dyld rechaza cargar Sparkle. -->
+	<key>com.apple.security.cs.disable-library-validation</key>
+	<true/>
+	<key>com.apple.security.temporary-exception.mach-lookup.global-name</key>
+	<array>
+		<string>cl.bioalergia.centinela-spks</string>
+		<string>cl.bioalergia.centinela-spki</string>
+	</array>
 </dict>
 </plist>

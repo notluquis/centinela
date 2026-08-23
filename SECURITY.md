@@ -15,15 +15,33 @@ carry internal URLs, identifiers and fragments of business data.
 
 Nothing Sentry returns is written to disk.
 
+**What the Keychain does and does not buy here.** Measured, not assumed: any process running as
+you can read the token with `security find-generic-password -s cl.bioalergia.centinela -a
+token-de-organizacion -w`, with no prompt. The item is not bound to this app's signature. What the
+Keychain buys is that the token is not a plaintext file in your home directory, that it does not
+travel in a backup restored onto another machine, and that the machine has to be unlocked. It does
+not buy isolation from other software you run. If that matters to you, give Centinela a token
+scoped to a single project rather than the whole organization.
+
 ## What the app asks the system for
 
 Sandbox on. Two permissions, and they can be read end to end in `Centinela.entitlements`:
 
-- `com.apple.security.app-sandbox`
-- `com.apple.security.network.client` — reach the network
+| Entitlement | Why |
+|---|---|
+| `com.apple.security.app-sandbox` | |
+| `com.apple.security.network.client` | Reach Sentry |
+| `com.apple.security.temporary-exception.mach-lookup.global-name` | A sandboxed app cannot replace itself; Sparkle installs updates from `Installer.xpc` and looks it up by name. Both services ship inside the bundle |
+| `com.apple.security.cs.disable-library-validation` | Without it dyld refuses to load Sparkle: the hardened runtime wants every loaded library to share the app's Team ID, and two ad-hoc signatures count as different teams |
 
 No files, no camera, no contacts, no inbound network server. If one more ever appears, it shows
 up in the diff.
+
+The last one is the only entitlement here that gives something up: any code-signed library placed
+inside the bundle can be loaded into the process. It buys automatic updates without a 99-USD-a-year
+Developer ID. Given that the token is already readable by any process running as you (above), it
+does not meaningfully change the token's exposure, but it does widen code injection in general.
+With a Developer ID the entitlement is unnecessary and should be removed.
 
 `keychain-access-groups` is deliberately not declared: `$(AppIdentifierPrefix)` only expands with
 a provisioning profile and these builds are signed ad-hoc. Without the key, the default group is

@@ -91,6 +91,40 @@ jobs:
               -f tag_name="$GITHUB_REF_NAME" --jq .body
           } >> notes.md
 
+      # Sparkle verifies updates with an EdDSA signature of ours, not with an Apple certificate.
+      # That is the whole reason automatic updates work here despite the ad-hoc code signature.
+      # The private key lives only in this secret; the public half is in `Info.plist`.
+      - name: Sign the archive for Sparkle
+        id: sparkle
+        env:
+          SPARKLE_PRIVATE_KEY: ${{ secrets.SPARKLE_PRIVATE_KEY }}
+        run: |
+          set -euo pipefail
+          if [ -z "${SPARKLE_PRIVATE_KEY:-}" ]; then
+            echo "::error::SPARKLE_PRIVATE_KEY is not set: the update would be unverifiable"
+            exit 1
+          fi
+          VERSION_TAG=$(curl -sL https://api.github.com/repos/sparkle-project/Sparkle/releases/latest | python3 -c 'import json,sys;print(json.load(sys.stdin)["tag_name"])')
+          curl -sL "https://github.com/sparkle-project/Sparkle/releases/download/${VERSION_TAG}/Sparkle-${VERSION_TAG}.tar.xz" -o sparkle.tar.xz
+          mkdir -p sparkle && tar -xJf sparkle.tar.xz -C sparkle
+          SIGN=$(find sparkle -name sign_update -type f | head -1)
+          # The signature goes to a file rather than an output: it is short, but keeping it off
+          # the step summary is free.
+          "$SIGN" build/Centinela.zip -s "$SPARKLE_PRIVATE_KEY" > signature.txt
+          echo "signed: $(cut -c1-40 signature.txt)…"
+
+      - name: Update the appcast
+        run: |
+          set -euo pipefail
+          VERSION="${GITHUB_REF_NAME#v}"
+          BUILD="$(plutil -extract CFBundleVersion raw build/Centinela.app/Contents/Info.plist)"
+          python3 Tools/appcast.py \
+            --version "$VERSION" \
+            --build "$BUILD" \
+            --url "https://github.com/$GITHUB_REPOSITORY/releases/download/$GITHUB_REF_NAME/Centinela.zip" \
+            --signature "$(cat signature.txt)" \
+            --notes-url "https://github.com/$GITHUB_REPOSITORY/releases/tag/$GITHUB_REF_NAME"
+
       # `gh release` ships with the runner. A third-party action for this would be supply-chain
       # surface with nothing to show for it.
       - name: Publish
@@ -101,3 +135,16 @@ jobs:
             --title "$GITHUB_REF_NAME" \
             --notes-file notes.md \
             build/Centinela.zip
+
+      # Committed AFTER publishing on purpose: if the release failed, the feed must not point at
+      # an archive that does not exist. Sparkle would download a 404 and report it as a broken
+      # update to every user.
+      - name: Commit the appcast
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add appcast.xml
+          git diff --cached --quiet && { echo "appcast unchanged"; exit 0; }
+          git commit -m "chore(appcast): $GITHUB_REF_NAME"
+          git push origin HEAD:main

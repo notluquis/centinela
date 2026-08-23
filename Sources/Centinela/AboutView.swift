@@ -10,7 +10,7 @@ struct AboutView: View {
     )!
 
     let state: AppState
-    @State private var checking = false
+    @State private var updater = Updater()
 
     var body: some View {
         VStack(spacing: 14) {
@@ -25,28 +25,17 @@ struct AboutView: View {
                 .foregroundStyle(.secondary)
                 .textSelection(.enabled)
 
-            if let update = state.update {
-                Link("Version \(update.version.description) is out", destination: update.page)
-                    .font(.callout)
-            } else {
-                HStack(spacing: 6) {
-                    if checking { ProgressView().controlSize(.small) }
-                    Button("Check for updates") {
-                        checking = true
-                        Task {
-                            await state.checkForUpdate(force: true)
-                            checking = false
-                        }
-                    }
-                    .disabled(checking)
-                }
+            Button("Check for updates", action: updater.checkNow)
+                .disabled(!updater.canCheck)
+
+            if let last = updater.lastCheck {
+                Text("Last checked \(last, format: .relative(presentation: .numeric))")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
             }
 
-            // Not Sparkle: its sandboxing documentation says an ad-hoc signature is not suitable
-            // for distribution, and it wants `Installer.xpc` embedded plus two `mach-lookup`
-            // exceptions. This tells you and opens the page; downloading and replacing is yours.
-            Text("Centinela tells you about new versions, it does not update itself: the"
-                + " signature is ad-hoc and an automatic installer would hit Gatekeeper anyway.")
+            Text("Updates are verified with an EdDSA signature of our own, not with an Apple"
+                + " certificate, so the ad-hoc signature is not in the way.")
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)

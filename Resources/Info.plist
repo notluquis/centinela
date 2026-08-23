@@ -26,6 +26,19 @@
 	     nowhere else. -->
 	<key>LSUIElement</key>
 	<true/>
+	<!-- Sparkle. The public half of the EdDSA key pair; the private half never leaves the
+	     release runner. This is what an update is verified against, and it does not involve
+	     Apple, which is why an ad-hoc signature is enough. -->
+	<key>SUPublicEDKey</key>
+	<string>FaHOx61prb3WXdRUcCf/RTE6jX7jxYyCmmlli7BO998=</string>
+	<key>SUFeedURL</key>
+	<string>https://raw.githubusercontent.com/notluquis/centinela/main/appcast.xml</string>
+	<!-- The app is sandboxed, so installing an update means writing outside the container.
+	     Sparkle does that from `Installer.xpc`, which this key turns on. -->
+	<key>SUEnableInstallerLauncherService</key>
+	<true/>
+	<key>SUEnableAutomaticChecks</key>
+	<true/>
 	<key>NSHumanReadableCopyright</key>
 	<string>MIT</string>
 	<key>NSSupportsAutomaticTermination</key>

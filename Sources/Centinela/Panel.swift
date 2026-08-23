@@ -158,17 +158,6 @@ struct PanelContent: View {
         if let error = state.lastError {
             Notice(text: error, symbol: "exclamationmark.triangle", color: .orange)
         }
-        if let update = state.update {
-            Link(destination: update.page) {
-                Notice(
-                    text: "Version \(update.version.description) is out."
-                        + " You are on \(state.installedVersion).",
-                    symbol: "arrow.down.circle",
-                    color: .accentColor
-                )
-            }
-            .buttonStyle(.plain)
-        }
         if let notice = state.deprecation {
             // See `DeprecationNotice`: Sentry warns via a header before retiring a route.
             // Without this the app would find out the day it breaks.

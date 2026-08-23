@@ -8,6 +8,31 @@ to publish when it is missing, so a release never goes out with an empty body.
 
 ## [Unreleased]
 
+## [0.3.0] — 2026-08-23
+
+### Added
+
+- **Centinela updates itself**, through Sparkle. The previous release only told you a new version
+  existed.
+
+### Changed
+
+- The README's claim that Sparkle could not work without a Developer ID was **wrong**, and it came
+  from reading a summary instead of the source. Sparkle's `SUUpdateValidator.m` says the opposite:
+  "if no Apple Code Signing certificate is available, adhoc signing can be used at minimum".
+  Updates are verified with an EdDSA signature of this project's own, which does not involve Apple.
+- Two entitlements are new and both are documented with what they give up. The one that costs
+  something is `com.apple.security.cs.disable-library-validation`: without it dyld refuses to load
+  Sparkle, because the hardened runtime wants every loaded library to share the app's Team ID and
+  two ad-hoc signatures count as different teams.
+- `SECURITY.md` now states what the Keychain does and does not buy. Measured: any process running
+  as you reads the token with no prompt, because the item is not bound to the app's signature.
+
+### Removed
+
+- The hand-rolled update checker that read GitHub's releases API, along with its ten tests.
+  Sparkle does the same job and also installs.
+
 ## [0.2.0] — 2026-08-22
 
 ### Changed

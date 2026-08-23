@@ -273,20 +273,42 @@ What is done instead to avoid asking too much:
 
 ## Updates
 
-Centinela **tells you** about new versions by reading GitHub's releases API once a day. It does
-not update itself.
+Centinela updates itself, through [Sparkle](https://sparkle-project.org).
 
-Stats and TheBoringNotch use [Sparkle](https://sparkle-project.org), which does install by
-itself. It is no use here, and that is not a preference:
+An earlier version of this README claimed that was impossible without a Developer ID. **That was
+wrong**, and it came from reading a summary instead of the source. Sparkle's own update policy, in
+`SUUpdateValidator.m`, only refuses to *remove* code signing or EdDSA keys, and says it outright:
 
-| What Sparkle needs | Status here |
-|---|---|
-| A real certificate to distribute | None. Its own documentation says ad-hoc distributions are "not ideal for distribution" and have to be re-signed |
-| Embedding `Installer.xpc` and turning on `SUEnableInstallerLauncherService` | Doable |
-| Two temporary `mach-lookup` exceptions in the entitlements | Breaks the promise of "two permissions and you can read them end to end" |
+> If no Apple Code Signing certificate is available, adhoc signing can be used at minimum.
 
-And even with all of that, the installed binary would still be ad-hoc and hit Gatekeeper anyway.
-Telling you and opening the page is the part that actually helps.
+Sparkle's framework ships ad-hoc signed itself (`codesign -dv` reports `Signature=adhoc`,
+`TeamIdentifier=not set`).
+
+What an update is verified against is an **EdDSA signature** made with a key pair of this project:
+the public half sits in `Info.plist` as `SUPublicEDKey`, the private half exists only as a repo
+secret used by the release workflow. Apple is not involved in that check, which is why the ad-hoc
+signature is not in the way.
+
+### What it costs, stated plainly
+
+Two entitlements that would not otherwise be here:
+
+| Entitlement | Why | What it gives up |
+|---|---|---|
+| `com.apple.security.temporary-exception.mach-lookup.global-name` (`-spks`, `-spki`) | A sandboxed app cannot replace itself, so Sparkle installs from `Installer.xpc` and has to look it up by name | Little: it can talk to two named services, both shipped inside the bundle |
+| `com.apple.security.cs.disable-library-validation` | Without it dyld refuses to load Sparkle: the hardened runtime requires every loaded library to share the app's Team ID, and two ad-hoc signatures count as different teams. The measured error is `mapping process and mapped file (non-platform) have different Team IDs` | Real: any code-signed library placed in the bundle can be loaded into the process |
+
+That second one is the honest cost. It is worth weighing against what it protects:
+
+**The Sentry token in the Keychain is already readable by any process running as you.** Measured,
+not assumed: `security find-generic-password -s cl.bioalergia.centinela -a token-de-organizacion -w`
+returns it from a terminal with no prompt. The Keychain here buys storage that is not a plaintext
+file in your home directory and that requires the machine to be unlocked. It does not buy
+per-application isolation, because the item is not bound to this app's signature.
+
+So disabling library validation does not meaningfully change the exposure of the token. It does
+widen code injection into the process in general. A Developer ID (99 USD a year) removes the need
+for the entitlement entirely; until then, this is the trade, written down rather than buried.
 
 ## No global keyboard shortcut
 

@@ -9,6 +9,12 @@ import PackageDescription
 let package = Package(
     name: "Centinela",
     platforms: [.macOS(.v14)],
+    dependencies: [
+        // Sparkle ships as a binary XCFramework through SwiftPM. Its update policy explicitly
+        // allows ad-hoc signatures ("If no Apple Code Signing certificate is available, adhoc
+        // signing can be used at minimum" — SUUpdateValidator.m), which is the case here.
+        .package(url: "https://github.com/sparkle-project/Sparkle", from: "2.9.6")
+    ],
     targets: [
         .target(
             name: "CentinelaCore",
@@ -20,7 +26,7 @@ let package = Package(
         ),
         .executableTarget(
             name: "Centinela",
-            dependencies: ["CentinelaCore"],
+            dependencies: ["CentinelaCore", .product(name: "Sparkle", package: "Sparkle")],
             path: "Sources/Centinela",
             swiftSettings: [.swiftLanguageMode(.v5)]
         ),

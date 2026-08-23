@@ -21,7 +21,6 @@ final class AppState {
     var forReview: [SentryIssue] = []
     var releases: [Release] = []
 
-    var update: UpdateChecker.Update?
     var loading = false
     var lastError: String?
     var tokenTooPowerful = false
@@ -77,7 +76,6 @@ final class AppState {
     func start() {
         reschedule()
         Task { await refreshCheap() }
-        Task { await checkForUpdate() }
     }
 
     func reschedule() {
@@ -164,17 +162,6 @@ final class AppState {
     func checkTokenPower() async {
         guard let client else { return }
         tokenTooPowerful = await !client.tokenLooksReadOnly()
-    }
-
-    /// Once a day, not on every launch. GitHub's API allows 60 unauthenticated requests an hour
-    /// and a menu bar app can restart many times a day while someone configures it.
-    func checkForUpdate(force: Bool = false) async {
-        let key = "ultimaBusquedaDeActualizacion"
-        let last = UserDefaults.standard.double(forKey: key)
-        guard force || Date().timeIntervalSince1970 - last > 86_400 else { return }
-        UserDefaults.standard.set(Date().timeIntervalSince1970, forKey: key)
-
-        update = await UpdateChecker(repository: Self.repository).check(currentVersion: installedVersion)
     }
 
     // MARK: - What gets drawn up top
