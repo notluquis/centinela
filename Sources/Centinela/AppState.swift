@@ -143,7 +143,9 @@ final class AppState {
         if let refreshFailure = await login.refreshIfNeeded() {
             lastError = refreshFailure
         }
-        guard let client else { return }
+        // Not a plain `return`: leaving early without clearing is what kept a signed-out menu
+        // bar counting the previous account's errors.
+        guard let client else { forgetSession(); return }
         loading = true
         defer { loading = false }
         do {
@@ -208,6 +210,38 @@ final class AppState {
     }
 
     // MARK: - What gets drawn up top
+
+    /// Drops everything that belonged to the session that just ended.
+    ///
+    /// Without this, signing out left the last numbers on screen forever: `refreshCheap` bailed
+    /// out at `guard let client` before touching anything, so the menu bar kept showing 539
+    /// errors above a panel that said "Not configured yet". The data is not stale, it belongs to
+    /// an account the app no longer has.
+    ///
+    /// Every field is listed by hand. That is the weak part: a field added later and not added
+    /// here comes back to haunt the next sign-out, and `AppState` lives in the app target, which
+    /// the suite cannot reach because it needs AppKit. Keep this next to the declarations.
+    func forgetSession() {
+        series = .init(points: [])
+        monitors = []
+        issues = []
+        forReview = []
+        escalating = []
+        regressed = []
+        releases = []
+        crons = []
+        crashFree = nil
+        errorsByProject = []
+        environments = []
+        transactions = []
+        transactionThreshold = 300
+        replays = []
+        feedback = []
+        lastError = nil
+        tokenTooPowerful = false
+        deprecation = nil
+        lastUpdated = nil
+    }
 
     var totalErrors: Int { series.total }
 

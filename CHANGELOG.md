@@ -6,6 +6,11 @@ The release workflow reads the section for the tag being published out of this f
 
 ## [Unreleased]
 
+### Fixed
+
+- **Signing out left the previous account's numbers in the menu bar.** It showed 539 errors above a panel that already said "Not configured yet". Not staleness: `refreshCheap` bailed out at `guard let client` before touching anything, so the series belonged to an account the app no longer had. Signing out now drops everything the session owned, straight away rather than at the next cycle five minutes later.
+- **The menu bar showed a tick inside a seal while signed out.** A seal with a tick reads as "everything is fine", and with no session nothing is known to be fine: it was vouching for an account the app could no longer reach. Signed out it now shows a crossed-out eye in secondary grey, with no count and no sparkline, which says the app is not looking rather than that all is well.
+
 ## [0.5.0] — 2026-08-23
 
 ### Fixed

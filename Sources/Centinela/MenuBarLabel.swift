@@ -7,14 +7,17 @@ struct MenuBarLabel: View {
     var body: some View {
         HStack(spacing: 3) {
             Image(systemName: symbol)
-            if state.totalErrors > 0 {
+            // Gated on `isConfigured` and not just on the count being zero. The count is zero
+            // once the session is forgotten, but the bar must not be able to show a number that
+            // belongs to nobody even if some future path leaves data behind.
+            if watching, state.totalErrors > 0 {
                 Text(state.totalErrors, format: .number)
             }
             // As an image rather than a live `Path`: a `MenuBarExtra` label is drawn by the
             // system, and up there `Text` and `Image` are the only things that render
             // reliably. A vector shape showed up in the panel and NOT in the bar, which is
             // exactly where it was wanted.
-            if let sparkline = Sparkline.image(state.series.points.map(\.count)) {
+            if watching, let sparkline = Sparkline.image(state.series.points.map(\.count)) {
                 Image(nsImage: sparkline)
             }
         }
@@ -24,15 +27,29 @@ struct MenuBarLabel: View {
         // desktop. A template symbol is resolved by the system, which knows whether things are
         // light or dark. Only an outage is painted red, the one state that justifies breaking
         // the rule.
-        .foregroundStyle(state.hasOutage ? AnyShapeStyle(.red) : AnyShapeStyle(.primary))
+        .foregroundStyle(tint)
     }
 
+    /// Whether there is a session to report on at all. Same condition the panel uses to decide
+    /// between its contents and "Not configured yet", so the two cannot disagree.
+    private var watching: Bool { state.settings.isConfigured }
+
     private var symbol: String {
+        // A seal with a tick says "everything is fine", and with no session nothing is known to
+        // be fine: it was reporting on an account the app no longer reaches. A crossed-out eye
+        // says the app is not looking, which is the true state and not an alarm.
+        guard watching else { return "eye.slash" }
         if state.hasOutage { return "bolt.horizontal.circle.fill" }
         return state.totalErrors > 0 ? "exclamationmark.triangle.fill" : "checkmark.seal"
     }
 
+    private var tint: AnyShapeStyle {
+        if !watching { return AnyShapeStyle(.secondary) }
+        return state.hasOutage ? AnyShapeStyle(.red) : AnyShapeStyle(.primary)
+    }
+
     private var accessibleDescription: String {
+        guard watching else { return "Not signed in. Centinela is not watching anything." }
         var parts = [Sparkline.summary(state.series.points.map(\.count), window: state.settings.window)]
         if state.hasOutage { parts.insert("A service is down.", at: 0) }
         return parts.joined(separator: " ")
