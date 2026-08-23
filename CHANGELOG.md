@@ -10,6 +10,14 @@ The release workflow reads the section for the tag being published out of this f
 
 - **Signing out left the previous account's numbers in the menu bar.** It showed 539 errors above a panel that already said "Not configured yet". Not staleness: `refreshCheap` bailed out at `guard let client` before touching anything, so the series belonged to an account the app no longer had. Signing out now drops everything the session owned, straight away rather than at the next cycle five minutes later.
 - **The menu bar showed a tick inside a seal while signed out.** A seal with a tick reads as "everything is fine", and with no session nothing is known to be fine: it was vouching for an account the app could no longer reach. Signed out it now shows a crossed-out eye in secondary grey, with no count and no sparkline, which says the app is not looking rather than that all is well.
+- **Pasting a token on top of an OAuth session let the next cycle renew the old session over it.** `shouldRefresh` needs an expiry in the past AND a refresh token, and a pasted token cleared neither, so the token somebody had just typed was replaced by a renewal of the session they were leaving. Pasting now ends the OAuth session: expiry cleared, refresh token deleted. The device flow's own write is untouched, which is why this is a separate call and not a change to the shared one.
+- **The account tab claimed the token lives in the app's container and pointed at `SECURITY.md` for why it is not in the Keychain.** It has been in the Keychain since 0.1.0. The claim was false in every release that carried it.
+
+### Changed
+
+- **The account tab branches on stored state instead of session state.** It used to switch on the sign-in controller's stage, which resets on every launch, so somebody already signed in was offered "Sign in with Sentry" and the only way back out lived in a branch that existed only right after a fresh device flow. `AppSettings.authMethod` is derived from the token and its expiry, both of which survive a restart.
+- **One way out, and one way in at a time.** There were two sign-out affordances with different visibility rules and the same effect; now there is a single Sign out, same label and same place whichever way somebody signed in. The two ways in are no longer shown side by side with nothing to say which one is in effect: the device flow is the front door and the token field sits behind a disclosure.
+- Organization, server and OAuth client are one Connection section, and all three stay editable while signed in: a self-hosted address typed wrong is exactly the case where a stored session cannot be used and the field is what needs fixing. As separate sections with a header and a footer each they did not fit the 430 pt window, and the render probe showed the last one cut off at the edge in all three states.
 
 ## [0.5.0] — 2026-08-23
 

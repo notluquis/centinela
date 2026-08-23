@@ -25,130 +25,168 @@ struct SettingsView: View {
 
 // MARK: - Account
 
+/// The account tab branches on `AppSettings.authMethod`, never on `LoginController.stage`.
+///
+/// The stage is session state: it resets to `.idle` on every launch, so the previous version
+/// showed "Sign in with Sentry" to somebody who was already signed in, and put the only way back
+/// out inside a branch that only existed right after a fresh device flow. The stage is still
+/// used, but only for what it actually knows: the transient steps of a sign-in in progress.
 private struct AccountTab: View {
     let state: AppState
     @State private var token = ""
-    @State private var saved = false
+    @State private var offerTokenField = false
 
     private var settings: AppSettings { state.settings }
     private var login: LoginController { state.login }
 
     var body: some View {
         Form {
-            Section("Organization") {
-                TextField("Slug", text: Binding(
-                    get: { settings.organization },
-                    set: { settings.organization = $0.trimmingCharacters(in: .whitespaces) }
-                ))
-                .help("The slug in the URL: sentry.io/organizations/HERE/")
-
-                TextField("Server", text: Binding(
-                    get: { settings.host },
-                    set: { settings.host = $0.trimmingCharacters(in: .whitespaces) }
-                ))
-            }
-
-            Section("Signing in") {
-                switch login.stage {
-                case .waitingForApproval(let code, let url):
-                    LabeledContent("Code") {
-                        Text(code)
-                            .font(.system(.title3, design: .monospaced))
-                            .textSelection(.enabled)
-                    }
-                    Text("Approve it in the browser. If it did not open by itself, go to"
-                        + " \(url.absoluteString) and type the code.")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .fixedSize(horizontal: false, vertical: true)
-                    Button("Cancel", role: .cancel, action: login.cancel)
-
-                case .requestingCode:
-                    HStack { ProgressView().controlSize(.small); Text("Requesting a code…") }
-
-                case .done:
-                    Label("Signed in. Sentry granted only the read scopes it was asked for.",
-                          systemImage: "checkmark.seal")
-                        .font(.caption)
-                        .fixedSize(horizontal: false, vertical: true)
-                    if !login.organizationsToPick.isEmpty {
-                        Picker("Pick the organization", selection: Binding(
-                            get: { settings.organization },
-                            set: { picked in
-                                if let org = login.organizationsToPick.first(where: { $0.slug == picked }) {
-                                    login.pick(org)
-                                }
-                            }
-                        )) {
-                            Text("Not picked").tag("")
-                            ForEach(login.organizationsToPick) { Text($0.name).tag($0.slug) }
-                        }
-                    }
-                    Button("Sign out", role: .destructive) { settings.signOut() }
-
-                case .failed(let error):
-                    Label(error, systemImage: "exclamationmark.triangle")
-                        .font(.caption)
-                        .foregroundStyle(.orange)
-                        .fixedSize(horizontal: false, vertical: true)
-                    Button("Try again", action: login.signIn)
-
-                case .idle:
-                    Button("Sign in with Sentry", action: login.signIn)
-                        .disabled(settings.oauthClientID.isEmpty)
-                }
-
-                TextField("OAuth client", text: Binding(
-                    get: { settings.oauthClientID },
-                    set: { settings.oauthClientID = $0.trimmingCharacters(in: .whitespaces) }
-                ))
-                .help("Centinela's is filled in. Change it only if you registered your own.")
-            }
-
-            Section("Or paste a token") {
-                SecureField("Token", text: $token)
-                HStack {
-                    Button("Save token") {
-                        // The checkmark is only drawn when the Keychain accepted. See
-                        // `AppSettings.lastStorageError`.
-                        saved = settings.saveToken(token.trimmingCharacters(in: .whitespaces))
-                        if saved {
-                            token = ""
-                            Task {
-                                await state.checkTokenPower()
-                                await state.refreshCheap()
-                            }
-                        }
-                    }
-                    .disabled(token.isEmpty)
-
-                    if saved {
-                        Label("Saved", systemImage: "checkmark.circle")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
-                    Spacer()
-                    Button("Clear", role: .destructive) {
-                        settings.signOut()
-                        token = ""
-                        saved = false
-                    }
-                }
+            Section("Account") {
+                account
                 if let error = settings.lastStorageError {
                     Label(error, systemImage: "exclamationmark.triangle")
                         .font(.caption)
                         .foregroundStyle(.orange)
                         .fixedSize(horizontal: false, vertical: true)
                 }
-                Text("Give it only `org:read`, `project:read` and `event:read`: Centinela writes"
-                    + " nothing to Sentry. The token is stored in the app's container, owner-only"
-                    + " and out of backups. See SECURITY.md for why not the Keychain.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            Section {
+                TextField("Organization", text: Binding(
+                    get: { settings.organization },
+                    set: { settings.organization = $0.trimmingCharacters(in: .whitespaces) }
+                ))
+                .help("The slug in the URL: sentry.io/organizations/HERE/")
+                TextField("Server", text: Binding(
+                    get: { settings.host },
+                    set: { settings.host = $0.trimmingCharacters(in: .whitespaces) }
+                ))
+                TextField("OAuth client", text: Binding(
+                    get: { settings.oauthClientID },
+                    set: { settings.oauthClientID = $0.trimmingCharacters(in: .whitespaces) }
+                ))
+                .help("Centinela's is filled in. Change it only if you registered your own.")
+            } header: {
+                Text("Connection")
+            } footer: {
+                Caption("Signing in with Sentry fills the organization in; a pasted token needs"
+                    + " it typed. All three stay editable while signed in.")
             }
         }
         .formStyle(.grouped)
+    }
+
+    @ViewBuilder private var account: some View {
+        switch settings.authMethod {
+        case .signedOut:
+            signingIn
+        case .deviceFlow:
+            signedIn("Signed in with Sentry", detail: expiry)
+        case .pastedToken:
+            signedIn("Signed in with a pasted token",
+                     detail: "A pasted token does not expire on its own. Revoke it in Sentry to"
+                        + " end it there as well.")
+        }
+    }
+
+    /// One body for both signed-in states, so the way out is the same button, with the same
+    /// label, in the same place, whichever way somebody got in.
+    @ViewBuilder private func signedIn(_ title: String, detail: String) -> some View {
+        Label(title, systemImage: "checkmark.seal")
+            .fixedSize(horizontal: false, vertical: true)
+        Caption(detail)
+        if !login.organizationsToPick.isEmpty {
+            Picker("Pick the organization", selection: Binding(
+                get: { settings.organization },
+                set: { picked in
+                    if let org = login.organizationsToPick.first(where: { $0.slug == picked }) {
+                        login.pick(org)
+                    }
+                }
+            )) {
+                Text("Not picked").tag("")
+                ForEach(login.organizationsToPick) { Text($0.name).tag($0.slug) }
+            }
+        }
+        Button("Sign out", role: .destructive, action: signOut)
+    }
+
+    /// Only reached while signed out. The two ways in are offered one at a time: the device flow
+    /// is the front door and the token field is behind a disclosure, so there is never a screen
+    /// showing both with no way to tell which one is in effect.
+    @ViewBuilder private var signingIn: some View {
+        switch login.stage {
+        case .requestingCode:
+            HStack { ProgressView().controlSize(.small); Text("Requesting a code…") }
+
+        case .waitingForApproval(let code, let url):
+            LabeledContent("Code") {
+                Text(code).font(.system(.title3, design: .monospaced)).textSelection(.enabled)
+            }
+            Caption("Approve it in the browser. If it did not open by itself, go to"
+                + " \(url.absoluteString) and type the code.")
+            Button("Cancel", role: .cancel, action: login.cancel)
+
+        case .failed(let error):
+            Label(error, systemImage: "exclamationmark.triangle")
+                .font(.caption)
+                .foregroundStyle(.orange)
+                .fixedSize(horizontal: false, vertical: true)
+            Button("Try again", action: login.signIn)
+
+        case .idle, .done:
+            Button("Sign in with Sentry", action: login.signIn)
+                .disabled(settings.oauthClientID.isEmpty)
+            DisclosureGroup("Use a token instead", isExpanded: $offerTokenField) {
+                SecureField("Token", text: $token)
+                Button("Save token", action: saveToken).disabled(token.isEmpty)
+            }
+            Caption("Either way Centinela gets only `org:read`, `project:read` and `event:read`,"
+                + " and keeps the token in the Keychain — never in `UserDefaults`, never in a"
+                + " file.")
+        }
+    }
+
+    private var expiry: String {
+        guard let expiresAt = settings.tokenExpiresAt else { return "" }
+        let formatter = RelativeDateTimeFormatter()
+        return "Renews by itself. The current token expires"
+            + " \(formatter.localizedString(for: expiresAt, relativeTo: Date()))."
+    }
+
+    private func saveToken() {
+        // No checkmark: on success the section itself switches to the signed-in body, which is
+        // the feedback. A checkmark next to a field that had not changed was how an earlier
+        // version claimed a write the Keychain had refused.
+        guard settings.saveManualToken(token.trimmingCharacters(in: .whitespaces)) else { return }
+        token = ""
+        offerTokenField = false
+        Task {
+            await state.checkTokenPower()
+            await state.refreshCheap()
+        }
+    }
+
+    private func signOut() {
+        settings.signOut()
+        login.cancel()
+        // Straight away, not at the next cycle five minutes from now.
+        state.forgetSession()
+        token = ""
+        offerTokenField = false
+    }
+}
+
+/// Secondary explanatory text. Every one of these was the same four modifiers.
+private struct Caption: View {
+    let text: String
+    init(_ text: String) { self.text = text }
+
+    var body: some View {
+        Text(.init(text))
+            .font(.caption)
+            .foregroundStyle(.secondary)
+            .fixedSize(horizontal: false, vertical: true)
     }
 }
 

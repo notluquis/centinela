@@ -136,4 +136,58 @@ struct AppSettingsTests {
         #expect(second.window == .sevenDays)
         #expect(second.maxIssues == 25)
     }
+
+    @Test("`authMethod` tells the two ways in apart, and survives a restart")
+    func authMethodReflectsStoredState() {
+        let fixture = fresh()
+        let settings = fixture.settings
+        defer { clean(fixture) }
+        #expect(settings.authMethod == .signedOut)
+
+        settings.saveManualToken("pasted")
+        #expect(settings.authMethod == .pastedToken)
+
+        settings.saveSession(DeviceFlow.Grant(
+            accessToken: "from-oauth",
+            refreshToken: "renew-me",
+            expiresAt: Date().addingTimeInterval(3600)
+        ))
+        #expect(settings.authMethod == .deviceFlow)
+
+        // The point of deriving it from stored state: a second object over the same store, which
+        // is what a relaunch is, reads the same answer. `LoginController.stage` would say `.idle`.
+        let afterRestart = AppSettings(
+            defaults: UserDefaults(suiteName: fixture.suiteName)!,
+            tokenAccount: settings.tokenAccountName,
+            refreshAccount: settings.refreshAccountName
+        )
+        #expect(afterRestart.authMethod == .deviceFlow)
+
+        settings.signOut()
+        #expect(settings.authMethod == .signedOut)
+    }
+
+    /// Not a classification detail. `shouldRefresh` needs an expiry in the past AND a refresh
+    /// token, and both used to survive a paste: the next cycle renewed the old OAuth session
+    /// straight over the token that had just been pasted by hand.
+    @Test("Pasting a token ends the OAuth session instead of leaving it to renew over it")
+    func pastingATokenEndsTheOAuthSession() {
+        let fixture = fresh()
+        let settings = fixture.settings
+        defer { clean(fixture) }
+
+        settings.saveSession(DeviceFlow.Grant(
+            accessToken: "from-oauth",
+            refreshToken: "renew-me",
+            expiresAt: Date().addingTimeInterval(-60)
+        ))
+        #expect(settings.shouldRefresh)
+
+        settings.saveManualToken("pasted")
+        #expect(settings.token == "pasted")
+        #expect(settings.tokenExpiresAt == nil)
+        #expect(settings.refreshToken == nil)
+        #expect(!settings.shouldRefresh)
+        #expect(settings.authMethod == .pastedToken)
+    }
 }

@@ -10,6 +10,14 @@ import Observation
 @MainActor
 @Observable
 public final class AppSettings {
+    public enum AuthMethod: Equatable {
+        case signedOut
+        /// Obtained through the device flow, so it expires and gets renewed.
+        case deviceFlow
+        /// Pasted by hand. Sentry organization tokens do not expire on their own.
+        case pastedToken
+    }
+
     public static let defaultTokenAccount = "token-de-organizacion"
     public static let defaultRefreshAccount = "token-de-refresco"
 
@@ -71,7 +79,6 @@ public final class AppSettings {
     /// It exists because an earlier version used `try?` in both directions: a failed write left
     /// the UI showing "Saved to the Keychain" with its checkmark, having saved nothing, and the
     /// app sat at "not configured" forever with no error anywhere.
-    /// The last thing the Keychain said when it refused. `nil` when the last write went fine.
     public var lastStorageError: String?
 
     /// The access token, loaded once from the Keychain and kept here.
@@ -145,6 +152,21 @@ public final class AppSettings {
         }
     }
 
+    /// Stores a token somebody pasted, and takes the app out of whatever OAuth session it was
+    /// in. Separate from `saveToken` because that one is also the device flow's own write.
+    ///
+    /// Clearing the expiry and dropping the refresh token is not tidiness. `shouldRefresh` is
+    /// true when there is an expiry in the past AND a refresh token, so pasting on top of a stale
+    /// OAuth session left both behind and the next cycle renewed the old session straight over
+    /// the token that had just been pasted.
+    @discardableResult
+    public func saveManualToken(_ newToken: String) -> Bool {
+        guard saveToken(newToken) else { return false }
+        tokenExpiresAt = nil
+        try? Keychain.delete(account: refreshAccount)
+        return true
+    }
+
     /// Stores what the device flow handed back. Returns `false` when the Keychain refused
     /// anything, same contract as `saveToken`.
     @discardableResult
@@ -173,6 +195,20 @@ public final class AppSettings {
     public var shouldRefresh: Bool {
         guard let expiresAt = tokenExpiresAt, refreshToken != nil else { return false }
         return DeviceFlow.shouldRefresh(expiresAt: expiresAt, life: tokenLife)
+    }
+
+    /// Which of the two ways in produced the token being held.
+    ///
+    /// Derived from stored state on purpose. `LoginController.stage` is session state and resets
+    /// to `.idle` on every launch, so a UI driven by it offers "Sign in" to somebody who is
+    /// already signed in and hides their way back out. `token` and `tokenExpiresAt` are both
+    /// observed and both survive a restart.
+    ///
+    /// `refreshToken` is deliberately not part of this: reading it hits the Keychain, and a view
+    /// body evaluates this on every render.
+    public var authMethod: AuthMethod {
+        if token.isEmpty { return .signedOut }
+        return tokenExpiresAt == nil ? .pastedToken : .deviceFlow
     }
 
     public var isConfigured: Bool { !organization.isEmpty && !token.isEmpty }
