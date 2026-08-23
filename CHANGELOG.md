@@ -56,9 +56,16 @@ and marked, with neither it is not written.**
 ### Fixed
 
 - CI was not red, it was starved: every push asked for four macOS runners and two of them sat
-  queued for over ten minutes. swiftlint moved into the build job, the without-Xcode guard became
-  weekly, and the appcast commit the release bot pushes no longer triggers anything. Two runners
-  per push instead of four.
+  queued for over ten minutes while the Linux job finished in five seconds. swiftlint moved into
+  the build job, the without-Xcode guard became weekly, and the appcast commit the release bot
+  pushes no longer triggers `ci.yml`. Two runners per push instead of four, and a full run went
+  from over ten minutes queued to 1 min 20 s.
+
+  One caveat, measured rather than assumed: **`[skip ci]` does not stop CodeQL.** Its runs arrive
+  with the event `dynamic` and GitHub's default setup ignores the marker, so the appcast commit
+  still gets scanned. `paths-ignore` is no help either, since default setup has no path filter to
+  configure. Stopping it would mean switching CodeQL to advanced setup, which is a workflow file
+  to maintain in exchange for one macOS runner per release.
 
 ## [0.3.0] — 2026-08-23
 
