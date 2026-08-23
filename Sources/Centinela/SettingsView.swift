@@ -74,6 +74,13 @@ private struct AccountTab: View {
             }
         }
         .formStyle(.grouped)
+        .onChange(of: settings.isConfigured) { _, configured in
+            guard configured else { return }
+            Task {
+                await state.checkTokenPower()
+                await state.refreshCheap()
+            }
+        }
     }
 
     @ViewBuilder private var account: some View {
@@ -161,10 +168,6 @@ private struct AccountTab: View {
         guard settings.saveManualToken(token.trimmingCharacters(in: .whitespaces)) else { return }
         token = ""
         offerTokenField = false
-        Task {
-            await state.checkTokenPower()
-            await state.refreshCheap()
-        }
     }
 
     private func signOut() {
