@@ -25,14 +25,27 @@ certificate:   designated => identifier "cl.bioalergia.centinela" and certificat
 
 Every build changes the hash, so each update was, to the Keychain, a different application asking for someone else's item. Measured, same read, same item:
 
-| | First access after a rebuild | Steady state | Dialog |
-|---|---|---|---|
-| Ad-hoc | 7709 ms | 5317 ms | yes, every update |
-| Self-signed certificate | 4701 ms (one-time validation) | 18 ms | **none** |
+| | First access after a rebuild | Steady state |
+|---|---|---|
+| Ad-hoc | 7709 ms | 5317 ms |
+| Self-signed certificate | 4701 ms (one-time validation) | 18 ms |
+
+**The dialog does not go away, and an earlier version of this file said it did.** That row read "none" and it was wrong. The certificate fixes one of two independent checks. `securityd` names the other one on a real update, same install path, both builds signed with the certificate:
+
+```
+ACL partition mismatch: client cdhash:553e48cc9fc7585d64db3c54586cbb88a52205fd
+displaying keychain prompt for /Applications/Centinela.app
+```
+
+A keychain item carries a **partition list** alongside its access control list, and for an application with no team identifier the only partition ID available is its code hash. The certificate makes the designated requirement stable; nothing makes the partition stable without a team identifier, so every build is a different partition and the prompt comes back. Answering "Always Allow" adds that build's hash to the list, which is why it asks once per update rather than once ever.
+
+**What would actually end it.** The partition IDs are `teamid:<id>`, `cdhash:<hash>` and `apple:`; the first admits any build carrying that team identifier, the second exactly one build, the third only software signed by Apple. So the only stable partition for an application that is not Apple's is `teamid:`, which needs Apple Developer Program membership — the same thing already missing for Gatekeeper and notarization further down. Changing a partition list requires the keychain password, so the app cannot repair its own, and neither can the updater.
+
+**How the wrong row got measured**, because the shape of the mistake is worth more than the correction: the two binaries under test lived at different paths. The ACL subject stores the path next to the requirement, so the probe was never a model of an update, where the path never changes. Re-run today, the same two binaries prompt. The generalisable rule is to print the value that is supposed to differ, assert it differs, and check that everything else does not.
 
 Three documented alternatives were tried first and none works without a stable identity: the data protection keychain (`kSecUseDataProtectionKeychain`, which Apple "highly recommends") returns `errSecMissingEntitlement` because it needs a team identifier; `SecAccessCreate` with `nil` trusts "only the calling app", which is the app that stops existing at the next build; and `security add-generic-password -A` did not remove the delay.
 
-Releases are signed with the same certificate, and the release workflow **fails** if the resulting requirement is a hash. A release signed ad-hoc would put the dialog back for everyone who updates, and nobody would connect it to a build step.
+Releases are signed with the same certificate, and the release workflow **fails** if the resulting requirement is a hash. That guard stays: a hash-based requirement is a second, worse failure on top of the partition one, and nobody would connect it to a build step.
 
 #### Creating one
 
