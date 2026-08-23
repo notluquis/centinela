@@ -83,6 +83,20 @@ public struct SentryIssue: Codable, Sendable, Identifiable, Hashable {
     }
 
     public var severity: Severity { Severity(sentryLevel: level) }
+
+    /// Sentry's own triage, `high`, `medium` or `low`. Unknown values read as medium rather than
+    /// as an error: this is a hint for colour, not a contract.
+    public var triage: Triage { Triage(sentryPriority: priority) }
+}
+
+/// How urgent Sentry thinks an issue is, which is a different question from how bad the event
+/// was. A `warning` that keeps escalating outranks a one-off `error`.
+public enum Triage: String, Sendable {
+    case high, medium, low
+
+    init(sentryPriority: String?) {
+        self = Triage(rawValue: sentryPriority ?? "") ?? .medium
+    }
 }
 
 public enum Severity: String, Sendable {

@@ -204,3 +204,36 @@ struct OrganizationsTests {
         #expect(StubServer.requests(session).isEmpty)
     }
 }
+
+/// Sentry's triage, which is a different question from the event level: a `warning` that keeps
+/// escalating outranks a one-off `error`. It arrives as `priority` and used to be decoded and
+/// thrown away.
+@Suite("Triage")
+struct TriageTests {
+    @Test("The three documented values map through", arguments: [
+        ("high", Triage.high), ("medium", Triage.medium), ("low", Triage.low)
+    ])
+    func knownValues(text: String, expected: Triage) {
+        #expect(Triage(sentryPriority: text) == expected)
+    }
+
+    /// Unknown or missing reads as medium and not as an error: this drives a colour, not a
+    /// contract, and a value Sentry adds next year should not make a row unreadable.
+    @Test("Anything else reads as medium")
+    func unknownValue() {
+        #expect(Triage(sentryPriority: "whatever-comes-next") == .medium)
+        #expect(Triage(sentryPriority: nil) == .medium)
+    }
+
+    @Test("An issue exposes its triage from the decoded payload")
+    func fromPayload() throws {
+        let json = #"""
+        [{"id":"1","shortId":"EX-1","title":"t","level":"warning","priority":"high",
+          "permalink":"https://example.sentry.io/issues/1/","lastSeen":"2026-08-22T18:09:56Z",
+          "userCount":0,"count":"1","project":{"id":"1","slug":"s","name":"n"}}]
+        """#
+        let issues = try SentryClient.decoder.decode([SentryIssue].self, from: Data(json.utf8))
+        #expect(issues[0].triage == .high)
+        #expect(issues[0].severity == .warning, "triage and level are separate signals")
+    }
+}

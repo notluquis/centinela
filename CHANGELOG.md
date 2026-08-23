@@ -24,14 +24,17 @@ data to verify against, which says so.
   neither, since both need the browser SDK on a frontend.
 - **Escalating and regressed issues.** Sentry's own triage: escalating means it decided the issue
   is getting worse, regressed means it came back after being resolved. Same route as the other
-  lists with a different search, so `substatus` and `priority` stopped being decoded and discarded.
+  lists with a different search.
 - **A Health section**: uptime, cron monitors, crash-free session rate, and errors broken down by
   project. One question ("is anything on fire") rather than four segments.
 - **Filter by project and by environment.** Every query goes through one place that carries both,
   so no route can quietly ignore what was picked. The environment control only appears when there
   is more than one to choose between.
-- Issue rows show `culprit`, which says where the error happened. It was decoded from the first
-  commit and never displayed.
+- Issue rows show `culprit` (where the error happened) and `shortId` (what you paste into a
+  message when asking someone about it). Both were decoded from the first commit and never shown.
+- The icon on each row is tinted by `priority`, Sentry's own triage, rather than by the event
+  level. A `warning` that keeps escalating outranks a one-off `error`, and that is a call Sentry
+  already made. `priority` was also being decoded and discarded.
 
 ### Changed
 

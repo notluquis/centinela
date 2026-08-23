@@ -4,6 +4,14 @@ import SwiftUI
 struct IssueSection: View {
     let issues: [SentryIssue]
 
+    private func color(for triage: Triage) -> Color {
+        switch triage {
+        case .high: .red
+        case .medium: .orange
+        case .low: .secondary
+        }
+    }
+
     var body: some View {
         if issues.isEmpty {
             Text("Nothing here.")
@@ -15,8 +23,11 @@ struct IssueSection: View {
         ForEach(issues) { issue in
             Link(destination: issue.permalink) {
                 HStack(alignment: .top, spacing: 8) {
+                    // Tinted by Sentry's triage rather than by the event level: a warning that
+                    // keeps escalating outranks a one-off error, and that is the call Sentry
+                    // already made.
                     Image(systemName: issue.severity.symbol)
-                        .foregroundStyle(issue.severity == .warning ? .orange : .red)
+                        .foregroundStyle(color(for: issue.triage))
                         .font(.caption)
                         .padding(.top, 2)
                     VStack(alignment: .leading, spacing: 1) {
@@ -32,6 +43,11 @@ struct IssueSection: View {
                                 .foregroundStyle(.secondary)
                         }
                         HStack(spacing: 6) {
+                            // The short id is what you paste into a message when asking someone
+                            // about it. It was decoded from the first commit and never shown.
+                            Text(issue.shortId)
+                                .font(.system(.caption2, design: .monospaced))
+                            Text("·")
                             Text(issue.project.slug)
                             Text("·")
                             // `inflect` so one event is not "1 events".
