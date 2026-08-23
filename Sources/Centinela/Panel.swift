@@ -138,15 +138,22 @@ struct PanelContent: View {
             .padding(.top, 8)
 
             if section == .issues {
+                // A menu and NOT a second segmented control stacked under the first. Apple's
+                // guidance for segmented controls is explicit: "avoid putting other focusable
+                // elements close to segmented controls […] segments become selected when focus
+                // moves to them, not when people click them". Two of them touching is exactly
+                // that, and it showed: the lower one kept stealing the accent-coloured selection
+                // just from having focus.
                 Picker("Issues", selection: $filter) {
                     ForEach(IssueFilter.allCases) { option in
-                        Text(issues(option).isEmpty ? option.label : "\(option.label) \(issues(option).count)")
+                        Text(issues(option).isEmpty ? option.label : "\(option.label) (\(issues(option).count))")
                             .tag(option)
                     }
                 }
-                .pickerStyle(.segmented)
+                .pickerStyle(.menu)
                 .labelsHidden()
                 .controlSize(.small)
+                .fixedSize()
                 .padding(.horizontal, 12)
                 .padding(.top, 6)
             }
@@ -159,7 +166,10 @@ struct PanelContent: View {
                     case .health:
                         HealthSection(state: state)
                     case .performance:
-                        PerformanceSection(transactions: state.transactions)
+                        PerformanceSection(
+                            transactions: state.transactions,
+                            thresholdMilliseconds: state.transactionThreshold
+                        )
                     case .releases:
                         ReleaseSection(releases: state.releases)
                     case .feedback:
@@ -208,7 +218,14 @@ struct PanelContent: View {
     private func count(_ option: PanelSection) -> Int {
         switch option {
         case .issues: state.issues.count
-        case .health: state.monitors.filter(\.isActive).count + state.crons.filter(\.isActive).count
+        // Counts the rows that are actually drawn, crash-free and the per-project breakdown
+        // included. It used to count only monitors, so the badge said 1 above a section showing
+        // four lines.
+        case .health:
+            state.monitors.filter(\.isActive).count
+                + state.crons.filter(\.isActive).count
+                + (state.crashFree == nil ? 0 : 1)
+                + state.errorsByProject.count
         case .performance: state.transactions.count
         case .releases: state.releases.count
         case .feedback: state.feedback.count + state.replays.count

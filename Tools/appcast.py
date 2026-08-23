@@ -47,7 +47,14 @@ def main() -> None:
     ap.add_argument("--build", required=True, help="CFBundleVersion")
     ap.add_argument("--url", required=True, help="download URL of the zip")
     ap.add_argument("--signature", required=True, help="raw sign_update output")
-    ap.add_argument("--notes-url", required=True)
+    ap.add_argument("--notes-url", required=True, help="where 'Learn more' should point")
+    ap.add_argument(
+        "--notes-file",
+        help="markdown to embed in the item. Sparkle renders it inline, which beats pointing at "
+             "a GitHub release page: that page comes with its own chrome and the update dialog "
+             "ends up showing 'Compare', 'github-actions released this' and a commit list around "
+             "the actual notes.",
+    )
     ap.add_argument("--minimum-system-version", default="14.0")
     args = ap.parse_args()
 
@@ -74,7 +81,20 @@ def main() -> None:
     ET.SubElement(item, f"{SP}version").text = args.build
     ET.SubElement(item, f"{SP}shortVersionString").text = args.version
     ET.SubElement(item, f"{SP}minimumSystemVersion").text = args.minimum_system_version
-    ET.SubElement(item, f"{SP}releaseNotesLink").text = args.notes_url
+    if args.notes_file:
+        # `sparkle:format="markdown"` is one of the three formats Sparkle accepts, alongside
+        # `plain-text` and `html` (`SUAppcastItem.m`). With it the CHANGELOG section goes in
+        # verbatim, with no conversion step to get wrong.
+        #
+        # Note: Sparkle ignores the description when the appcast fails signature validation. It is
+        # not signed here, which reads as "unchecked" rather than "failed", so it renders.
+        descripcion = ET.SubElement(item, "description")
+        descripcion.set(f"{SP}format", "markdown")
+        descripcion.text = pathlib.Path(args.notes_file).read_text().strip()
+        # The link out stays, as "Learn more" rather than as the notes themselves.
+        ET.SubElement(item, f"{SP}fullReleaseNotesLink").text = args.notes_url
+    else:
+        ET.SubElement(item, f"{SP}releaseNotesLink").text = args.notes_url
     ET.SubElement(item, "pubDate").text = datetime.datetime.now(
         datetime.timezone.utc
     ).strftime("%a, %d %b %Y %H:%M:%S +0000")

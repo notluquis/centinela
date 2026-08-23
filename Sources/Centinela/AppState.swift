@@ -27,6 +27,9 @@ final class AppState {
     var errorsByProject: [ProjectErrorCount] = []
     var environments: [String] = []
     var transactions: [TransactionStat] = []
+    /// Sentry's own threshold for the selected project, in milliseconds. 300 is what Sentry
+    /// itself returns by default, so it is the fallback when no single project is selected.
+    var transactionThreshold: Double = 300
     var replays: [Replay] = []
     var feedback: [UserFeedback] = []
 
@@ -184,6 +187,13 @@ final class AppState {
             // above: they are the two routes with no live data behind them here, so a failure
             // must not take down the lists that do work.
             transactions = (try? await client.slowestTransactions(window: settings.window)) ?? []
+            // Only when a single project is selected: the threshold is a per-project setting and
+            // there is no organization-wide one to ask for.
+            if let slug = settings.selectedProjectID.flatMap({ id in
+                errorsByProject.first { $0.projectID == id }?.slug
+            }) {
+                transactionThreshold = (try? await client.transactionThreshold(projectSlug: slug)) ?? 300
+            }
             replays = (try? await client.replays(window: settings.window)) ?? []
             feedback = (try? await client.userFeedback()) ?? []
             lastError = nil

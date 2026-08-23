@@ -190,8 +190,23 @@ private struct HealthRow: View {
 /// complaining about. Sentry's own performance views default to the same percentile.
 struct PerformanceSection: View {
     let transactions: [TransactionStat]
+    /// Sentry's own duration threshold for the project, in milliseconds. Colouring against a
+    /// number this project invented would be a number nobody agreed on; this one is configured in
+    /// Sentry and moves when they move it.
+    let thresholdMilliseconds: Double
 
     var body: some View {
+        if !transactions.isEmpty {
+            HStack {
+                Text("Slowest by p95")
+                Spacer()
+                Text("over \(Int(thresholdMilliseconds)) ms is slow, per Sentry")
+            }
+            .font(.caption2)
+            .foregroundStyle(.secondary)
+            .padding(.horizontal, 12)
+            .padding(.bottom, 4)
+        }
         if transactions.isEmpty {
             Text("Nothing here.")
                 .font(.callout)
@@ -213,7 +228,9 @@ struct PerformanceSection: View {
                 Spacer(minLength: 8)
                 Text(duracion(row.p95))
                     .font(.system(.callout, design: .monospaced))
-                    .foregroundStyle(row.p95 >= 1000 ? .orange : .secondary)
+                    .foregroundStyle(
+                        row.p95 > thresholdMilliseconds ? AnyShapeStyle(.orange) : AnyShapeStyle(.secondary)
+                    )
             }
             .padding(.horizontal, 12)
             .padding(.vertical, 3)
