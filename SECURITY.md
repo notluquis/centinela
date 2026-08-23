@@ -9,19 +9,61 @@ carry internal URLs, identifiers and fragments of business data.
 
 | Data | Where | Detail |
 |---|---|---|
-| Access and refresh tokens | macOS Keychain | `kSecClassGenericPassword`, `kSecAttrAccessibleWhenUnlockedThisDeviceOnly`, not synchronized |
-| Organization, server, interval, OAuth client id | `UserDefaults` | None of these are secrets |
-| Issues, releases, uptime | Memory only | `URLSessionConfiguration.ephemeral`: no disk cache, no cookies |
+| Access and refresh tokens | macOS Keychain | `kSecAttrAccessibleWhenUnlockedThisDeviceOnly`, not synchronized, never in a restored backup |
+| Organization, server, interval, OAuth client id, project, environment | `UserDefaults` | None of these are secrets |
+| Issues, releases, uptime, transactions | Memory only | `URLSessionConfiguration.ephemeral`: no disk cache, no cookies |
 
 Nothing Sentry returns is written to disk.
 
-**What the Keychain does and does not buy here.** Measured, not assumed: any process running as
-you can read the token with `security find-generic-password -s cl.bioalergia.centinela -a
-token-de-organizacion -w`, with no prompt. The item is not bound to this app's signature. What the
-Keychain buys is that the token is not a plaintext file in your home directory, that it does not
-travel in a backup restored onto another machine, and that the machine has to be unlocked. It does
-not buy isolation from other software you run. If that matters to you, give Centinela a token
-scoped to a single project rather than the whole organization.
+### The signing certificate is part of this, not a build detail
+
+The Keychain used to ask for a password on every update. That is not a bug to work around, it is
+what an ad-hoc signature means: the app's designated requirement is literally its code hash.
+
+```
+ad-hoc:        designated => cdhash H"3b064b3123e1a5c873af1568fccbd8e7f31aa0ab"
+certificate:   designated => identifier "cl.bioalergia.centinela" and certificate root = H"303ec746…"
+```
+
+Every build changes the hash, so each update was, to the Keychain, a different application asking
+for someone else's item. Measured, same read, same item:
+
+| | First access after a rebuild | Steady state | Dialog |
+|---|---|---|---|
+| Ad-hoc | 7709 ms | 5317 ms | yes, every update |
+| Self-signed certificate | 4701 ms (one-time validation) | 18 ms | **none** |
+
+Three documented alternatives were tried first and none works without a stable identity: the data
+protection keychain (`kSecUseDataProtectionKeychain`, which Apple "highly recommends") returns
+`errSecMissingEntitlement` because it needs a team identifier; `SecAccessCreate` with `nil` trusts
+"only the calling app", which is the app that stops existing at the next build; and
+`security add-generic-password -A` did not remove the delay.
+
+Releases are signed with the same certificate, and the release workflow **fails** if the resulting
+requirement is a hash. A release signed ad-hoc would put the dialog back for everyone who updates,
+and nobody would connect it to a build step.
+
+#### Creating one
+
+```bash
+openssl req -x509 -newkey rsa:2048 -sha256 -days 3650 -nodes \
+  -keyout key.pem -out cert.pem -config ext.cnf     # extendedKeyUsage = codeSigning
+openssl pkcs12 -export -inkey key.pem -in cert.pem -out ident.p12 \
+  -certpbe PBE-SHA1-3DES -keypbe PBE-SHA1-3DES -macalg sha1   # macOS cannot read OpenSSL 3 defaults
+security import ident.p12 -k ~/Library/Keychains/login.keychain-db -T /usr/bin/codesign -A
+security add-trusted-cert -r trustRoot -p codeSign -k ~/Library/Keychains/login.keychain-db cert.pem
+```
+
+The trust is scoped to code signing with `-p codeSign`, not granted for everything. `make` picks
+the identity up on its own and falls back to ad-hoc when it is absent, which builds and runs fine
+and only costs the Keychain prompt.
+
+**What it does not buy.** It is not a Developer ID: there is no team identifier, so Gatekeeper
+still asks for right-click-to-open on a downloaded copy, notarization is still impossible, and
+`com.apple.security.cs.disable-library-validation` is still required for Sparkle. Measured: with
+both the app and Sparkle signed by this certificate, dyld still refuses with "mapping process and
+mapped file (non-platform) have different Team IDs", because library validation wants a real team
+and a self-signed certificate has none.
 
 ## What the app asks the system for
 

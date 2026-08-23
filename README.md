@@ -14,7 +14,7 @@ There is no official Sentry app for macOS, and no third-party one either. Search
 
 This fills that gap.
 
-**Actually native**: SwiftUI, `MenuBarExtra`, a 2 MB app. Not a web wrapper and not a script
+**Actually native**: SwiftUI, `MenuBarExtra`, a 5.3 MB app. Not a web wrapper and not a script
 inside somebody else's app.
 
 ## What it shows
@@ -158,14 +158,13 @@ exactly that one, and it read the audit log without complaint.
 
 ```bash
 make build     # swift build -c release
-make test      # 45 tests, no graphics session needed
+make test      # 63 tests, no graphics session needed
 make lint      # swiftlint --strict
 make app       # assembles build/Centinela.app and signs it ad-hoc
 make run       # the above, then opens it
 ```
 
-A clean release build takes **60 s** on Apple Silicon. The app comes out at 2 MB, 1.1 of which
-is the `.icns`.
+A clean release build takes **60 s** on Apple Silicon. The app comes out at 5.3 MB: 2.8 of that is Sparkle and 1.1 the `.icns`.
 
 ### Without Xcode, with swiftly
 
@@ -228,7 +227,7 @@ arithmetic, the Keychain); `Centinela` is only the shell that draws.
 
 | | Centinela | SwiftBar plus a script |
 |---|---|---|
-| On disk | **2.0 MB** (1.1 is the icon) | 7.1 MB |
+| On disk | **5.3 MB** (2.8 is Sparkle, 1.1 the icon) | 7.1 MB |
 | Resident, panel never opened | 7.6 MB | 6–8 MB |
 | Resident, after opening it | ~25 MB | 6–8 MB |
 | Per cycle | nothing: `async` inside the process | **+19 MB and 1.5 s**, an interpreter starting from scratch |
@@ -241,7 +240,7 @@ is steady-state RAM, SwiftBar wins, and that is worth knowing before installing 
 - `MenuBarExtra` with `.menuBarExtraStyle(.window)`: an `NSMenu` cannot draw a sparkline or
   two-line rows.
 - `@Observable` (Observation), not `ObservableObject`.
-- Keychain for the token, not a dotfile.
+- Keychain for the token, not a dotfile, which needs a stable signing identity to be usable: with an ad-hoc signature macOS asks for a password on every update. `SECURITY.md` has the measurements.
 - `SMAppService` for launch at login. The old way (`SMLoginItemSetEnabled` plus a helper binary)
   was deprecated in macOS 13. The status is not a boolean: `.requiresApproval` means registered
   but pending the user's approval, and the UI says so instead of showing the switch off.

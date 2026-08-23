@@ -55,7 +55,7 @@ final class LoginController {
 
                 let grant = try await flow.waitForApproval(code)
                 guard settings.saveSession(grant) else {
-                    stage = .failed(settings.lastKeychainError ?? "could not write to the Keychain")
+                    stage = .failed(settings.lastStorageError ?? "could not save the token")
                     return
                 }
                 await resolveOrganization()

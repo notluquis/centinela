@@ -37,9 +37,20 @@ BUILD         ?= $(shell git rev-list --count HEAD 2>/dev/null || echo 1)
 CONFIG        ?= release
 BUILD_DIR     := .build/$(CONFIG)
 APP_DIR       := build/$(APP).app
-# With no signing identity it signs ad-hoc. That is enough to run it on the machine it was built
-# on; handing it around needs a Developer ID (see README, "Distribution").
-IDENTITY      ?= -
+# The signing identity. This is not cosmetic: with an ad-hoc signature the app's designated
+# requirement is literally its code hash, so every build looks like a different application to the
+# Keychain and macOS asks the user for their password on every update. Measured: the same read took
+# 23 ms from the build that wrote the item and 7709 ms from a rebuild, the gap being the dialog.
+#
+# A self-signed certificate makes the requirement identity-based instead:
+#
+#     designated => identifier "cl.bioalergia.centinela" and certificate root = H"303ec746…"
+#
+# which is stable across builds. Measured after switching: 25 ms, 18 ms, 18 ms, and no dialog.
+# See SECURITY.md for how to create one. Falls back to ad-hoc when it is not installed, which
+# builds and runs fine and only costs the Keychain prompt.
+SIGNING_NAME  ?= Centinela Signing
+IDENTITY      ?= $(shell security find-identity -v -p codesigning 2>/dev/null | grep -q "$(SIGNING_NAME)" && echo "$(SIGNING_NAME)" || echo "-")
 
 .PHONY: build app run test lint clean install toolchain
 

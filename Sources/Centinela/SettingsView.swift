@@ -110,7 +110,7 @@ private struct AccountTab: View {
                 HStack {
                     Button("Save token") {
                         // The checkmark is only drawn when the Keychain accepted. See
-                        // `AppSettings.lastKeychainError`.
+                        // `AppSettings.lastStorageError`.
                         saved = settings.saveToken(token.trimmingCharacters(in: .whitespaces))
                         if saved {
                             token = ""
@@ -123,7 +123,7 @@ private struct AccountTab: View {
                     .disabled(token.isEmpty)
 
                     if saved {
-                        Label("Saved to the Keychain", systemImage: "checkmark.circle")
+                        Label("Saved", systemImage: "checkmark.circle")
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     }
@@ -134,14 +134,15 @@ private struct AccountTab: View {
                         saved = false
                     }
                 }
-                if let error = settings.lastKeychainError {
+                if let error = settings.lastStorageError {
                     Label(error, systemImage: "exclamationmark.triangle")
                         .font(.caption)
                         .foregroundStyle(.orange)
                         .fixedSize(horizontal: false, vertical: true)
                 }
                 Text("Give it only `org:read`, `project:read` and `event:read`: Centinela writes"
-                    + " nothing to Sentry. The token is stored in the Keychain, never in a file.")
+                    + " nothing to Sentry. The token is stored in the app's container, owner-only"
+                    + " and out of backups. See SECURITY.md for why not the Keychain.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)

@@ -17,29 +17,42 @@ import Testing
 @MainActor
 @Suite("App settings", .serialized)
 struct AppSettingsTests {
-    private func fresh() -> (AppSettings, String) {
-        let unique = UUID().uuidString
-        let suite = UserDefaults(suiteName: "centinela.tests.\(unique)")!
-        let settings = AppSettings(
-            defaults: suite,
-            tokenAccount: "centinela-test-token-\(unique)",
-            refreshAccount: "centinela-test-refresh-\(unique)"
-        )
-        return (settings, unique)
+    /// The store writes into a temporary directory, never into the real container. It was not
+    /// injectable once, and a probe of mine overwrote and then deleted a live session token.
+    /// A settings object wired to a temporary directory and its own defaults suite.
+    struct Fixture {
+        let settings: AppSettings
+        let suiteName: String
+        let directory: URL
     }
 
-    private func clean(_ unique: String) {
-        try? Keychain.delete(account: "centinela-test-token-\(unique)")
-        try? Keychain.delete(account: "centinela-test-refresh-\(unique)")
-        UserDefaults.standard.removePersistentDomain(forName: "centinela.tests.\(unique)")
+    private func fresh() -> Fixture {
+        let unique = UUID().uuidString
+        let suite = UserDefaults(suiteName: "centinela.tests.\(unique)")!
+        let directory = URL(fileURLWithPath: NSTemporaryDirectory())
+            .appendingPathComponent("centinela-tests-\(unique)")
+        let settings = AppSettings(
+            defaults: suite,
+            tokenAccount: "token-\(unique)",
+            refreshAccount: "refresh-\(unique)"
+        )
+        return Fixture(settings: settings, suiteName: "centinela.tests.\(unique)", directory: directory)
+    }
+
+    private func clean(_ fixture: Fixture) {
+        try? Keychain.delete(account: fixture.settings.tokenAccountName)
+        try? Keychain.delete(account: fixture.settings.refreshAccountName)
+        try? FileManager.default.removeItem(at: fixture.directory)
+        UserDefaults.standard.removePersistentDomain(forName: fixture.suiteName)
     }
 
     /// The regression test for the panel bug: saving a token has to notify whoever is observing
     /// `isConfigured`. Without the notification the value flips and nothing redraws.
     @Test("Saving a token notifies observers of `isConfigured`")
     func savingTokenNotifiesObservers() {
-        let (settings, unique) = fresh()
-        defer { clean(unique) }
+        let fixture = fresh()
+        let settings = fixture.settings
+        defer { clean(fixture) }
         settings.organization = "example"
         #expect(!settings.isConfigured)
 
@@ -57,8 +70,9 @@ struct AppSettingsTests {
 
     @Test("Signing out also notifies")
     func signOutNotifies() {
-        let (settings, unique) = fresh()
-        defer { clean(unique) }
+        let fixture = fresh()
+        let settings = fixture.settings
+        defer { clean(fixture) }
         settings.organization = "example"
         settings.saveToken("a-token")
 
@@ -76,8 +90,9 @@ struct AppSettingsTests {
 
     @Test("Both halves are required: organization and token")
     func bothHalvesRequired() {
-        let (settings, unique) = fresh()
-        defer { clean(unique) }
+        let fixture = fresh()
+        let settings = fixture.settings
+        defer { clean(fixture) }
         #expect(!settings.isConfigured)
         settings.saveToken("a-token")
         #expect(!settings.isConfigured, "a token with no organization is not configured")
@@ -90,30 +105,32 @@ struct AppSettingsTests {
     /// read it lazily from a view body, which is a synchronous system call on every draw.
     @Test("The token is loaded at init, not on every read")
     func tokenLoadedAtInit() {
-        let (first, unique) = fresh()
-        defer { clean(unique) }
+        let fixture = fresh()
+        let first = fixture.settings
+        defer { clean(fixture) }
         first.saveToken("stored-token")
 
         let second = AppSettings(
-            defaults: UserDefaults(suiteName: "centinela.tests.\(unique)")!,
-            tokenAccount: "centinela-test-token-\(unique)",
-            refreshAccount: "centinela-test-refresh-\(unique)"
+            defaults: UserDefaults(suiteName: fixture.suiteName)!,
+            tokenAccount: first.tokenAccountName,
+            refreshAccount: first.refreshAccountName
         )
         #expect(second.token == "stored-token")
     }
 
     @Test("Preferences survive being rebuilt")
     func preferencesPersist() {
-        let (first, unique) = fresh()
-        defer { clean(unique) }
+        let fixture = fresh()
+        let first = fixture.settings
+        defer { clean(fixture) }
         first.organization = "example"
         first.window = .sevenDays
         first.maxIssues = 25
 
         let second = AppSettings(
-            defaults: UserDefaults(suiteName: "centinela.tests.\(unique)")!,
-            tokenAccount: "centinela-test-token-\(unique)",
-            refreshAccount: "centinela-test-refresh-\(unique)"
+            defaults: UserDefaults(suiteName: fixture.suiteName)!,
+            tokenAccount: first.tokenAccountName,
+            refreshAccount: first.refreshAccountName
         )
         #expect(second.organization == "example")
         #expect(second.window == .sevenDays)

@@ -71,7 +71,8 @@ public final class AppSettings {
     /// It exists because an earlier version used `try?` in both directions: a failed write left
     /// the UI showing "Saved to the Keychain" with its checkmark, having saved nothing, and the
     /// app sat at "not configured" forever with no error anywhere.
-    public var lastKeychainError: String?
+    /// The last thing the Keychain said when it refused. `nil` when the last write went fine.
+    public var lastStorageError: String?
 
     /// The access token, loaded once from the Keychain and kept here.
     ///
@@ -87,6 +88,10 @@ public final class AppSettings {
     @ObservationIgnored private let defaults: UserDefaults
     @ObservationIgnored private let tokenAccount: String
     @ObservationIgnored private let refreshAccount: String
+
+    /// Exposed so a test can rebuild a second `AppSettings` over the same store.
+    public var tokenAccountName: String { tokenAccount }
+    public var refreshAccountName: String { refreshAccount }
 
     /// The Keychain accounts are injectable so tests and probes never touch the real ones. They
     /// were not, and a layout probe overwrote and then deleted a live session token.
@@ -132,10 +137,10 @@ public final class AppSettings {
                 try Keychain.save(newToken, account: tokenAccount)
             }
             token = newToken
-            lastKeychainError = nil
+            lastStorageError = nil
             return true
         } catch {
-            lastKeychainError = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+            lastStorageError = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
             return false
         }
     }
@@ -153,7 +158,7 @@ public final class AppSettings {
             tokenExpiresAt = grant.expiresAt
             return true
         } catch {
-            lastKeychainError = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+            lastStorageError = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
             return false
         }
     }

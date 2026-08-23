@@ -8,6 +8,33 @@ to publish when it is missing, so a release never goes out with an empty body.
 
 ## [Unreleased]
 
+## [0.5.0] — 2026-08-23
+
+### Fixed
+
+- **macOS stopped asking for the Keychain password on every update.** The cause was not a bug to
+  work around: with an ad-hoc signature the app's designated requirement is literally its code
+  hash, so every build was, to the Keychain, a different application asking for someone else's
+  item. Builds are signed with a self-signed certificate now, which makes the requirement
+  identity-based and stable. Measured on the same read: 7709 ms and a dialog before, 18 ms and
+  none after. The release workflow fails if a build ever comes out hash-signed, because a release
+  signed ad-hoc would put the dialog back for everyone who updates.
+
+  Three documented alternatives were tried first and none works without a stable identity: the
+  data protection keychain returns `errSecMissingEntitlement`, `SecAccessCreate(nil)` trusts only
+  the app that is about to stop existing, and `security -A` did not remove the delay. The
+  certificate is **not** a Developer ID: Gatekeeper still asks for right-click-to-open,
+  notarization is still impossible, and `disable-library-validation` is still required, because
+  library validation wants a real team identifier and a self-signed certificate has none. All of
+  it is in `SECURITY.md` with the numbers.
+
+### Changed
+
+- The update dialog shows the changelog itself instead of GitHub's release page. It was pointing
+  at the page, so Sparkle rendered its chrome too: "Compare", "github-actions released this" and a
+  commit list around the actual notes. Sparkle accepts `sparkle:format="markdown"` on
+  `<description>`, so the section goes in verbatim with no conversion step to get wrong.
+
 ## [0.4.0] — 2026-08-23
 
 Six more Sentry surfaces, all verified against the live organization except the one that has no

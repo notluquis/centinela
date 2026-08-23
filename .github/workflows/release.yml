@@ -22,8 +22,53 @@ jobs:
           # `make app` takes the version from `git describe`, which needs the tags.
           fetch-depth: 0
 
+      # Released builds are signed with the same certificate local builds use. That is not
+      # cosmetic: with an ad-hoc signature the designated requirement is the code hash, so every
+      # update looks like a different application to the Keychain and macOS asks the user for
+      # their password. Measured: 7709 ms and a dialog with ad-hoc, 18 ms and none with a stable
+      # identity. A release signed ad-hoc would put the dialog back for everyone who updates.
+      - name: Import the signing certificate
+        env:
+          CERTIFICATE_P12: ${{ secrets.SIGNING_CERTIFICATE_P12 }}
+          CERTIFICATE_PASSWORD: ${{ secrets.SIGNING_CERTIFICATE_PASSWORD }}
+        run: |
+          set -euo pipefail
+          if [ -z "${CERTIFICATE_P12:-}" ]; then
+            echo "::error::SIGNING_CERTIFICATE_P12 is not set: the release would be ad-hoc signed"
+            exit 1
+          fi
+          umask 077
+          echo "$CERTIFICATE_P12" | base64 --decode > certificate.p12
+          # A keychain of its own, deleted at the end of the job. The runner's login keychain is
+          # not somewhere to leave a private key.
+          KEYCHAIN_PASSWORD=$(uuidgen)
+          security create-keychain -p "$KEYCHAIN_PASSWORD" build.keychain
+          security set-keychain-settings -lut 900 build.keychain
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" build.keychain
+          security import certificate.p12 -k build.keychain -P "$CERTIFICATE_PASSWORD" \
+            -T /usr/bin/codesign -A
+          # Without this, codesign blocks on a dialog nobody can answer on a runner.
+          security set-key-partition-list -S apple-tool:,apple: -s -k "$KEYCHAIN_PASSWORD" build.keychain >/dev/null
+          security list-keychains -d user -s build.keychain $(security list-keychains -d user | tr -d '"')
+          rm -f certificate.p12
+          security find-identity -v -p codesigning build.keychain
+
       - name: Build and bundle
         run: make app
+
+      # The whole point of the certificate is that the requirement stops being a hash. If a
+      # release ever goes out ad-hoc, everyone who updates gets a password dialog and nobody
+      # would connect it to this job.
+      - name: The signature is identity-based, not a hash
+        run: |
+          set -euo pipefail
+          REQUIREMENT=$(codesign -d -r- build/Centinela.app 2>&1 | tail -1)
+          echo "$REQUIREMENT"
+          case "$REQUIREMENT" in
+            *cdhash*) echo "::error::signed ad-hoc: the designated requirement is a code hash"; exit 1 ;;
+            *"certificate root"*) echo "identity-based, good" ;;
+            *) echo "::error::unrecognised designated requirement"; exit 1 ;;
+          esac
 
       # Building is not proof the bundle is right. This is: without `LSUIElement` the app would
       # show up in the Dock, and without a signature it will not launch past Gatekeeper.
@@ -141,6 +186,10 @@ jobs:
 
       # `gh release` ships with the runner. A third-party action for this would be supply-chain
       # surface with nothing to show for it.
+      - name: Remove the signing keychain
+        if: always()
+        run: security delete-keychain build.keychain || true
+
       - name: Publish
         env:
           GH_TOKEN: ${{ github.token }}
