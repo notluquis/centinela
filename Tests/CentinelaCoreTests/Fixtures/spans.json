@@ -1,0 +1,11 @@
+{
+  "data": [
+    { "transaction": "GET https://example.test/v1/delta", "count()": 150.0, "p95(span.duration)": 1170.06 },
+    { "transaction": "POST https://example.test/oauth2/token", "count()": 10.0, "p95(span.duration)": 449.24 },
+    { "transaction": "GET /api/auth/get-session", "count()": 650.0, "p95(span.duration)": 71.12 },
+    { "count()": 5.0, "p95(span.duration)": 12.0 }
+  ],
+  "meta": {
+    "fields": { "transaction": "string", "count()": "integer", "p95(span.duration)": "duration" }
+  }
+}

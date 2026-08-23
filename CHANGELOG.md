@@ -15,6 +15,13 @@ data to verify against, which says so.
 
 ### Added
 
+- **A Performance section**: the slowest transactions by 95th percentile span duration. Measured
+  against the live organization: an outbound Microsoft Graph call at 1170 ms p95 over 150 samples,
+  next to an endpoint doing 650 samples at 71 ms. p95 and not the average, because an average
+  hides the tail and the tail is what someone is complaining about.
+- **A Feedback section** for user feedback and session replays, which **appears only when there is
+  something in it**. A permanently empty tab teaches people not to look, and this organization has
+  neither, since both need the browser SDK on a frontend.
 - **Escalating and regressed issues.** Sentry's own triage: escalating means it decided the issue
   is getting worse, regressed means it came back after being resolved. Same route as the other
   lists with a different search, so `substatus` and `priority` stopped being decoded and discarded.
@@ -37,11 +44,14 @@ data to verify against, which says so.
 
 ### Not verified
 
-- **Cron monitors.** The organization has none, so the decoder is built from Sentry's published
-  OpenAPI schema and the fixture is derived from it. Same treatment the device flow got before
-  there was a client id to try it with.
-- **Incidents and alert rules** are deliberately absent: there is no data and Sentry does not
-  publish their schema either, so a decoder would be a guess.
+The rule these follow: **with live data it is verified, with a published schema it is implemented
+and marked, with neither it is not written.**
+
+| | Why | What unblocks it |
+|---|---|---|
+| **Cron monitors** | The organization has none. The decoder comes from Sentry's published OpenAPI schema (`getsentry/sentry-api-schema`) and the fixture is derived from it | One cron existing. Then the real response gets compared against the fixture and the mark comes off |
+| **Replays and user feedback** | Zero of either. Same treatment: schema-derived, and the section stays hidden until something arrives | One replay or one piece of feedback |
+| **Incidents and alert rules** | Deliberately absent. No data **and no published schema either**: zero paths for both, so a decoder would be a guess | One alert being configured. Until then no code goes in |
 
 ### Fixed
 

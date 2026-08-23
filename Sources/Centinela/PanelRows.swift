@@ -183,3 +183,101 @@ private struct HealthRow: View {
         .padding(.vertical, 3)
     }
 }
+
+/// The slowest transactions by 95th percentile.
+///
+/// p95 and not the average: an average hides the tail, and the tail is what someone is
+/// complaining about. Sentry's own performance views default to the same percentile.
+struct PerformanceSection: View {
+    let transactions: [TransactionStat]
+
+    var body: some View {
+        if transactions.isEmpty {
+            Text("Nothing here.")
+                .font(.callout)
+                .foregroundStyle(.secondary)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 4)
+        }
+        ForEach(transactions) { row in
+            HStack(alignment: .firstTextBaseline, spacing: 8) {
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(row.transaction)
+                        .lineLimit(1)
+                        .truncationMode(.middle)
+                        .font(.callout)
+                    Text("^[\(row.count) sample](inflect: true)")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
+                Spacer(minLength: 8)
+                Text(duracion(row.p95))
+                    .font(.system(.callout, design: .monospaced))
+                    .foregroundStyle(row.p95 >= 1000 ? .orange : .secondary)
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 3)
+        }
+    }
+
+    /// Milliseconds under a second, seconds above it. `1170 ms` reads as noise; `1.17 s` reads as
+    /// slow.
+    private func duracion(_ milisegundos: Double) -> String {
+        milisegundos >= 1000
+            ? String(format: "%.2f s", milisegundos / 1000)
+            : String(format: "%.0f ms", milisegundos)
+    }
+}
+
+/// User feedback and session replays.
+///
+/// Both are decoded from Sentry's published schema rather than from a response: the organization
+/// has none of either. The section only appears when something arrives, so nobody stares at an
+/// empty tab in the meantime.
+struct FeedbackSection: View {
+    let feedback: [UserFeedback]
+    let replays: [Replay]
+
+    var body: some View {
+        ForEach(feedback) { item in
+            VStack(alignment: .leading, spacing: 1) {
+                Text(item.comments)
+                    .lineLimit(3)
+                    .font(.callout)
+                HStack(spacing: 6) {
+                    Text(item.name ?? item.email ?? "anonymous")
+                    Text("·")
+                    Text(item.dateCreated, format: .relative(presentation: .numeric))
+                }
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 4)
+        }
+
+        if !replays.isEmpty {
+            Text("Replays")
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(.secondary)
+                .padding(.horizontal, 12)
+                .padding(.top, 10)
+            ForEach(replays) { replay in
+                HStack {
+                    Text(replay.id)
+                        .font(.system(.caption, design: .monospaced))
+                        .lineLimit(1)
+                        .truncationMode(.middle)
+                    Spacer()
+                    if replay.errorCount > 0 {
+                        Text("^[\(replay.errorCount) error](inflect: true)")
+                            .font(.caption2)
+                            .foregroundStyle(.orange)
+                    }
+                }
+                .padding(.horizontal, 12)
+                .padding(.vertical, 3)
+            }
+        }
+    }
+}

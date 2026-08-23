@@ -26,6 +26,9 @@ final class AppState {
     var crashFree: Double?
     var errorsByProject: [ProjectErrorCount] = []
     var environments: [String] = []
+    var transactions: [TransactionStat] = []
+    var replays: [Replay] = []
+    var feedback: [UserFeedback] = []
 
     var loading = false
     var lastError: String?
@@ -176,6 +179,13 @@ final class AppState {
             self.releases = try await releases
             self.crashFree = try await crashFree
             self.errorsByProject = try await byProject
+
+            // Performance and feedback go in their own step rather than the `async let` group
+            // above: they are the two routes with no live data behind them here, so a failure
+            // must not take down the lists that do work.
+            transactions = (try? await client.slowestTransactions(window: settings.window)) ?? []
+            replays = (try? await client.replays(window: settings.window)) ?? []
+            feedback = (try? await client.userFeedback()) ?? []
             lastError = nil
         } catch {
             lastError = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription

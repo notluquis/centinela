@@ -306,6 +306,42 @@ public struct SentryClient: Sendable {
         return try await ProjectErrorCount.from(statsJSON: statsData, projects: projectList)
     }
 
+    /// The slowest transactions in the window, by 95th percentile span duration.
+    ///
+    /// Measured against a real organization: 5 rows in 501 ms, topped by an outbound Microsoft
+    /// Graph call at 1170 ms p95 over 150 samples. This is the only route here whose response
+    /// keys are decided by the request, so `field=` and the parsing in `TransactionStat` have to
+    /// agree; there is a test that they do.
+    public func slowestTransactions(window: TimeWindow, limit: Int = 8) async throws -> [TransactionStat] {
+        let data = try await get("events", [
+            .init(name: "field", value: "transaction"),
+            .init(name: "field", value: TransactionStat.countField),
+            .init(name: "field", value: TransactionStat.p95Field),
+            .init(name: "statsPeriod", value: window.rawValue),
+            .init(name: "dataset", value: "spans"),
+            .init(name: "sort", value: "-" + TransactionStat.p95Field),
+            .init(name: "per_page", value: String(limit))
+        ] + scope)
+        return try TransactionStat.from(json: data)
+    }
+
+    /// Session replays. See `Replay`: shape from the published schema, none to look at yet.
+    public func replays(window: TimeWindow, limit: Int = 10) async throws -> [Replay] {
+        struct Envelope: Decodable { let data: [Replay] }
+        let data = try await get("replays", [
+            .init(name: "statsPeriod", value: window.rawValue),
+            .init(name: "per_page", value: String(limit))
+        ] + scope)
+        return try decode(Envelope.self, data, path: "replays").data
+    }
+
+    /// User feedback. See `UserFeedback`: shape from the published schema, none to look at yet.
+    public func userFeedback(limit: Int = 10) async throws -> [UserFeedback] {
+        try await get([UserFeedback].self, "user-feedback", [
+            .init(name: "per_page", value: String(limit))
+        ])
+    }
+
     /// The environments that have data. Used to offer a filter only when there is more than one.
     public func environments() async throws -> [String] {
         struct Environment: Decodable { let name: String }

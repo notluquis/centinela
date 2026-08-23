@@ -73,7 +73,12 @@ struct PanelHeader: View {
 enum PanelSection: String, CaseIterable, Identifiable {
     case issues
     case health
+    case performance
     case releases
+    /// Shown only when there is something in it. A permanently empty tab is a tab that teaches
+    /// people not to look: the organization this was built against has no replays and no user
+    /// feedback, and may never have any, since both need the browser SDK on a frontend.
+    case feedback
 
     var id: Self { self }
 
@@ -83,7 +88,9 @@ enum PanelSection: String, CaseIterable, Identifiable {
         switch self {
         case .issues: "Issues"
         case .health: "Health"
+        case .performance: "Perf"
         case .releases: "Releases"
+        case .feedback: "Feedback"
         }
     }
 }
@@ -120,7 +127,7 @@ struct PanelContent: View {
             notices
 
             Picker("Section", selection: $section) {
-                ForEach(PanelSection.allCases) { option in
+                ForEach(visibleSections) { option in
                     Text(count(option) > 0 ? "\(option.label) \(count(option))" : option.label)
                         .tag(option)
                 }
@@ -151,8 +158,12 @@ struct PanelContent: View {
                         IssueSection(issues: issues(filter))
                     case .health:
                         HealthSection(state: state)
+                    case .performance:
+                        PerformanceSection(transactions: state.transactions)
                     case .releases:
                         ReleaseSection(releases: state.releases)
+                    case .feedback:
+                        FeedbackSection(feedback: state.feedback, replays: state.replays)
                     }
                 }
                 .padding(.top, 8)
@@ -179,6 +190,12 @@ struct PanelContent: View {
         }
     }
 
+    /// Feedback drops out when empty. Positions shift the day it appears, which is a day worth
+    /// noticing.
+    private var visibleSections: [PanelSection] {
+        PanelSection.allCases.filter { $0 != .feedback || count(.feedback) > 0 }
+    }
+
     private func issues(_ option: IssueFilter) -> [SentryIssue] {
         switch option {
         case .unresolved: state.issues
@@ -192,7 +209,9 @@ struct PanelContent: View {
         switch option {
         case .issues: state.issues.count
         case .health: state.monitors.filter(\.isActive).count + state.crons.filter(\.isActive).count
+        case .performance: state.transactions.count
         case .releases: state.releases.count
+        case .feedback: state.feedback.count + state.replays.count
         }
     }
 

@@ -226,3 +226,75 @@ public struct ProjectErrorCount: Sendable, Hashable, Identifiable {
         .sorted { $0.count > $1.count }
     }
 }
+
+/// One row of `events` on the spans dataset: a transaction with how often it ran and how slow it
+/// was at the 95th percentile.
+///
+/// There is no fixed schema for this route. The response's keys are literally the `field=`
+/// parameters that were asked for, so `data[]` comes back as `{"transaction": …, "count()": …,
+/// "p95(span.duration)": …}`. That is why this is parsed by hand instead of being `Codable`:
+/// a synthesized decoder would need property names containing parentheses.
+public struct TransactionStat: Sendable, Hashable, Identifiable {
+    public let transaction: String
+    public let count: Int
+    /// Milliseconds. `meta.fields` types this as `duration` and Sentry returns it in ms.
+    public let p95: Double
+
+    public var id: String { transaction }
+
+    public init(transaction: String, count: Int, p95: Double) {
+        self.transaction = transaction
+        self.count = count
+        self.p95 = p95
+    }
+
+    public static let countField = "count()"
+    public static let p95Field = "p95(span.duration)"
+
+    public static func from(json: Data) throws -> [TransactionStat] {
+        guard
+            let root = try JSONSerialization.jsonObject(with: json) as? [String: Any],
+            let rows = root["data"] as? [[String: Any]]
+        else { throw SentryError.unexpectedResponse("events without a `data` array") }
+
+        return rows.compactMap { row in
+            guard let name = row["transaction"] as? String else { return nil }
+            // `count()` comes back as a JSON number even though `meta.fields` calls it an
+            // integer: 150.0, not 150. Decoding it straight into `Int` fails.
+            let count = (row[countField] as? NSNumber)?.intValue ?? 0
+            let p95 = (row[p95Field] as? NSNumber)?.doubleValue ?? 0
+            return TransactionStat(transaction: name, count: count, p95: p95)
+        }
+    }
+}
+
+/// A session replay. **Not verified against real data**: the organization has none, so the shape
+/// comes from Sentry's published OpenAPI schema. Only the handful of fields a one-line row needs
+/// are decoded; the response carries a dozen more.
+public struct Replay: Codable, Sendable, Identifiable, Hashable {
+    public let id: String
+    public let projectID: String?
+    public let environment: String?
+    public let errorIDs: [String]?
+
+    enum CodingKeys: String, CodingKey {
+        case id
+        case projectID = "project_id"
+        case environment
+        case errorIDs = "error_ids"
+    }
+
+    public var errorCount: Int { errorIDs?.count ?? 0 }
+}
+
+/// A piece of user feedback. **Not verified against real data** for the same reason as `Replay`.
+///
+/// The organization-level route answered 200 with an empty list but is not in the published
+/// schema; the per-project one is. This models the documented shape.
+public struct UserFeedback: Codable, Sendable, Identifiable, Hashable {
+    public let id: String
+    public let name: String?
+    public let email: String?
+    public let comments: String
+    public let dateCreated: Date
+}
