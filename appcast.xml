@@ -5,5 +5,14 @@
     <link>https://github.com/notluquis/centinela</link>
     <description>Your Sentry issues in the macOS menu bar.</description>
     <language>en</language>
+    <item>
+      <title>Version 0.3.0</title>
+      <sparkle:version>22</sparkle:version>
+      <sparkle:shortVersionString>0.3.0</sparkle:shortVersionString>
+      <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+      <sparkle:releaseNotesLink>https://github.com/notluquis/centinela/releases/tag/v0.3.0</sparkle:releaseNotesLink>
+      <pubDate>Sun, 23 Aug 2026 17:05:01 +0000</pubDate>
+      <enclosure url="https://github.com/notluquis/centinela/releases/download/v0.3.0/Centinela.zip" sparkle:edSignature="dRw13G/dWG5N7VZ/TtPWst/2kKW2VeUhOdD52SJsup/4a/5lfOKDtSXQDxjbr45PPS4lxevqCwcO2oK8+hJhDQ==" length="2470838" type="application/octet-stream" />
+    </item>
   </channel>
 </rss>
