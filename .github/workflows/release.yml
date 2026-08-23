@@ -107,11 +107,19 @@ jobs:
           VERSION_TAG=$(curl -sL https://api.github.com/repos/sparkle-project/Sparkle/releases/latest | python3 -c 'import json,sys;print(json.load(sys.stdin)["tag_name"])')
           curl -sL "https://github.com/sparkle-project/Sparkle/releases/download/${VERSION_TAG}/Sparkle-${VERSION_TAG}.tar.xz" -o sparkle.tar.xz
           mkdir -p sparkle && tar -xJf sparkle.tar.xz -C sparkle
-          SIGN=$(find sparkle -name sign_update -type f | head -1)
-          # The signature goes to a file rather than an output: it is short, but keeping it off
-          # the step summary is free.
-          "$SIGN" build/Centinela.zip -s "$SPARKLE_PRIVATE_KEY" > signature.txt
-          echo "signed: $(cut -c1-40 signature.txt)…"
+          SIGN=$(find sparkle -name sign_update -type f -not -path '*old_dsa*' | head -1)
+          # `--ed-key-file` and not `-s`: passing the key as an argument is deprecated and
+          # `sign_update` exits 1 on it. The file is written with restrictive permissions and
+          # removed in the same step.
+          umask 077
+          printf '%s' "$SPARKLE_PRIVATE_KEY" > sparkle-key
+          "$SIGN" --ed-key-file sparkle-key build/Centinela.zip > signature.txt
+          rm -f sparkle-key
+          # The signature goes to a file rather than a step output: it is short, but keeping it
+          # off the step summary is free.
+          grep -q 'sparkle:edSignature="' signature.txt \
+            || { echo "::error::sign_update produced no signature"; exit 1; }
+          echo "signed ok"
 
       - name: Update the appcast
         run: |
