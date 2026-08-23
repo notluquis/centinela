@@ -190,4 +190,32 @@ struct AppSettingsTests {
         #expect(!settings.shouldRefresh)
         #expect(settings.authMethod == .pastedToken)
     }
+
+    /// Pins the order, not the answer. Reordering `shouldRefresh` changes no answer it gives —
+    /// every combination returns exactly what it returned before — so the only thing a test can
+    /// hold on to is whether the Keychain was touched. `refreshToken` is a Keychain read, this
+    /// runs every cycle, and with no team identifier every read after an update costs a password
+    /// dialog.
+    @Test("A token with life left decides without reading the Keychain")
+    func freshTokenDoesNotReadTheRefreshToken() {
+        let fixture = fresh()
+        let settings = fixture.settings
+        defer { clean(fixture) }
+
+        settings.saveSession(DeviceFlow.Grant(
+            accessToken: "from-oauth",
+            refreshToken: "renew-me",
+            expiresAt: Date().addingTimeInterval(3600)
+        ))
+
+        let before = Keychain.reads
+        #expect(!settings.shouldRefresh)
+        #expect(Keychain.reads == before)
+
+        // And when a renewal really is due, it does read: the guard is an ordering, not a way of
+        // never looking.
+        settings.tokenExpiresAt = Date().addingTimeInterval(60)
+        #expect(settings.shouldRefresh)
+        #expect(Keychain.reads > before)
+    }
 }

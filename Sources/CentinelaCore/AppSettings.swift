@@ -192,9 +192,17 @@ public final class AppSettings {
     }
 
     /// `true` when there is an OAuth session and the token has less than 10% of its life left.
+    /// The clock is consulted before the Keychain, and the order is the whole point.
+    ///
+    /// `refreshToken` is a Keychain read, this runs on every cycle, and with no team identifier
+    /// every Keychain read after an update costs a password dialog. Asking whether a renewal is
+    /// even due first turns two dialogs per update into one, and takes a synchronous system call
+    /// off a path that runs every five minutes for the ninety-odd per cent of a token's life when
+    /// there is nothing to renew.
     public var shouldRefresh: Bool {
-        guard let expiresAt = tokenExpiresAt, refreshToken != nil else { return false }
-        return DeviceFlow.shouldRefresh(expiresAt: expiresAt, life: tokenLife)
+        guard let expiresAt = tokenExpiresAt,
+              DeviceFlow.shouldRefresh(expiresAt: expiresAt, life: tokenLife) else { return false }
+        return refreshToken != nil
     }
 
     /// Which of the two ways in produced the token being held.
