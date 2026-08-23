@@ -6,6 +6,8 @@ The release workflow reads the section for the tag being published out of this f
 
 ## [Unreleased]
 
+## [0.6.0] — 2026-08-23
+
 ### Fixed
 
 - **Correction to 0.5.0: the Keychain dialog did not stop.** That release said the self-signed certificate ended it, and `SECURITY.md` carried a table with "Dialog: none". Both were wrong. There are two independent checks and the certificate fixes one. `securityd` names the other on a real update, same install path, both builds carrying the certificate: `ACL partition mismatch: client cdhash:553e48cc…`, then `displaying keychain prompt for /Applications/Centinela.app`. A keychain item has a partition list next to its access control list, and an application with no team identifier can only be identified there by its code hash, which every build changes. "Always Allow" adds that build's hash, which is why it asks once per update instead of once ever. The certificate still earns its place: it fixes the designated requirement, which is the other check.
