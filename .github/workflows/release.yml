@@ -114,6 +114,8 @@ jobs:
       # watches. The disk image is for the first install, where "drag this onto that" is a
       # picture and "unzip it, then move it to Applications" is instructions.
       - name: Build the disk image
+        # From the bundle the guards above already checked, not from a fresh one. `make dmg` no
+        # longer rebuilds, so what was verified and what gets downloaded are the same bytes.
         run: make dmg
 
       # The notes are assembled here rather than with `--generate-notes` alone. The CHANGELOG

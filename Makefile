@@ -148,7 +148,12 @@ screenshot: build
 #
 # UDZO is the compressed read-only format; the Applications symlink is what makes the window a
 # drag target rather than a folder.
-dmg: app
+# NOT `dmg: app`. That rebuilds and re-signs the bundle, so in the release workflow the disk
+# image would carry a copy assembled AFTER the guards that check the signature had already run:
+# the guards would be vouching for one artifact and the download would be another. That guard
+# exists because a release once went out ad-hoc signed and nobody noticed.
+dmg:
+	@test -d $(APP_DIR) || { echo "error: $(APP_DIR) is not there. Run 'make app' first, or 'make app dmg'." >&2; exit 1; }
 	rm -rf build/dmg build/$(APP).dmg
 	mkdir -p build/dmg
 	cp -R $(APP_DIR) build/dmg/

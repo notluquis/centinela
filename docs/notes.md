@@ -148,6 +148,10 @@ origin=Centinela Signing
 
 **The way past it is not Control-click → Open.** macOS 15 removed that bypass; the first launch has to be allowed from System Settings → Privacy & Security → Open Anyway, once. This file said otherwise until 2026-08-24, which made it the fifth claim here found to have rotted — written when it was true, never read again.
 
+**Two artifacts, for two readers.** `Centinela.dmg` is for a person installing it for the first time: a window with the app and an arrow pointing at Applications. `Centinela.zip` is what Sparkle updates from, because the appcast points at it and a disk image would add a mount step to something nobody watches. They are built from the same bundle — `make dmg` deliberately does **not** depend on `make app`, so the image carries the copy the signature guards already checked rather than one rebuilt afterwards, and CI attaches the image and compares the two code hashes on every push.
+
+The image is built with `diskutil image create`. `hdiutil create` still works and still says of itself that it is deprecated, naming that as the replacement; the Makefile falls back to it on anything older than macOS 26, where the new command does not exist.
+
 Notarizing costs 99 USD a year and, for a tool that runs on the Macs of whoever builds it, does not pay for itself. If that changes: a `Developer ID Application` in the runner's keychain and an `xcrun notarytool submit --wait` step. The `Makefile` already accepts `IDENTITY=` so it does not have to be touched. `SECURITY.md` has what the certificate does and does not fix, measured.
 
 Check what you downloaded:

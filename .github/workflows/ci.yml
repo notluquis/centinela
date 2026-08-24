@@ -74,6 +74,35 @@ jobs:
           test -x build/Centinela.app/Contents/MacOS/Centinela
           codesign --verify --verbose=2 build/Centinela.app
 
+      # The disk image is only built when a tag is pushed, which means a break in it would be
+      # found by a release rather than by a push. Building it here costs seconds and moves that
+      # discovery to the commit that caused it.
+      - name: The disk image assembles, and carries the bundle that was verified
+        run: |
+          set -euo pipefail
+          make dmg
+
+          # `diskutil` rather than `hdiutil` throughout. On macOS 26 `hdiutil` says of itself
+          # that it is deprecated and names these as the replacements, and this job pins a 26
+          # runner, so there is no older machine to fall back for. The Makefile keeps a fallback
+          # because somebody may build on 14; a workflow that chooses its own runner does not.
+          #
+          # Attaching is the verification. A disk image with a bad checksum does not mount, and
+          # `--mountPoint` means nothing has to be parsed out of the output to find where it did.
+          mount="$RUNNER_TEMP/centinela-dmg"
+          diskutil image attach --readOnly --nobrowse --mountPoint "$mount" build/Centinela.dmg
+
+          # `make dmg` deliberately does not rebuild, so the copy inside the image has to be the
+          # same bytes the checks above just looked at. If that stops being true, the guards
+          # would be vouching for one artifact while people download another.
+          verified=$(codesign -dvvv build/Centinela.app 2>&1 | awk -F= '/^CDHash/{print $2; exit}')
+          shipped=$(codesign -dvvv "$mount/Centinela.app" 2>&1 | awk -F= '/^CDHash/{print $2; exit}')
+          diskutil eject "$mount" >/dev/null
+          echo "verified $verified"
+          echo "shipped  $shipped"
+          test -n "$verified" && test "$verified" = "$shipped" \
+            || { echo "::error::the disk image does not carry the bundle that was verified"; exit 1; }
+
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: Centinela-app
