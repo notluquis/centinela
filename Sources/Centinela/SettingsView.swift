@@ -24,10 +24,15 @@ struct SettingsView: View {
         // `TabView` does not keep the tabs nobody is looking at alive, so changing the window or
         // the project — which happens on the Query tab — reached nothing. Here it is alive for
         // as long as Settings is open, which is exactly as long as any of this can be changed.
-        .onChange(of: state.settings.queryShape) { _, _ in
-            guard state.settings.isConfigured else { return }
+        .onChange(of: state.settings.queryShape) { was, now in
+            guard now.configured else { return }
             Task {
-                await state.checkTokenPower()
+                // Only when a session appears, not on every change of shape. Whether the token
+                // reaches the audit log is a fact about the token, and asking again because
+                // somebody moved the window picker spends a request on the wrong question — the
+                // one route in this app that exists to check permissions, on a control that
+                // changes none.
+                if !was.configured { await state.checkTokenPower() }
                 await state.refreshCheap()
             }
         }

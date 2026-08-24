@@ -84,3 +84,27 @@ public enum Keychain {
         ]
     }
 }
+
+/// Where a secret is kept, behind a seam.
+///
+/// It exists because of one specific hole. `AppSettings.move` copies a secret to a new account and
+/// deletes the old one only if the copy succeeded — written the other way round, a Keychain that
+/// refuses the write takes the only copy with it and signs somebody out for good. That ordering
+/// could not be tested: with a real Keychain the write always succeeds, so breaking the order left
+/// the suite green, which is the same as having no test at all.
+///
+/// A second thing falls out of it: tests that use their own store do not touch the login keychain,
+/// which is where a run once sat for five minutes waiting on a password dialog.
+public protocol SecretStore: Sendable {
+    func read(account: String) throws -> String?
+    func save(_ value: String, account: String) throws
+    func delete(account: String) throws
+}
+
+/// The real one. `Keychain` is an enum of statics, so this is the thin thing that conforms.
+public struct KeychainStore: SecretStore {
+    public init() {}
+    public func read(account: String) throws -> String? { try Keychain.read(account: account) }
+    public func save(_ value: String, account: String) throws { try Keychain.save(value, account: account) }
+    public func delete(account: String) throws { try Keychain.delete(account: account) }
+}

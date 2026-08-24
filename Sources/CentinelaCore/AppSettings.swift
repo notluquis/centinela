@@ -18,6 +18,13 @@ public final class AppSettings {
         case pastedToken
     }
 
+    /// The names before the rename to English. They are injectable for the same reason the
+    /// current ones are: guarding the migration with `tokenAccount == defaultTokenAccount` kept
+    /// tests away from a live session, and in doing so made the migration itself impossible to
+    /// test. A branch that no test can reach is a branch nobody has run.
+    public static let legacyTokenAccount = "token-de-organizacion"
+    public static let legacyRefreshAccount = "token-de-refresco"
+
     public static let defaultTokenAccount = "organization-token"
     public static let defaultRefreshAccount = "refresh-token"
 
@@ -95,6 +102,9 @@ public final class AppSettings {
     @ObservationIgnored private let defaults: UserDefaults
     @ObservationIgnored private let tokenAccount: String
     @ObservationIgnored private let refreshAccount: String
+    @ObservationIgnored private let legacyTokenAccount: String
+    @ObservationIgnored private let legacyRefreshAccount: String
+    @ObservationIgnored private let store: SecretStore
 
     /// Exposed so a test can rebuild a second `AppSettings` over the same store.
     public var tokenAccountName: String { tokenAccount }
@@ -105,11 +115,17 @@ public final class AppSettings {
     public init(
         defaults: UserDefaults = .standard,
         tokenAccount: String = AppSettings.defaultTokenAccount,
-        refreshAccount: String = AppSettings.defaultRefreshAccount
+        refreshAccount: String = AppSettings.defaultRefreshAccount,
+        legacyTokenAccount: String = AppSettings.legacyTokenAccount,
+        legacyRefreshAccount: String = AppSettings.legacyRefreshAccount,
+        store: SecretStore = KeychainStore()
     ) {
         self.defaults = defaults
         self.tokenAccount = tokenAccount
         self.refreshAccount = refreshAccount
+        self.legacyTokenAccount = legacyTokenAccount
+        self.legacyRefreshAccount = legacyRefreshAccount
+        self.store = store
         AppSettings.renameOldKeys(in: defaults)
         organization = defaults.string(forKey: "organization") ?? ""
         host = defaults.string(forKey: "host") ?? "https://sentry.io"
@@ -128,7 +144,7 @@ public final class AppSettings {
         selectedProjectID = savedProject.isEmpty ? nil : savedProject
         let savedEnvironment = defaults.string(forKey: "selectedEnvironment") ?? ""
         selectedEnvironment = savedEnvironment.isEmpty ? nil : savedEnvironment
-        token = (try? Keychain.read(account: tokenAccount)).flatMap { $0 } ?? ""
+        token = (try? store.read(account: tokenAccount)).flatMap { $0 } ?? ""
         if token.isEmpty { token = adoptTokenFromOldAccount() }
     }
 
@@ -163,25 +179,37 @@ public final class AppSettings {
     /// It costs no extra password dialog: reading the new account finds no item at all, which
     /// never prompts, and reading the old one is the single read this init used to do anyway.
     private func adoptTokenFromOldAccount() -> String {
-        guard tokenAccount == AppSettings.defaultTokenAccount,
-              let old = try? Keychain.read(account: "token-de-organizacion"),
+        guard let old = try? store.read(account: legacyTokenAccount),
               !old.isEmpty else { return "" }
-        try? Keychain.save(old, account: tokenAccount)
-        try? Keychain.delete(account: "token-de-organizacion")
-        return old
+        return move(old, from: legacyTokenAccount, to: tokenAccount)
+    }
+
+    /// Copies a secret to its new account and only then removes the old one.
+    ///
+    /// The order is the whole point. Written as `try? save` followed by an unconditional
+    /// `delete`, a Keychain that refuses the write — which this project has documented refusing
+    /// things — took the only copy with it and signed somebody out for good, silently. Keeping
+    /// the old one costs a duplicate item until the next launch retries; losing it costs the
+    /// session.
+    private func move(_ secret: String, from old: String, to new: String) -> String {
+        do {
+            try store.save(secret, account: new)
+        } catch {
+            lastStorageError = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+            return secret
+        }
+        try? store.delete(account: old)
+        return secret
     }
 
     public var refreshToken: String? {
-        if let current = (try? Keychain.read(account: refreshAccount)).flatMap({ $0 }) { return current }
+        if let current = (try? store.read(account: refreshAccount)).flatMap({ $0 }) { return current }
         // Migrated here and not in `init` on purpose: reading it is a Keychain read, and the whole
         // point of checking the clock first in `shouldRefresh` is to keep those off the startup
         // path. This runs the first time a renewal is actually due.
-        guard refreshAccount == AppSettings.defaultRefreshAccount,
-              let old = (try? Keychain.read(account: "token-de-refresco")).flatMap({ $0 })
+        guard let old = (try? store.read(account: legacyRefreshAccount)).flatMap({ $0 })
         else { return nil }
-        try? Keychain.save(old, account: refreshAccount)
-        try? Keychain.delete(account: "token-de-refresco")
-        return old
+        return move(old, from: legacyRefreshAccount, to: refreshAccount)
     }
 
     /// Returns `true` when the Keychain accepted the write. Callers must NOT assume it did.
@@ -189,9 +217,9 @@ public final class AppSettings {
     public func saveToken(_ newToken: String) -> Bool {
         do {
             if newToken.isEmpty {
-                try Keychain.delete(account: tokenAccount)
+                try store.delete(account: tokenAccount)
             } else {
-                try Keychain.save(newToken, account: tokenAccount)
+                try store.save(newToken, account: tokenAccount)
             }
             token = newToken
             lastStorageError = nil
@@ -213,7 +241,7 @@ public final class AppSettings {
     public func saveManualToken(_ newToken: String) -> Bool {
         guard saveToken(newToken) else { return false }
         tokenExpiresAt = nil
-        try? Keychain.delete(account: refreshAccount)
+        try? store.delete(account: refreshAccount)
         return true
     }
 
@@ -224,7 +252,7 @@ public final class AppSettings {
         guard saveToken(grant.accessToken) else { return false }
         do {
             if let refresh = grant.refreshToken {
-                try Keychain.save(refresh, account: refreshAccount)
+                try store.save(refresh, account: refreshAccount)
             }
             tokenLife = max(grant.expiresAt.timeIntervalSinceNow, 60)
             tokenExpiresAt = grant.expiresAt
@@ -237,7 +265,7 @@ public final class AppSettings {
 
     public func signOut() {
         saveToken("")
-        try? Keychain.delete(account: refreshAccount)
+        try? store.delete(account: refreshAccount)
         tokenExpiresAt = nil
     }
 
@@ -278,7 +306,7 @@ public final class AppSettings {
     /// change, and a preference that does not shape a query — the refresh interval, launch at
     /// login — deliberately stays out of it and does not cost a request.
     public struct QueryShape: Equatable, Sendable {
-        let configured: Bool
+        public let configured: Bool
         let window: TimeWindow
         let project: String?
         let environment: String?

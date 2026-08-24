@@ -289,4 +289,94 @@ struct AppSettingsTests {
         settings.intervalSeconds = 900
         #expect(settings.queryShape == shape, "the refresh interval must not cost a request")
     }
+
+    /// The Keychain half of the rename, which had no test because the guard that kept tests away
+    /// from a live session also kept them away from the migration. The old account names are
+    /// injectable now, so this exercises the real path against throwaway accounts.
+    @Test("A session stored under the old account names moves across")
+    func keychainMigrationMovesTheSession() throws {
+        let unique = UUID().uuidString
+        let suite = UserDefaults(suiteName: "centinela.tests.kc.\(unique)")!
+        let oldToken = "old-token-\(unique)"
+        let oldRefresh = "old-refresh-\(unique)"
+        let newToken = "new-token-\(unique)"
+        let newRefresh = "new-refresh-\(unique)"
+        defer {
+            for account in [oldToken, oldRefresh, newToken, newRefresh] {
+                try? Keychain.delete(account: account)
+            }
+            UserDefaults.standard.removePersistentDomain(forName: "centinela.tests.kc.\(unique)")
+        }
+
+        // What a pre-rename install left behind.
+        try Keychain.save("a-token", account: oldToken)
+        try Keychain.save("a-refresh", account: oldRefresh)
+
+        let settings = AppSettings(
+            defaults: suite,
+            tokenAccount: newToken,
+            refreshAccount: newRefresh,
+            legacyTokenAccount: oldToken,
+            legacyRefreshAccount: oldRefresh
+        )
+
+        // The access token moves at init, because without it the app comes back signed out.
+        #expect(settings.token == "a-token")
+        #expect(try Keychain.read(account: newToken) == "a-token")
+        #expect(try Keychain.read(account: oldToken) == nil, "the old one is gone once the new one is written")
+
+        // The refresh token moves on first use instead, to keep a Keychain read off the launch.
+        #expect(try Keychain.read(account: newRefresh) == nil, "not touched at init")
+        #expect(settings.refreshToken == "a-refresh")
+        #expect(try Keychain.read(account: newRefresh) == "a-refresh")
+        #expect(try Keychain.read(account: oldRefresh) == nil)
+    }
+
+    /// An in-memory store, so a test can say "the write fails" — which a real Keychain will not
+    /// do on demand, and which is exactly the case that loses somebody's session.
+    private final class Store: SecretStore, @unchecked Sendable {
+        var items: [String: String]
+        let refusesWritesTo: String?
+
+        init(_ items: [String: String] = [:], refusesWritesTo: String? = nil) {
+            self.items = items
+            self.refusesWritesTo = refusesWritesTo
+        }
+
+        func read(account: String) throws -> String? { items[account] }
+        func save(_ value: String, account: String) throws {
+            if account == refusesWritesTo { throw Keychain.Failure.system(-25299) }
+            items[account] = value
+        }
+        func delete(account: String) throws { items[account] = nil }
+    }
+
+    /// The one that could not be written before the seam existed, and the reason the seam does.
+    ///
+    /// Copy first, delete second, and only if the copy worked. The other order reads the same and
+    /// behaves the same every time the write succeeds, which is every time on a real Keychain —
+    /// so the wrong version passed the suite. It fails this one.
+    @Test("A refused write keeps the old secret instead of destroying it")
+    func refusedMigrationKeepsTheOldSecret() {
+        let store = Store(["old-token": "a-token"], refusesWritesTo: "new-token")
+        let suiteName = "centinela.tests.refuse.\(UUID().uuidString)"
+        let suite = UserDefaults(suiteName: suiteName)!
+        defer { UserDefaults.standard.removePersistentDomain(forName: suiteName) }
+
+        let settings = AppSettings(
+            defaults: suite,
+            tokenAccount: "new-token",
+            refreshAccount: "new-refresh",
+            legacyTokenAccount: "old-token",
+            legacyRefreshAccount: "old-refresh",
+            store: store
+        )
+
+        // The session still works in this run: the value was read, it just could not be re-homed.
+        #expect(settings.token == "a-token")
+        // And the only copy is still there, so the next launch can try again.
+        #expect(store.items["old-token"] == "a-token", "a refused write must not take the original with it")
+        #expect(store.items["new-token"] == nil)
+        #expect(settings.lastStorageError != nil, "and it says so rather than failing quietly")
+    }
 }

@@ -64,13 +64,17 @@ struct PlaceholderRows: View {
                     // Widths vary per row. Three identical blocks read as a rendering artefact
                     // rather than as text that has not arrived; real titles are never the same
                     // length twice.
-                    Text(String(repeating: "M", count: 28 - row * 5))
+                    // Clamped, and not for tidiness: `String(repeating:count:)` traps on a
+                    // negative count, so `28 - row * 5` crashes the panel from the seventh row
+                    // on. Nothing asks for seven today, and `count` is a parameter, so today is
+                    // the only thing standing between this and a crash.
+                    Text(String(repeating: "M", count: max(28 - row * 5, 8)))
                         .font(.callout)
                     if lines > 2 {
-                        Text(String(repeating: "M", count: 20 - row * 3))
+                        Text(String(repeating: "M", count: max(20 - row * 3, 6)))
                             .font(.caption2)
                     }
-                    Text(String(repeating: "M", count: 24 - row * 2))
+                    Text(String(repeating: "M", count: max(24 - row * 2, 6)))
                         .font(.caption2)
                 }
                 Spacer(minLength: 0)
