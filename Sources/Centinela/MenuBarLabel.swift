@@ -24,7 +24,7 @@ struct MenuBarLabel: View {
             // system, and up there `Text` and `Image` are the only things that render
             // reliably. A vector shape showed up in the panel and NOT in the bar, which is
             // exactly where it was wanted.
-            if watching, let sparkline = Sparkline.image(state.series.points.map(\.count)) {
+            if watching, let sparkline = Sparkline.image(state.data.series.points.map(\.count)) {
                 Image(nsImage: sparkline)
             }
         }
@@ -59,7 +59,7 @@ struct MenuBarLabel: View {
 
     private var accessibleDescription: String {
         guard watching else { return "Not signed in. Centinela is not watching anything." }
-        var parts = [Sparkline.summary(state.series.points.map(\.count), window: state.settings.window)]
+        var parts = [Sparkline.summary(state.data.series.points.map(\.count), window: state.settings.window)]
         if state.hasOutage { parts.insert("A service is down.", at: 0) }
         return parts.joined(separator: " ")
     }

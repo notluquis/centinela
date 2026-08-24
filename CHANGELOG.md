@@ -8,6 +8,13 @@ The release workflow reads the section for the tag being published out of this f
 
 ### Added
 
+- **Four more tests, and now every route has one.** `replays`, `userFeedback` and the transaction threshold were the last three without. The first two have never been seen with live data, so their decoders came from Sentry's published schema; pinning the shape is the honest half of that debt, so the day real data arrives there is something written down to compare it against. The threshold test also pins the second field Sentry sends as **text** where a number is expected, after `issue.count`.
+
+### Changed
+
+- **Signing out is one assignment instead of eighteen.** Everything a Sentry session told the app is one `SessionData` value now, so forgetting it is `data = SessionData()` and cannot miss a field. The previous version listed eighteen by hand, which is exactly how the menu bar ended up counting 539 errors from an account it no longer reached. There is deliberately no test for this: a test would assert what the type already makes true, and the fix is the construction rather than a check bolted on beside it. `lastUpdated` stays out of the value on purpose — it is persisted so the panel can say how old the data on screen is after a restart.
+- `PanelRows.swift` crossed 400 lines and is split along a seam that means something: rows that draw Sentry data stay, and everything drawn *in place of* data — no session yet, answer not arrived, answer was nothing — moves to `PanelStates.swift`.
+
 - **The panel is usable with VoiceOver, which it was not.** An issue row was seven separate stops — title, file, short id, project, event count, people count, time — so getting past a list of fifteen took a hundred swipes. Each row is one element now, and reads in the order somebody would want it: how bad Sentry thinks it is, what broke, where, how much. The three footer buttons had a tooltip and no label, so they announced themselves as "arrow clockwise", "gearshape" and "power".
 - **Liquid Glass switches off under Reduce Transparency.** Apple's own documentation for `accessibilityReduceTransparency` says elements "should not be semi-transparent; they should be rendered as opaque instead", and the footer controls ignored it. Neither of the two repositories this project was modelled on handles that setting: zero files mention it in one, none in the other.
 - **Sentry's triage stops being colour-only.** The severity symbol varies by shape, but the tint carries a different axis — Sentry's own priority — so an escalating warning and a one-off error could look identical apart from colour. With Differentiate Without Colour on, the word joins the metadata line.

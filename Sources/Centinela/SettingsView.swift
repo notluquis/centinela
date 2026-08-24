@@ -231,7 +231,7 @@ private struct QueryTab: View {
                     set: { settings.selectedProjectID = $0.isEmpty ? nil : $0 }
                 )) {
                     Text("All projects").tag("")
-                    ForEach(state.errorsByProject) { entry in
+                    ForEach(state.data.errorsByProject) { entry in
                         Text(entry.slug ?? entry.projectID).tag(entry.projectID)
                     }
                 }
@@ -239,13 +239,13 @@ private struct QueryTab: View {
                 // Only offered when there is something to choose between. With a single
                 // environment the control would be a dropdown with one entry, and picking it
                 // would change nothing.
-                if state.environments.count > 1 {
+                if state.data.environments.count > 1 {
                     Picker("Environment", selection: Binding(
                         get: { settings.selectedEnvironment ?? "" },
                         set: { settings.selectedEnvironment = $0.isEmpty ? nil : $0 }
                     )) {
                         Text("All environments").tag("")
-                        ForEach(state.environments, id: \.self) { Text($0).tag($0) }
+                        ForEach(state.data.environments, id: \.self) { Text($0).tag($0) }
                     }
                 }
             } footer: {

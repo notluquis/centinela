@@ -105,51 +105,11 @@ struct IssueSection: View {
     }
 }
 
-struct Notice: View {
-    let text: String
-    let symbol: String
-    let color: Color
-
-    var body: some View {
-        HStack(alignment: .top, spacing: 6) {
-            Image(systemName: symbol).foregroundStyle(color)
-            Text(text).font(.caption)
-            Spacer(minLength: 0)
-        }
-        .padding(.horizontal, 12)
-        .padding(.top, 8)
-    }
-}
-
-struct NotConfigured: View {
-    let open: () -> Void
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text("Not configured yet").font(.headline)
-            Text("Centinela needs your Sentry organization and a read-only token.")
-                .font(.callout)
-                .foregroundStyle(.secondary)
-                // Without this the text truncates with an ellipsis instead of wrapping: inside
-                // a fixed-width container a `Text` prefers a single line unless told it may
-                // grow downwards.
-                .fixedSize(horizontal: false, vertical: true)
-            Button("Open Settings", action: open)
-        }
-        .padding(12)
-    }
-}
-
-/// Everything that answers "is anything on fire right now": uptime, cron monitors, crash-free
-/// sessions and where the errors are coming from.
-///
-/// They are one section rather than four segments because they are one question. Splitting them
-/// would put "Crons" next to "Releases" as if a person browsing had to choose between them.
 struct HealthSection: View {
     let state: AppState
 
     var body: some View {
-        if let rate = state.crashFree {
+        if let rate = state.data.crashFree {
             HStack {
                 Circle()
                     .fill(rate >= 0.99 ? .green : rate >= 0.95 ? .orange : .red)
@@ -164,7 +124,7 @@ struct HealthSection: View {
             .padding(.vertical, 3)
         }
 
-        ForEach(state.monitors.filter(\.isActive)) { monitor in
+        ForEach(state.data.monitors.filter(\.isActive)) { monitor in
             HealthRow(
                 healthy: monitor.isHealthy,
                 name: monitor.url.host() ?? monitor.name,
@@ -172,7 +132,7 @@ struct HealthSection: View {
             )
         }
 
-        ForEach(state.crons.filter(\.isActive)) { cron in
+        ForEach(state.data.crons.filter(\.isActive)) { cron in
             // Sentry's schema types the status as a free-form string, so anything that is not
             // plainly a failure is shown as fine rather than guessed at.
             HealthRow(
@@ -182,13 +142,13 @@ struct HealthSection: View {
             )
         }
 
-        if !state.errorsByProject.isEmpty {
+        if !state.data.errorsByProject.isEmpty {
             Text("Errors by project")
                 .font(.caption.weight(.semibold))
                 .foregroundStyle(.secondary)
                 .padding(.horizontal, 12)
                 .padding(.top, 10)
-            ForEach(state.errorsByProject) { entry in
+            ForEach(state.data.errorsByProject) { entry in
                 HStack {
                     Text(entry.slug ?? entry.projectID)
                         .font(.callout)
@@ -202,8 +162,8 @@ struct HealthSection: View {
             }
         }
 
-        if state.crashFree == nil && state.monitors.isEmpty && state.crons.isEmpty
-            && state.errorsByProject.isEmpty {
+        if state.data.crashFree == nil && state.data.monitors.isEmpty && state.data.crons.isEmpty
+            && state.data.errorsByProject.isEmpty {
             if state.loading {
                 PlaceholderRows(lines: 2)
             } else {
@@ -364,51 +324,3 @@ struct FeedbackSection: View {
 /// The animation is the one thing it does not bring. The header already shows a spinner while a
 /// request is in flight, so the movement that says "working" is there; a shimmer of our own would
 /// be a second, unsynchronised animation saying the same thing.
-struct PlaceholderRows: View {
-    /// How many lines each row has, so the block matches the section it stands in for: three for
-    /// an issue (title, culprit, metadata), two for a release or a transaction.
-    let lines: Int
-    var count: Int = 3
-
-    var body: some View {
-        ForEach(0..<count, id: \.self) { row in
-            HStack(alignment: .top, spacing: 8) {
-                Image(systemName: "circle.fill")
-                    .font(.caption)
-                    .padding(.top, 2)
-                VStack(alignment: .leading, spacing: 1) {
-                    // Widths vary per row. Three identical blocks read as a rendering artefact
-                    // rather than as text that has not arrived; real titles are never the same
-                    // length twice.
-                    Text(String(repeating: "M", count: 28 - row * 5))
-                        .font(.callout)
-                    if lines > 2 {
-                        Text(String(repeating: "M", count: 20 - row * 3))
-                            .font(.caption2)
-                    }
-                    Text(String(repeating: "M", count: 24 - row * 2))
-                        .font(.caption2)
-                }
-                Spacer(minLength: 0)
-            }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 3)
-        }
-        .redacted(reason: .placeholder)
-        // A placeholder has nothing to read out and nothing to click.
-        .accessibilityHidden(true)
-        .allowsHitTesting(false)
-    }
-}
-
-/// The same four lines were written out in each of the four sections. Now that each of them also
-/// has a loading branch, the pair belongs together in one place.
-struct EmptySection: View {
-    var body: some View {
-        Text("Nothing here.")
-            .font(.callout)
-            .foregroundStyle(.secondary)
-            .padding(.horizontal, 12)
-            .padding(.vertical, 4)
-    }
-}

@@ -63,7 +63,7 @@ struct PanelHeader: View {
                         .transition(.opacity)
                 }
             }
-            SparklinePath(values: state.series.points.map(\.count))
+            SparklinePath(values: state.data.series.points.map(\.count))
                 .frame(height: 34)
                 .foregroundStyle(.tint)
             // Uptime used to be repeated here. It lives in the Health section now, and the menu
@@ -185,14 +185,14 @@ struct PanelContent: View {
                         HealthSection(state: state)
                     case .performance:
                         PerformanceSection(
-                            transactions: state.transactions,
+                            transactions: state.data.transactions,
                             loading: state.loading,
-                            thresholdMilliseconds: state.transactionThreshold
+                            thresholdMilliseconds: state.data.transactionThreshold
                         )
                     case .releases:
-                        ReleaseSection(releases: state.releases, loading: state.loading)
+                        ReleaseSection(releases: state.data.releases, loading: state.loading)
                     case .feedback:
-                        FeedbackSection(feedback: state.feedback, replays: state.replays)
+                        FeedbackSection(feedback: state.data.feedback, replays: state.data.replays)
                     }
                 }
                 .padding(.top, 8)
@@ -234,35 +234,35 @@ struct PanelContent: View {
 
     private func issues(_ option: IssueFilter) -> [SentryIssue] {
         switch option {
-        case .unresolved: state.issues
-        case .forReview: state.forReview
-        case .escalating: state.escalating
-        case .regressed: state.regressed
+        case .unresolved: state.data.issues
+        case .forReview: state.data.forReview
+        case .escalating: state.data.escalating
+        case .regressed: state.data.regressed
         }
     }
 
     private func count(_ option: PanelSection) -> Int {
         switch option {
-        case .issues: state.issues.count
+        case .issues: state.data.issues.count
         // Counts the rows that are actually drawn, crash-free and the per-project breakdown
         // included. It used to count only monitors, so the badge said 1 above a section showing
         // four lines.
         case .health:
-            state.monitors.filter(\.isActive).count
-                + state.crons.filter(\.isActive).count
-                + (state.crashFree == nil ? 0 : 1)
-                + state.errorsByProject.count
-        case .performance: state.transactions.count
-        case .releases: state.releases.count
-        case .feedback: state.feedback.count + state.replays.count
+            state.data.monitors.filter(\.isActive).count
+                + state.data.crons.filter(\.isActive).count
+                + (state.data.crashFree == nil ? 0 : 1)
+                + state.data.errorsByProject.count
+        case .performance: state.data.transactions.count
+        case .releases: state.data.releases.count
+        case .feedback: state.data.feedback.count + state.data.replays.count
         }
     }
 
     @ViewBuilder private var notices: some View {
-        if let error = state.lastError {
+        if let error = state.data.lastError {
             Notice(text: error, symbol: "exclamationmark.triangle", color: .orange)
         }
-        if let notice = state.deprecation {
+        if let notice = state.data.deprecation {
             // See `DeprecationNotice`: Sentry warns via a header before retiring a route.
             // Without this the app would find out the day it breaks.
             Notice(
@@ -272,7 +272,7 @@ struct PanelContent: View {
                 color: .orange
             )
         }
-        if state.tokenTooPowerful {
+        if state.data.tokenTooPowerful {
             Notice(
                 text: "This token can read the audit log, which means it carries write"
                     + " access. A widget does not need that.",

@@ -15,23 +15,9 @@ import SwiftUI
 final class AppState {
     static let repository = "notluquis/centinela"
 
-    var series: EventSeries = .init(points: [])
-    var monitors: [UptimeMonitor] = []
-    var issues: [SentryIssue] = []
-    var forReview: [SentryIssue] = []
-    var escalating: [SentryIssue] = []
-    var regressed: [SentryIssue] = []
-    var releases: [Release] = []
-    var crons: [CronMonitor] = []
-    var crashFree: Double?
-    var errorsByProject: [ProjectErrorCount] = []
-    var environments: [String] = []
-    var transactions: [TransactionStat] = []
-    /// Sentry's own threshold for the selected project, in milliseconds. 300 is what Sentry
-    /// itself returns by default, so it is the fallback when no single project is selected.
-    var transactionThreshold: Double = 300
-    var replays: [Replay] = []
-    var feedback: [UserFeedback] = []
+    /// Everything a Sentry session told us, as one value. Signing out is `data = SessionData()`
+    /// rather than eighteen assignments somebody has to remember to keep in step.
+    var data = SessionData()
 
     var loading = false
     var lastError: String?
@@ -155,9 +141,9 @@ final class AppState {
             async let series = client.errorSeries(window: settings.window)
             async let monitors = client.uptimeMonitors()
             async let crons = client.cronMonitors()
-            self.series = try await series
-            self.monitors = try await monitors
-            self.crons = try await crons
+            data.series = try await series
+            data.monitors = try await monitors
+            data.crons = try await crons
             lastError = nil
             lastUpdated = .now
         } catch {
@@ -177,27 +163,27 @@ final class AppState {
             async let releases = client.latestReleases()
             async let crashFree = client.crashFreeRate(window: settings.window)
             async let byProject = client.errorsByProject(window: settings.window)
-            self.issues = try await issues
-            self.forReview = try await forReview
-            self.escalating = try await escalating
-            self.regressed = try await regressed
-            self.releases = try await releases
-            self.crashFree = try await crashFree
-            self.errorsByProject = try await byProject
+            data.issues = try await issues
+            data.forReview = try await forReview
+            data.escalating = try await escalating
+            data.regressed = try await regressed
+            data.releases = try await releases
+            data.crashFree = try await crashFree
+            data.errorsByProject = try await byProject
 
             // Performance and feedback go in their own step rather than the `async let` group
             // above: they are the two routes with no live data behind them here, so a failure
             // must not take down the lists that do work.
-            transactions = (try? await client.slowestTransactions(window: settings.window)) ?? []
+            data.transactions = (try? await client.slowestTransactions(window: settings.window)) ?? []
             // Only when a single project is selected: the threshold is a per-project setting and
             // there is no organization-wide one to ask for.
             if let slug = settings.selectedProjectID.flatMap({ id in
-                errorsByProject.first { $0.projectID == id }?.slug
+                data.errorsByProject.first { $0.projectID == id }?.slug
             }) {
-                transactionThreshold = (try? await client.transactionThreshold(projectSlug: slug)) ?? 300
+                data.transactionThreshold = (try? await client.transactionThreshold(projectSlug: slug)) ?? 300
             }
-            replays = (try? await client.replays(window: settings.window)) ?? []
-            feedback = (try? await client.userFeedback()) ?? []
+            data.replays = (try? await client.replays(window: settings.window)) ?? []
+            data.feedback = (try? await client.userFeedback()) ?? []
             lastError = nil
         } catch {
             lastError = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
@@ -221,35 +207,27 @@ final class AppState {
     /// Every field is listed by hand. That is the weak part: a field added later and not added
     /// here comes back to haunt the next sign-out, and `AppState` lives in the app target, which
     /// the suite cannot reach because it needs AppKit. Keep this next to the declarations.
+    /// Drops everything that belonged to the session that just ended.
+    ///
+    /// One assignment, because `SessionData` is one value. It used to be eighteen by hand, which
+    /// is how the menu bar ended up counting 539 errors from an account the app no longer
+    /// reached, above a panel that already said "Not configured yet".
+    ///
+    /// `lastUpdated` is separate on purpose: it is persisted so the panel can say how old the
+    /// data on screen is after a restart, and it is not part of a value whose job is to be
+    /// thrown away.
     func forgetSession() {
-        series = .init(points: [])
-        monitors = []
-        issues = []
-        forReview = []
-        escalating = []
-        regressed = []
-        releases = []
-        crons = []
-        crashFree = nil
-        errorsByProject = []
-        environments = []
-        transactions = []
-        transactionThreshold = 300
-        replays = []
-        feedback = []
-        lastError = nil
-        tokenTooPowerful = false
-        deprecation = nil
+        data = SessionData()
         lastUpdated = nil
     }
 
-    var totalErrors: Int { series.total }
+    var totalErrors: Int { data.series.total }
 
-    var hasOutage: Bool { monitors.contains { $0.isActive && !$0.isHealthy } }
+    var hasOutage: Bool { data.monitors.contains { $0.isActive && !$0.isHealthy } }
 
     /// Loaded once so Settings can offer the filter only when there is more than one to pick.
     func loadEnvironments() async {
         guard let client else { return }
-        environments = (try? await client.environments()) ?? []
+        data.environments = (try? await client.environments()) ?? []
     }
 }

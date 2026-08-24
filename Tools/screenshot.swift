@@ -54,7 +54,7 @@ import SwiftUI
                            "src/db/pool.ts", 7, 2, "ongoing", "low", minutesAgo(320)))
         list.append(issue("46", "ValidationError: expected an ISO-8601 date",
                            "src/api/webhooks.ts", 4, 1, "new", "low", minutesAgo(600)))
-        state.issues = list
+        state.data.issues = list
         // Through JSON rather than `Point`'s initialiser, which is internal. It also means the
         // image exercises the same decoder the app runs.
         let heights: [Int] = [3, 5, 4, 9, 22, 14, 7, 6, 5, 11, 31, 18, 8, 6, 4, 5]
@@ -65,7 +65,7 @@ import SwiftUI
             rows.append("[\(at),[{\"count\":\(howMany)}]]")
         }
         let raw: String = "{\"data\":[" + rows.joined(separator: ",") + "]}"
-        state.series = (try? EventSeries(json: Data(raw.utf8))) ?? EventSeries(points: [])
+        state.data.series = (try? EventSeries(json: Data(raw.utf8))) ?? EventSeries(points: [])
         state.lastUpdated = now
 
         // A background of its own. Alone the panel has none of the material `MenuBarExtra` draws,
@@ -98,7 +98,7 @@ import SwiftUI
         }
         // The probe signs in with an invented token, so Sentry answers 401 and the panel says
         // so. That banner belongs to the probe, not to the app, and does not go in the image.
-        state.lastError = nil
+        state.data.lastError = nil
         state.lastUpdated = now.addingTimeInterval(-8)
         host.displayIfNeeded()
         RunLoop.main.run(until: Date().addingTimeInterval(0.05))

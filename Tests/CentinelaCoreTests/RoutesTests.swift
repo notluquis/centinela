@@ -149,4 +149,56 @@ struct RoutesTests {
         #expect(releases.count == 1)
         #expect(releases.first?.newGroups == 3)
     }
+
+    /// These three decoders were written against Sentry's published schema because the
+    /// organization this was built against has none of the data. The README says so, and these
+    /// tests are the honest half of that: the shape is pinned even though nobody has seen it
+    /// live, so the day real data arrives the comparison is against something written down.
+    @Test("Replays come wrapped in a data envelope")
+    func replays() async throws {
+        let session = StubServer.session()
+        StubServer.enqueue(session, "/replays/", """
+        {"data":[{"id":"abc","project_id":"11","environment":"production",
+                  "error_ids":["e1","e2"]}]}
+        """)
+        let replays = try await client(session).replays(window: .twentyFourHours)
+        #expect(replays.count == 1)
+        #expect(replays.first?.errorIDs?.count == 2)
+    }
+
+    @Test("User feedback decodes with a name that may be missing")
+    func userFeedback() async throws {
+        let session = StubServer.session()
+        StubServer.enqueue(session, "/user-feedback/", """
+        [{"id":"1","name":"Someone","email":"someone@example.com","comments":"it broke",
+          "dateCreated":"2026-08-20T10:00:00Z"},
+         {"id":"2","name":null,"email":null,"comments":"still broken",
+          "dateCreated":"2026-08-20T11:00:00.123456Z"}]
+        """)
+        let feedback = try await client(session).userFeedback()
+        #expect(feedback.count == 2)
+        #expect(feedback.last?.name == nil)
+        // Both date shapes in one response, with and without fractional seconds, which is the
+        // measured behaviour of this API and not a hypothetical.
+        #expect(feedback.first?.dateCreated != feedback.last?.dateCreated)
+    }
+
+    /// The threshold arrives as **text**, the same way `issue.count` does. Declaring it a number
+    /// does not fail the field, it fails the whole response.
+    @Test("The transaction threshold arrives as text and comes out a number")
+    func transactionThreshold() async throws {
+        let session = StubServer.session()
+        StubServer.enqueue(session, "/transaction-threshold/configure/", """
+        {"id":"1","threshold":"450","metric":"duration"}
+        """)
+        let value = try await client(session).transactionThreshold(projectSlug: "example-api")
+        #expect(value == 450)
+    }
+
+    @Test("A threshold that is not a number is nil, not a crash")
+    func transactionThresholdNonsense() async throws {
+        let session = StubServer.session()
+        StubServer.enqueue(session, "/transaction-threshold/configure/", #"{"threshold":"lgtm"}"#)
+        #expect(try await client(session).transactionThreshold(projectSlug: "x") == nil)
+    }
 }
