@@ -6,6 +6,16 @@
     <description>Your Sentry issues in the macOS menu bar.</description>
     <language>en</language>
     <item>
+      <title>Version 0.8.0</title>
+      <sparkle:version>69</sparkle:version>
+      <sparkle:shortVersionString>0.8.0</sparkle:shortVersionString>
+      <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+      <description sparkle:format="markdown">Changing a setting asks Sentry again, a refused Keychain write no longer destroys the session it was migrating, and the update dialog shows a summary instead of the whole changelog.</description>
+      <sparkle:fullReleaseNotesLink>https://github.com/notluquis/centinela/releases/tag/v0.8.0</sparkle:fullReleaseNotesLink>
+      <pubDate>Mon, 24 Aug 2026 03:54:04 +0000</pubDate>
+      <enclosure url="https://github.com/notluquis/centinela/releases/download/v0.8.0/Centinela.zip" sparkle:edSignature="xoFIsr2hGSdN9CpEvkvl8cryp2iMi/rFWsBGf3YSjD/2YXBF8EvcYMSHR4SfIIYzZNNXP05A/VwgZCIrt81KDA==" length="2611283" type="application/octet-stream" />
+    </item>
+    <item>
       <title>Version 0.7.0</title>
       <sparkle:version>54</sparkle:version>
       <sparkle:shortVersionString>0.7.0</sparkle:shortVersionString>
