@@ -6,6 +6,11 @@ The release workflow reads the section for the tag being published out of this f
 
 ## [Unreleased]
 
+### Added
+
+- **Nine tests for routes and guards that had none.** The list came from counting every public symbol in `CentinelaCore` against every name mentioned anywhere under `Tests/`: twenty were never named once. Two of the new tests are guards rather than coverage. **No error message carries the token**, checked across four failure modes, which until now was a rule in `AGENTS.md` with nothing holding it up — two of the six error cases build their text out of whatever Sentry sent back. And **the read-only check actually distinguishes**: the panel warns when a token can read the organization's audit log, and nothing stopped that check from quietly answering "read-only" for every token. Both were verified by breaking them.
+- **One motion vocabulary, and it honours reduce motion.** `Motion.curve` is the single curve, and `.panelMotion(_:)` applies it or applies nothing at all when the system says to reduce motion. Counts roll their digits with `.contentTransition(.numericText())` instead of being replaced; sections and the swap from placeholder rows to real ones cross fade instead of snapping.
+
 ### Fixed
 
 - **The panel said "Nothing here." while it was still asking.** Four sections did it, and the issue list is the most expensive route in the API at 1047 ms measured, so a statement that was simply untrue sat on screen for about a second every time somebody opened the panel. Each section now draws placeholder rows in the shape of what is coming, and keeps "Nothing here." for when the answer really was nothing.

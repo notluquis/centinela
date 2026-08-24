@@ -46,10 +46,18 @@ struct PanelHeader: View {
             HStack {
                 Text("\(state.totalErrors) errors")
                     .font(.title2.weight(.semibold))
+                    // The digits roll instead of being replaced. A count that jumps from 228 to
+                    // 231 with no motion reads as a redraw; rolling says a number changed.
+                    .contentTransition(.numericText(value: Double(state.totalErrors)))
+                    .panelMotion(state.totalErrors)
                 Text("in the last \(state.settings.window.label)")
                     .foregroundStyle(.secondary)
                 Spacer()
-                if state.loading { ProgressView().controlSize(.small) }
+                if state.loading {
+                    ProgressView()
+                        .controlSize(.small)
+                        .transition(.opacity)
+                }
             }
             SparklinePath(values: state.series.points.map(\.count))
                 .frame(height: 34)
@@ -185,7 +193,14 @@ struct PanelContent: View {
                 }
                 .padding(.top, 8)
                 .padding(.bottom, 8)
+                // Both the section switch and the swap from placeholder rows to real ones cross
+                // fade instead of snapping. The `id` is what tells SwiftUI these are different
+                // contents rather than the same view with new text.
+                .id(section)
+                .transition(.opacity)
             }
+            .panelMotion(section)
+            .panelMotion(state.loading)
             // `minHeight` is the load-bearing half, and it is what decides the panel's size.
             //
             // The panel is a `VStack` and this `ScrollView` is its only flexible child, so

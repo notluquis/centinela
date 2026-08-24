@@ -12,6 +12,13 @@ struct MenuBarLabel: View {
             // belongs to nobody even if some future path leaves data behind.
             if watching, state.totalErrors > 0 {
                 Text(state.totalErrors, format: .number)
+                    // Same rolling digits as the panel header. Whether the menu bar honours it is
+                    // not something this project has measured: the bar is drawn by the system and
+                    // the one thing already measured about it is that only `Text` and `Image`
+                    // render there reliably. If it does nothing, it degrades to the plain swap
+                    // that was there before.
+                    .contentTransition(.numericText(value: Double(state.totalErrors)))
+                    .panelMotion(state.totalErrors)
             }
             // As an image rather than a live `Path`: a `MenuBarExtra` label is drawn by the
             // system, and up there `Text` and `Image` are the only things that render
