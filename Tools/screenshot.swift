@@ -178,10 +178,50 @@ import SwiftUI
         place(front, at: NSPoint(x: margin, y: margin), blur: 26)
         canvas.unlockFocus()
 
-        guard let data = canvas.tiffRepresentation,
-              let out = NSBitmapImageRep(data: data)?.representation(using: .png, properties: [:])
-        else { return }
-        try? out.write(to: URL(fileURLWithPath: CommandLine.arguments[1]))
+        func write(_ image: NSImage, to path: String) {
+            guard let data = image.tiffRepresentation,
+                  let out = NSBitmapImageRep(data: data)?.representation(using: .png, properties: [:])
+            else { return }
+            try? out.write(to: URL(fileURLWithPath: path))
+        }
+        let output = CommandLine.arguments[1]
+        write(canvas, to: output)
+
+        // And the social preview: the image GitHub shows when somebody pastes the link into Slack
+        // or a timeline. 1280 by 640 is what GitHub asks for, and it crops anything else. Made
+        // here rather than by hand so it cannot end up showing a version of the app that no
+        // longer looks like this — the same reason the README picture is generated.
+        let card = NSImage(size: NSSize(width: 1280, height: 640))
+        card.lockFocus()
+        NSColor(calibratedWhite: 0.09, alpha: 1).setFill()
+        NSRect(x: 0, y: 0, width: 1280, height: 640).fill()
+
+        let shotWidth: CGFloat = 620
+        let scale = shotWidth / canvas.size.width
+        let shotSize = NSSize(width: shotWidth, height: canvas.size.height * scale)
+        canvas.draw(in: NSRect(x: 1280 - shotWidth - 40,
+                               y: (640 - shotSize.height) / 2,
+                               width: shotSize.width, height: shotSize.height))
+
+        let title = NSAttributedString(string: "Centinela", attributes: [
+            .font: NSFont.systemFont(ofSize: 72, weight: .semibold),
+            .foregroundColor: NSColor.white
+        ])
+        title.draw(at: NSPoint(x: 72, y: 372))
+
+        let paragraph = NSMutableParagraphStyle()
+        paragraph.lineSpacing = 6
+        let tagline = NSAttributedString(
+            string: "Your Sentry issues in the\nmacOS menu bar.\n\nNative SwiftUI. Read-only.\nBuilds without Xcode.",
+            attributes: [
+                .font: NSFont.systemFont(ofSize: 27, weight: .regular),
+                .foregroundColor: NSColor(calibratedWhite: 0.72, alpha: 1),
+                .paragraphStyle: paragraph
+            ])
+        tagline.draw(in: NSRect(x: 74, y: 150, width: 480, height: 210))
+        card.unlockFocus()
+        write(card, to: (output as NSString).deletingLastPathComponent + "/social-preview.png")
+        print("  escrito: " + (output as NSString).deletingLastPathComponent + "/social-preview.png")
         print("  escrito: \(CommandLine.arguments[1])")
         try? Keychain.delete(account: "centinela-shot-t")
         suite.removePersistentDomain(forName: domain)
