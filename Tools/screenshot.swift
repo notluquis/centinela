@@ -188,18 +188,21 @@ import SwiftUI
         write(canvas, to: output)
 
         // And the social preview: the image GitHub shows when somebody pastes the link into Slack
-        // or a timeline. 1280 by 640 is what GitHub asks for, and it crops anything else. Made
-        // here rather than by hand so it cannot end up showing a version of the app that no
-        // longer looks like this — the same reason the README picture is generated.
+        // or a timeline. 1280 by 640 is the size it asks for, and its own template says to keep
+        // the parts that matter inside a 40-point border because the card gets cropped — so
+        // everything here sits at least 72 points from an edge, which is that margin with room
+        // to spare. Made here rather than by hand so it cannot end up showing a version of the
+        // app that no longer looks like this.
+        let safe: CGFloat = 72
         let card = NSImage(size: NSSize(width: 1280, height: 640))
         card.lockFocus()
         NSColor(calibratedWhite: 0.09, alpha: 1).setFill()
         NSRect(x: 0, y: 0, width: 1280, height: 640).fill()
 
-        let shotWidth: CGFloat = 620
+        let shotWidth: CGFloat = 540
         let scale = shotWidth / canvas.size.width
         let shotSize = NSSize(width: shotWidth, height: canvas.size.height * scale)
-        canvas.draw(in: NSRect(x: 1280 - shotWidth - 40,
+        canvas.draw(in: NSRect(x: 1280 - shotWidth - safe,
                                y: (640 - shotSize.height) / 2,
                                width: shotSize.width, height: shotSize.height))
 
@@ -207,7 +210,7 @@ import SwiftUI
             .font: NSFont.systemFont(ofSize: 72, weight: .semibold),
             .foregroundColor: NSColor.white
         ])
-        title.draw(at: NSPoint(x: 72, y: 372))
+        title.draw(at: NSPoint(x: safe, y: 366))
 
         let paragraph = NSMutableParagraphStyle()
         paragraph.lineSpacing = 6
@@ -218,7 +221,7 @@ import SwiftUI
                 .foregroundColor: NSColor(calibratedWhite: 0.72, alpha: 1),
                 .paragraphStyle: paragraph
             ])
-        tagline.draw(in: NSRect(x: 74, y: 150, width: 480, height: 210))
+        tagline.draw(in: NSRect(x: safe + 2, y: 148, width: 470, height: 200))
         card.unlockFocus()
         write(card, to: (output as NSString).deletingLastPathComponent + "/social-preview.png")
         print("  escrito: " + (output as NSString).deletingLastPathComponent + "/social-preview.png")
