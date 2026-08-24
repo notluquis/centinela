@@ -2,9 +2,9 @@ name: mutation
 
 # Weekly and on demand, never on every PR: a mutation run takes far longer than the suite and
 # its result is not a yes/no, it is a list to read.
+# On demand only. The weekly schedule is off until a run gets past the baseline: a job that
+# fails every Monday teaches people to ignore Monday, which is worse than not having it.
 on:
-  schedule:
-    - cron: "0 6 * * 1"
   workflow_dispatch:
 
 permissions: {}

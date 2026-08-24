@@ -6,6 +6,11 @@ The release workflow reads the section for the tag being published out of this f
 
 ## [Unreleased]
 
+### Fixed
+
+- **Mutation testing had never run once, and four of its five failures were real defects.** The workflow was weekly and was added days before the first Monday, so the first execution was triggered by hand. `--output-json` is not a muter flag, so it died before mutating a line. Muter mutates a copy and resolves dependencies there, so with nothing in SwiftPM's cache that copy tried to clone Sparkle over the network. `mutateFilesInDirectories` is ignored, so it mutated the SwiftUI target the config excludes and emitted Swift that does not compile. And `swift test` in debug makes SwiftPM code-sign the executable, a spawn that fails inside muter, where a release build — which is what `make test` runs anyway — never reaches it. All four fixed; the fifth, a baseline failure in one test that passes locally, in CI, and from a copied checkout, is written up in `docs/notes.md` and the weekly schedule is off until it is understood. A job that fails every Monday teaches people to ignore Monday.
+- **Two Spanish identifiers the English sweep missed**, `duracion(_ milisegundos:)`. Found because muter emitted broken Swift inside that function and printed the name. The sweep before it used a dictionary chosen by hand and could only find words somebody thought of; a re-sweep over all 428 declared identifiers now finds none.
+
 ## [0.7.0] — 2026-08-24
 
 ### Added

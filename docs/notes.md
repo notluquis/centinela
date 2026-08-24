@@ -168,3 +168,21 @@ An earlier version of the README claimed automatic updates were impossible witho
 Sparkle's framework ships ad-hoc signed itself (`codesign -dv` reports `Signature=adhoc`, `TeamIdentifier=not set`).
 
 What an update is verified against is an **EdDSA signature** made with a key pair of this project: the public half sits in `Info.plist` as `SUPublicEDKey`, the private half exists only as a repo secret used by the release workflow. Apple is not involved in that check, which is why the signature Apple would care about is not in the way.
+
+## Mutation testing, and why it is not running
+
+`muter.conf.yml` and `.github/workflows/mutation.yml` have been in this repository since early on and **had never once executed**. The workflow was weekly and was added days before the first Monday, so the first real run was triggered by hand. It failed five times, each failure hiding the next:
+
+| | What happened | Why |
+|---|---|---|
+| 1 | `Unknown option '--output-json'` | That flag does not exist. The real signature is `--format json --output <file>`, and the run died before mutating a line |
+| 2 | `Failed to clone repository … Sparkle` | Muter mutates a **copy** and resolves dependencies there. Nothing had filled SwiftPM's shared cache, so the copy tried to clone over the network |
+| 3 | Mutated `Sources/Centinela/PanelRows.swift` and emitted Swift that does not compile | `mutateFilesInDirectories` is ignored. Selection moved to `--files-to-mutate`, which muter's own `run --help` prints |
+| 4 | `Applying debug entitlements … unable to spawn process` | `swift test` in debug makes SwiftPM code-sign the executable target, and that spawn fails inside muter. A release build never reaches it, and it is what `make test` runs anyway |
+| 5 | The suite fails on the baseline, in `Renamed preference keys carry their old values over` | Unresolved |
+
+The fifth is where it stands. That test passes locally, passes in CI, and passes when the tracked files are copied to another directory and run there with the same `swift test -c release`, which is the closest reproduction of what muter does. What is left that differs is muter's own transformation: it inserts every mutant into the source behind `ProcessInfo.processInfo.environment[…] != nil`, and failure 3 is direct evidence that those insertions can be malformed — it produced `return milliseconds >= 1000?`. A malformed insertion in `AppSettings.swift` that breaks the migration even with the mutant switched off would fail exactly this test and nothing else.
+
+The schedule is off until a run gets past the baseline. A job that fails every Monday teaches people to ignore Monday.
+
+**What it found anyway.** Four real defects in a configuration that had looked configured for weeks, and one thing no sweep of ours caught: failure 3 emitted broken Swift inside `duracion(_ milisegundos:)`, which is how the last two Spanish identifiers in the codebase were found. The English sweep before it used a dictionary chosen by hand, so it could only find words somebody thought of. The tool that knows no Spanish found the one that was missed.
