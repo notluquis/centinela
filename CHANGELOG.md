@@ -6,6 +6,8 @@ The release workflow reads the section for the tag being published out of this f
 
 ## [Unreleased]
 
+## [0.7.0] — 2026-08-24
+
 ### Added
 
 - **Four more tests, and now every route has one.** `replays`, `userFeedback` and the transaction threshold were the last three without. The first two have never been seen with live data, so their decoders came from Sentry's published schema; pinning the shape is the honest half of that debt, so the day real data arrives there is something written down to compare it against. The threshold test also pins the second field Sentry sends as **text** where a number is expected, after `issue.count`.
