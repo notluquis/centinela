@@ -6,6 +6,18 @@
     <description>Your Sentry issues in the macOS menu bar.</description>
     <language>en</language>
     <item>
+      <title>Version 0.6.1</title>
+      <sparkle:version>45</sparkle:version>
+      <sparkle:shortVersionString>0.6.1</sparkle:shortVersionString>
+      <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+      <description sparkle:format="markdown">### Fixed
+
+- **Signing in with the panel already open left the issue list empty over a menu bar counting 539 errors.** The cheap cycle was fixed in 0.6.0 to run the moment a session appears, but the expensive route hangs off the panel's `.task`, which runs once per appearance and never again: it had already run and returned at `guard let client` while there was still no token. It is keyed on the session being usable now, so it runs again the moment there is something to ask. Same shape as the bug above it, one level down, which is the argument for keying rather than adding another call site.</description>
+      <sparkle:fullReleaseNotesLink>https://github.com/notluquis/centinela/releases/tag/v0.6.1</sparkle:fullReleaseNotesLink>
+      <pubDate>Mon, 24 Aug 2026 00:10:02 +0000</pubDate>
+      <enclosure url="https://github.com/notluquis/centinela/releases/download/v0.6.1/Centinela.zip" sparkle:edSignature="MwdtICq3v57DyA0G+XBwl6cRxtT0UVI+GhskZXtpePXhN1oK9CjM4zphAIJyWT9AufyIKBTmW4EU53Nrspn+Bw==" length="2581442" type="application/octet-stream" />
+    </item>
+    <item>
       <title>Version 0.6.0</title>
       <sparkle:version>42</sparkle:version>
       <sparkle:shortVersionString>0.6.0</sparkle:shortVersionString>
