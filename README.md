@@ -7,6 +7,8 @@
 
 Your Sentry issues in the macOS menu bar. A count, a sparkline of the last few hours, and the state of your uptime monitors, without opening a browser.
 
+<img src="docs/panel.png" alt="The panel, showing an error count, a sparkline of the last 24 hours and a list of unresolved issues" width="380">
+
 Actually native: SwiftUI, `MenuBarExtra`, a 5.3 MB app, **read-only** access to Sentry. Not a web wrapper and not a script inside somebody else's app. There was no other one to use — [the search that says so](docs/notes.md#there-was-no-app-to-use) is written down.
 
 ## Install
@@ -68,6 +70,7 @@ make test      # 59 tests, no graphics session needed
 make lint      # swiftlint --strict
 make app       # assembles build/Centinela.app and signs it
 make run       # the above, then opens it
+make screenshot # regenerates docs/panel.png from invented data
 ```
 
 The package is two targets on purpose: `CentinelaCore` imports neither AppKit nor SwiftUI, so everything that can be wrong invisibly — parsing, the sparkline arithmetic, the Keychain — is tested without a graphics session. [Why there is no `.xcodeproj`, and the three toolchain traps that cost time here](docs/notes.md#building-without-xcode).

@@ -52,7 +52,7 @@ APP_DIR       := build/$(APP).app
 SIGNING_NAME  ?= Centinela Signing
 IDENTITY      ?= $(shell security find-identity -v -p codesigning 2>/dev/null | grep -q "$(SIGNING_NAME)" && echo "$(SIGNING_NAME)" || echo "-")
 
-.PHONY: build app run test lint clean install toolchain
+.PHONY: build app run test lint clean install toolchain screenshot
 
 toolchain:
 	@echo "swift: $(SWIFT)"
@@ -112,6 +112,22 @@ install: app
 	rm -rf /Applications/$(APP).app
 	cp -R $(APP_DIR) /Applications/
 	@echo "Installed at /Applications/$(APP).app"
+
+# Regenerates the README image. Compiles `Tools/screenshot.swift` against the app's own sources
+# rather than duplicating the panel, so an image that stops matching the UI is a compile error
+# rather than a picture that quietly lies.
+#
+# `CentinelaApp.swift` is excluded because the tool brings its own `@main`, and `CentinelaCore` is
+# linked from its object files: SwiftPM builds no static library for a library target.
+screenshot: build
+	@SDK="$$(xcrun --show-sdk-path)"; \
+	OBJS="$$(ls Sources/CentinelaCore/*.swift | sed 's|Sources/CentinelaCore/|$(BUILD_DIR)/CentinelaCore.build/|;s|$$|.o|')"; \
+	APPSRC="$$(ls Sources/Centinela/*.swift | grep -v CentinelaApp.swift)"; \
+	$(TOOLCHAIN)/usr/bin/swiftc -O -sdk "$$SDK" -target arm64-apple-macos14.0 \
+	  -I $(BUILD_DIR)/Modules -L $(BUILD_DIR) -F $(BUILD_DIR) -framework Sparkle \
+	  -Xlinker -rpath -Xlinker "$(PWD)/$(BUILD_DIR)" \
+	  $$APPSRC Tools/screenshot.swift $$OBJS -o $(BUILD_DIR)/screenshot
+	$(BUILD_DIR)/screenshot docs/panel.png
 
 clean:
 	rm -rf .build build
