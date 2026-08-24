@@ -91,21 +91,25 @@ import SwiftUI
             statsJSON: Data(byProject.utf8),
             projects: decoder.decode([Project].self, from: Data(projects.utf8)))) ?? []
 
-        // Two panels, the same view twice with a different tab showing. Rendered from
-        // `MainPanel` rather than drawn by hand, so a picture that stops matching the app is a
-        // compile error and not a stale illustration.
+        // Two different windows, not the same one twice. Stacking two panels was tried and read
+        // as a rendering fault: the panel repeats its header, so the same large number appeared
+        // twice with one copy sliced by the panel in front of it. The settings window shares no
+        // chrome with the panel, so the overlap reads as two windows of one app.
         //
-        // A background of its own on each. Alone the panel has none of the material
-        // `MenuBarExtra` draws, and with no vibrancy behind it every label resolves to white:
-        // the first version of this image came out with the sparkline, the level icons, and not
-        // one letter. Dark on purpose, which is also how it looks in the bar.
-        func shot(_ tab: PanelSection) -> NSImage? {
+        // Both come from the real views rather than being drawn by hand, so a picture that stops
+        // matching the app is a compile error and not an illustration nobody updated.
+        //
+        // A background of its own on each. Alone these have none of the material the system
+        // draws behind them, and with no vibrancy every label resolves to white: the first
+        // version of this image came out with the sparkline, the level icons, and not one
+        // letter. Dark on purpose, which is also how it looks on screen.
+        func shot<V: View>(_ view: V, width: CGFloat, minimum: CGFloat) -> NSImage? {
             let root = ZStack {
                 Color(nsColor: NSColor(calibratedWhite: 0.13, alpha: 1))
-                MainPanel(initialSection: tab, state: state)
+                view
             }
             let host = NSHostingView(rootView: root)
-            let win = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 380, height: 430),
+            let win = NSWindow(contentRect: NSRect(x: 0, y: 0, width: width, height: minimum),
                                styleMask: [.borderless], backing: .buffered, defer: false)
             win.contentView = host
             // On screen rather than offscreen: the view needs a real backing store to draw text.
@@ -113,10 +117,9 @@ import SwiftUI
             win.setFrameOrigin(NSPoint(x: 100, y: 100))
             win.orderFrontRegardless()
             host.layoutSubtreeIfNeeded()
-            // Sized to its content, the way the real panel is.
-            let height = max(host.fittingSize.height, 260)
-            win.setContentSize(NSSize(width: 380, height: height))
-            host.frame = NSRect(x: 0, y: 0, width: 380, height: height)
+            let height = max(host.fittingSize.height, minimum)
+            win.setContentSize(NSSize(width: width, height: height))
+            host.frame = NSRect(x: 0, y: 0, width: width, height: height)
             host.layoutSubtreeIfNeeded()
             for _ in 0..<60 {
                 RunLoop.main.run(until: Date().addingTimeInterval(0.02))
@@ -137,34 +140,30 @@ import SwiftUI
             return image
         }
 
-        guard let front = shot(.issues), let back = shot(.health) else { return }
+        guard let back = shot(SettingsView(state: state), width: 480, minimum: 430),
+              let front = shot(MainPanel(state: state), width: 380, minimum: 260)
+        else { return }
 
-        // Side by side and both whole, not one stacked behind the other. Stacked was tried and
-        // read as a rendering fault rather than as two views: the panel repeats its header, so
-        // the same large number appeared twice with one copy sliced by the panel in front of it.
-        //
-        // `MenuBarExtra(.window)` draws a rounded panel that floats over the desktop. Written out
-        // flat it read as a mock-up of the app rather than a picture of it. The margin is
-        // transparent, so the image sits on whatever background reads it.
+
+        // Overlapped the way a second window sits over the first: the settings window up and
+        // to the right, the panel over its lower left. `MenuBarExtra(.window)` draws a rounded
+        // panel that floats, and written out flat it read as a mock-up rather than a picture of
+        // the app. The margin is transparent, so the image sits on whatever reads it.
         let radius: CGFloat = 12
-        let margin: CGFloat = 30
-        let gap: CGFloat = 26
-        let tall = max(front.size.height, back.size.height)
-        let size = NSSize(width: front.size.width + gap + back.size.width + margin * 2,
-                          height: tall + margin * 2)
+        let margin: CGFloat = 34
+        let overlapX: CGFloat = 178
+        let overlapY: CGFloat = 54
+        let size = NSSize(width: front.size.width + overlapX + margin * 2,
+                          height: max(front.size.height + overlapY, back.size.height) + margin * 2)
 
         let canvas = NSImage(size: size)
         canvas.lockFocus()
-        func place(_ image: NSImage, x: CGFloat) {
-            // Top-aligned: the panels differ in height by whatever their lists reserve, and
-            // hanging them from the same top edge reads as two windows rather than two
-            // rectangles that happen to sit on a shelf.
-            let frame = NSRect(x: x, y: size.height - margin - image.size.height,
-                               width: image.size.width, height: image.size.height)
+        func place(_ image: NSImage, at origin: NSPoint, blur: CGFloat) {
+            let frame = NSRect(origin: origin, size: image.size)
             let shadow = NSShadow()
-            shadow.shadowColor = NSColor.black.withAlphaComponent(0.5)
-            shadow.shadowBlurRadius = 18
-            shadow.shadowOffset = NSSize(width: 0, height: -5)
+            shadow.shadowColor = NSColor.black.withAlphaComponent(0.55)
+            shadow.shadowBlurRadius = blur
+            shadow.shadowOffset = NSSize(width: 0, height: -6)
             NSGraphicsContext.current?.saveGraphicsState()
             shadow.set()
             NSBezierPath(roundedRect: frame, xRadius: radius, yRadius: radius).fill()
@@ -174,8 +173,9 @@ import SwiftUI
             image.draw(in: frame)
             NSGraphicsContext.current?.restoreGraphicsState()
         }
-        place(front, x: margin)
-        place(back, x: margin + front.size.width + gap)
+        place(back, at: NSPoint(x: size.width - margin - back.size.width,
+                                y: size.height - margin - back.size.height), blur: 16)
+        place(front, at: NSPoint(x: margin, y: margin), blur: 26)
         canvas.unlockFocus()
 
         guard let data = canvas.tiffRepresentation,
