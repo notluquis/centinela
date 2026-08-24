@@ -235,7 +235,7 @@ struct PerformanceSection: View {
                         .foregroundStyle(.secondary)
                 }
                 Spacer(minLength: 8)
-                Text(duracion(row.p95))
+                Text(duration(row.p95))
                     .font(.system(.callout, design: .monospaced))
                     .foregroundStyle(
                         row.p95 > thresholdMilliseconds ? AnyShapeStyle(.orange) : AnyShapeStyle(.secondary)
@@ -248,10 +248,10 @@ struct PerformanceSection: View {
 
     /// Milliseconds under a second, seconds above it. `1170 ms` reads as noise; `1.17 s` reads as
     /// slow.
-    private func duracion(_ milisegundos: Double) -> String {
-        milisegundos >= 1000
-            ? String(format: "%.2f s", milisegundos / 1000)
-            : String(format: "%.0f ms", milisegundos)
+    private func duration(_ milliseconds: Double) -> String {
+        milliseconds >= 1000
+            ? String(format: "%.2f s", milliseconds / 1000)
+            : String(format: "%.0f ms", milliseconds)
     }
 }
 

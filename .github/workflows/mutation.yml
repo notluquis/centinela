@@ -40,7 +40,9 @@ jobs:
         # `--output-json`, a flag that does not exist, and the run died with "Unknown option"
         # before mutating anything. Nobody saw it because this workflow had never been run: it is
         # weekly, and it was added days before the first Monday.
-        run: muter run --format json --output muter-report.json || true
+        run: |
+          muter run --files-to-mutate 'Sources/CentinelaCore/*.swift' \
+            --format json --output muter-report.json || true
 
       # The `|| true` above lets through the case where muter never ran, crashed, or rejected
       # `muter.conf.yml`. That file cannot be validated locally (muter does not build without

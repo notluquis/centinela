@@ -1,11 +1,15 @@
 # CentinelaCore is mutated and the SwiftUI shell is not: that is where the things that can be
 # wrong without anyone noticing live (parsing, sparkline arithmetic, the Keychain, the device
 # flow). Mutating views only produces mutants no test can kill, and noise in the report.
+#
+# The selection is NOT here. `mutateFilesInDirectories` is in this file's documentation and muter
+# ignored it on the first real run: it mutated `Sources/Centinela/PanelRows.swift` and produced
+# Swift that does not compile. The workflow passes `--files-to-mutate` instead, which is a flag
+# muter's own `run --help` prints, so it can be checked against the tool rather than against a
+# document.
 executable: /usr/bin/swift
 arguments:
   - test
 excludeFileList:
   - Tests
   - Tools
-mutateFilesInDirectories:
-  - Sources/CentinelaCore
