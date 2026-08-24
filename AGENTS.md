@@ -8,6 +8,8 @@ This is a menu bar app that reads Sentry's API with a token. The rules below are
 
 **2. The token lives in the Keychain.** Never in `UserDefaults`, never in a file, never in a log, never in an error message. A Sentry organization token does not expire on its own. This project started because the token was sitting in `~/.sentryclirc` in plain text.
 
+**3e. The runner's macOS is not this one's.** `diskutil image attach --mountPoint` creates the directory on macOS 27 and refuses with "Mount point … doesn't exist" on the 26 the runners pin. Deleting the directory and re-running locally does not reproduce it. Where a command's behaviour depends on the OS version, the runner is the only place the answer counts.
+
 **3d. An incremental build does not re-emit warnings.** "Zero warnings" was checked dozens of times against a cached build and was wrong the whole time: four actor-isolation warnings sat in `AppSettings.swift` for hours. `make clean && make build`, or believe the runner.
 
 **3c. `cmd | tail -1 && echo ok` reports ok whatever `cmd` did.** A pipeline's exit status is its LAST command's, and `tail` always succeeds. Two pushes went red on a lint failure that `make lint` was reporting correctly the whole time, because the check around it swallowed the status. Run `make lint` on its own and read what it prints.

@@ -6,6 +6,8 @@ The release workflow reads the section for the tag being published out of this f
 
 ## [Unreleased]
 
+## [0.9.0] — 2026-08-24
+
 Two dead signals in the settings window come back to life, the install instructions and the release notes stop describing a macOS and a signature that stopped existing, releases carry a disk image, and Sentry's rate limit is obeyed instead of narrated.
 
 ### Added
