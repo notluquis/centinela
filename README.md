@@ -8,7 +8,7 @@
 Your Sentry issues in the macOS menu bar. A count, a sparkline of the last few hours, and the state of your uptime monitors, without opening a browser.
 
 <p align="center">
-  <img src="docs/panel.png" alt="The panel, showing an error count, a sparkline of the last 24 hours and a list of unresolved issues" width="520">
+  <img src="docs/panel.png" alt="The panel, showing an error count, a sparkline of the last 24 hours and a list of unresolved issues" width="820">
 </p>
 
 Actually native: SwiftUI, `MenuBarExtra`, a 5.6 MB app, **read-only** access to Sentry. Not a web wrapper and not a script inside somebody else's app. There was no other one to use — [the search that says so](docs/notes.md#there-was-no-app-to-use) is written down.

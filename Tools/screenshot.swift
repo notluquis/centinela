@@ -139,37 +139,43 @@ import SwiftUI
 
         guard let front = shot(.issues), let back = shot(.health) else { return }
 
+        // Side by side and both whole, not one stacked behind the other. Stacked was tried and
+        // read as a rendering fault rather than as two views: the panel repeats its header, so
+        // the same large number appeared twice with one copy sliced by the panel in front of it.
+        //
         // `MenuBarExtra(.window)` draws a rounded panel that floats over the desktop. Written out
         // flat it read as a mock-up of the app rather than a picture of it. The margin is
         // transparent, so the image sits on whatever background reads it.
         let radius: CGFloat = 12
-        let margin: CGFloat = 34
-        let offset = NSSize(width: 104, height: 52)
-        let size = NSSize(width: front.size.width + offset.width + margin * 2,
-                          height: max(front.size.height, back.size.height) + offset.height + margin * 2)
+        let margin: CGFloat = 30
+        let gap: CGFloat = 26
+        let tall = max(front.size.height, back.size.height)
+        let size = NSSize(width: front.size.width + gap + back.size.width + margin * 2,
+                          height: tall + margin * 2)
 
         let canvas = NSImage(size: size)
         canvas.lockFocus()
-        func place(_ image: NSImage, at origin: NSPoint, dimmed: Bool) {
-            let frame = NSRect(origin: origin, size: image.size)
+        func place(_ image: NSImage, x: CGFloat) {
+            // Top-aligned: the panels differ in height by whatever their lists reserve, and
+            // hanging them from the same top edge reads as two windows rather than two
+            // rectangles that happen to sit on a shelf.
+            let frame = NSRect(x: x, y: size.height - margin - image.size.height,
+                               width: image.size.width, height: image.size.height)
             let shadow = NSShadow()
-            shadow.shadowColor = NSColor.black.withAlphaComponent(dimmed ? 0.45 : 0.6)
-            shadow.shadowBlurRadius = dimmed ? 14 : 22
-            shadow.shadowOffset = NSSize(width: 0, height: -6)
+            shadow.shadowColor = NSColor.black.withAlphaComponent(0.5)
+            shadow.shadowBlurRadius = 18
+            shadow.shadowOffset = NSSize(width: 0, height: -5)
             NSGraphicsContext.current?.saveGraphicsState()
             shadow.set()
             NSBezierPath(roundedRect: frame, xRadius: radius, yRadius: radius).fill()
             NSGraphicsContext.current?.restoreGraphicsState()
             NSGraphicsContext.current?.saveGraphicsState()
             NSBezierPath(roundedRect: frame, xRadius: radius, yRadius: radius).addClip()
-            image.draw(in: frame, from: .zero, operation: .sourceOver,
-                       fraction: dimmed ? 0.75 : 1)
+            image.draw(in: frame)
             NSGraphicsContext.current?.restoreGraphicsState()
         }
-        // The one behind first, up and to the right, so the front panel overlaps its lower left.
-        place(back, at: NSPoint(x: margin + offset.width,
-                                y: size.height - margin - back.size.height), dimmed: true)
-        place(front, at: NSPoint(x: margin, y: margin), dimmed: false)
+        place(front, x: margin)
+        place(back, x: margin + front.size.width + gap)
         canvas.unlockFocus()
 
         guard let data = canvas.tiffRepresentation,

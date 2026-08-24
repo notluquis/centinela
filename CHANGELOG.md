@@ -15,7 +15,7 @@ Issue rows fit on one line again, About stops describing a version of the app th
 
 ### Added
 
-- **The README picture is two panels, and it is still the real view.** `MainPanel` takes the section it opens on, so `make screenshot` renders Issues in front and Health behind it, offset and dimmed, with the rounded corners and the shadow the panel actually has and a transparent margin. It is the same view compiled against the same sources, so a picture that stops matching the app is a compile error rather than an illustration nobody updated.
+- **The README picture is two panels, and it is still the real view.** `MainPanel` takes the section it opens on, so `make screenshot` renders Issues and Health side by side with the rounded corners, the shadow and the transparent margin the panel actually has. Stacked was tried first and read as a rendering fault rather than as two views: the panel repeats its header, so the same large number appeared twice with one copy sliced by the panel in front of it. Both are the same view compiled against the same sources, so a picture that stops matching the app is a compile error rather than an illustration nobody updated.
 - **A "What is new" link in About**, to the releases page rather than to this version's tag: a development build reports 0.0.0, and a link that 404s from inside the app is worse than one that lands on a list with the newest at the top.
 - The app icon in About is hidden from VoiceOver. It is decoration, and the name is on the next line.
 
