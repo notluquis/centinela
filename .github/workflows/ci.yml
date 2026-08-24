@@ -89,7 +89,11 @@ jobs:
           #
           # Attaching is the verification. A disk image with a bad checksum does not mount, and
           # `--mountPoint` means nothing has to be parsed out of the output to find where it did.
+          # The directory has to exist first: `diskutil` refuses with "Mount point ... doesn't
+          # exist" rather than creating it. Verified locally against a path that happened to
+          # exist already, which is why the runner found this and the laptop did not.
           mount="$RUNNER_TEMP/centinela-dmg"
+          mkdir -p "$mount"
           diskutil image attach --readOnly --nobrowse --mountPoint "$mount" build/Centinela.dmg
 
           # `make dmg` deliberately does not rebuild, so the copy inside the image has to be the
