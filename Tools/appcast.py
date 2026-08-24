@@ -31,13 +31,13 @@ VACIO = """<?xml version="1.0" encoding="utf-8"?>
 """
 
 
-def parse_signature(texto: str) -> tuple[str, str]:
+def parse_signature(text: str) -> tuple[str, str]:
     """`sign_update` prints `sparkle:edSignature="..." length="..."`. Both halves are needed."""
-    firma = re.search(r'sparkle:edSignature="([^"]+)"', texto)
-    largo = re.search(r'length="(\d+)"', texto)
-    if not firma or not largo:
-        raise SystemExit(f"could not read sign_update output: {texto!r}")
-    return firma.group(1), largo.group(1)
+    signature = re.search(r'sparkle:edSignature="([^"]+)"', text)
+    length = re.search(r'length="(\d+)"', text)
+    if not signature or not length:
+        raise SystemExit(f"could not read sign_update output: {text!r}")
+    return signature.group(1), length.group(1)
 
 
 def main() -> None:
@@ -58,13 +58,13 @@ def main() -> None:
     ap.add_argument("--minimum-system-version", default="14.0")
     args = ap.parse_args()
 
-    firma, largo = parse_signature(args.signature)
-    ruta = pathlib.Path(args.appcast)
-    if not ruta.exists() or not ruta.read_text().strip():
-        ruta.write_text(VACIO)
+    signature, length = parse_signature(args.signature)
+    path = pathlib.Path(args.appcast)
+    if not path.exists() or not path.read_text().strip():
+        path.write_text(VACIO)
 
     ET.register_namespace("sparkle", "http://www.andymatuschak.org/xml-namespaces/sparkle")
-    arbol = ET.parse(ruta)
+    arbol = ET.parse(path)
     canal = arbol.getroot().find("channel")
     if canal is None:
         raise SystemExit("appcast.xml has no <channel>")
@@ -100,8 +100,8 @@ def main() -> None:
     ).strftime("%a, %d %b %Y %H:%M:%S +0000")
     ET.SubElement(item, "enclosure", {
         "url": args.url,
-        f"{SP}edSignature": firma,
-        "length": largo,
+        f"{SP}edSignature": signature,
+        "length": length,
         "type": "application/octet-stream",
     })
 
@@ -110,8 +110,8 @@ def main() -> None:
     canal.insert(len(list(canal.findall("*"))) - len(canal.findall("item")), item)
 
     ET.indent(arbol, space="  ")
-    arbol.write(ruta, encoding="utf-8", xml_declaration=True)
-    print(f"appcast.xml updated: {args.version} (build {args.build}), signature {firma[:12]}…")
+    arbol.write(path, encoding="utf-8", xml_declaration=True)
+    print(f"appcast.xml updated: {args.version} (build {args.build}), signature {signature[:12]}…")
 
 
 if __name__ == "__main__":

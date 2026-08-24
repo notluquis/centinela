@@ -2,8 +2,8 @@
   {
     "id": "1000000001",
     "shortId": "EJEMPLO-API-1A",
-    "title": "TypeError: no se pudo leer la propiedad de un valor indefinido",
-    "culprit": "src/rutas/ejemplo.ts",
+    "title": "TypeError: cannot read property of an undefined value",
+    "culprit": "src/routes/example.ts",
     "level": "error",
     "substatus": "escalating",
     "permalink": "https://ejemplo.sentry.io/issues/1000000001/",

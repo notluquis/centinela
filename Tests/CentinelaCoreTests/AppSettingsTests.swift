@@ -218,4 +218,40 @@ struct AppSettingsTests {
         #expect(settings.shouldRefresh)
         #expect(Keychain.reads > before)
     }
+
+    /// The rename is only safe if it carries the old values over. Without this, upgrading forgets
+    /// the organization, the window and the refresh interval, and the app comes back saying it
+    /// was never configured.
+    @Test("Renamed preference keys carry their old values over")
+    func renamedKeysKeepTheirValues() {
+        let unique = UUID().uuidString
+        let suiteName = "centinela.tests.rename.\(unique)"
+        let suite = UserDefaults(suiteName: suiteName)!
+        defer { UserDefaults.standard.removePersistentDomain(forName: suiteName) }
+
+        // Written under the names a pre-rename install would have left behind.
+        suite.set("example", forKey: "organizacion")
+        suite.set("7d", forKey: "ventana")
+        suite.set(900.0, forKey: "intervaloSegundos")
+        suite.set(25, forKey: "maximoIssues")
+
+        let settings = AppSettings(
+            defaults: suite,
+            tokenAccount: "token-\(unique)",
+            refreshAccount: "refresh-\(unique)"
+        )
+        defer {
+            try? Keychain.delete(account: settings.tokenAccountName)
+            try? Keychain.delete(account: settings.refreshAccountName)
+        }
+
+        #expect(settings.organization == "example")
+        #expect(settings.window == .sevenDays)
+        #expect(settings.intervalSeconds == 900)
+        #expect(settings.maxIssues == 25)
+
+        // The old names are gone, so this cannot keep happening on every launch.
+        #expect(suite.object(forKey: "organizacion") == nil)
+        #expect(suite.string(forKey: "organization") == "example")
+    }
 }

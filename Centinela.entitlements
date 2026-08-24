@@ -20,7 +20,7 @@
 	     are Sparkle's own convention (`-spks` for the status service, `-spki` for the
 	     installer). No team identifier is involved, which is why this works with an ad-hoc
 	     signature. -->
-	<!-- PRUEBA: sin esto dyld rechaza cargar Sparkle. -->
+	<!-- Measured: without this, dyld refuses to load Sparkle. -->
 	<key>com.apple.security.cs.disable-library-validation</key>
 	<true/>
 	<key>com.apple.security.temporary-exception.mach-lookup.global-name</key>

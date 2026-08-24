@@ -42,7 +42,7 @@ final class AppState {
     /// data on screen is. Not a secret, so `UserDefaults` rather than the Keychain.
     var lastUpdated: Date? {
         didSet {
-            UserDefaults.standard.set(lastUpdated?.timeIntervalSince1970 ?? 0, forKey: "ultimaActualizacion")
+            UserDefaults.standard.set(lastUpdated?.timeIntervalSince1970 ?? 0, forKey: "lastUpdated")
         }
     }
 
@@ -60,7 +60,7 @@ final class AppState {
         let resolved = settings ?? AppSettings()
         self.settings = resolved
         self.login = LoginController(settings: resolved)
-        let saved = UserDefaults.standard.double(forKey: "ultimaActualizacion")
+        let saved = UserDefaults.standard.double(forKey: "lastUpdated")
         if saved > 0 { lastUpdated = Date(timeIntervalSince1970: saved) }
         observeSleep()
     }

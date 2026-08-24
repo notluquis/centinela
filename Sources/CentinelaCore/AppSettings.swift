@@ -18,11 +18,11 @@ public final class AppSettings {
         case pastedToken
     }
 
-    public static let defaultTokenAccount = "token-de-organizacion"
-    public static let defaultRefreshAccount = "token-de-refresco"
+    public static let defaultTokenAccount = "organization-token"
+    public static let defaultRefreshAccount = "refresh-token"
 
     public var organization: String {
-        didSet { defaults.set(organization, forKey: "organizacion") }
+        didSet { defaults.set(organization, forKey: "organization") }
     }
 
     public var host: String {
@@ -30,7 +30,7 @@ public final class AppSettings {
     }
 
     public var window: TimeWindow {
-        didSet { defaults.set(window.rawValue, forKey: "ventana") }
+        didSet { defaults.set(window.rawValue, forKey: "window") }
     }
 
     /// Five minutes by default. With the measured API limits (40 requests per window per route,
@@ -38,40 +38,40 @@ public final class AppSettings {
     /// the fact that an error from three minutes ago is not handled differently from one from
     /// five.
     public var intervalSeconds: TimeInterval {
-        didSet { defaults.set(intervalSeconds, forKey: "intervaloSegundos") }
+        didSet { defaults.set(intervalSeconds, forKey: "intervalSeconds") }
     }
 
     public var maxIssues: Int {
-        didSet { defaults.set(maxIssues, forKey: "maximoIssues") }
+        didSet { defaults.set(maxIssues, forKey: "maxIssues") }
     }
 
     /// OAuth client id for the device flow. Empty in `UserDefaults` means "use Centinela's", not
     /// "there is none". It is not a secret (RFC 8628 treats these clients as public), which is
     /// why it lives here and not in the Keychain.
     public var oauthClientID: String {
-        didSet { defaults.set(oauthClientID, forKey: "clientIDOAuth") }
+        didSet { defaults.set(oauthClientID, forKey: "oauthClientID") }
     }
 
     /// When the access token expires. Only applies to tokens obtained through OAuth; a pasted
     /// token does not expire on its own and this stays `nil`.
     public var tokenExpiresAt: Date? {
-        didSet { defaults.set(tokenExpiresAt?.timeIntervalSince1970 ?? 0, forKey: "venceElToken") }
+        didSet { defaults.set(tokenExpiresAt?.timeIntervalSince1970 ?? 0, forKey: "tokenExpiresAt") }
     }
 
     /// How long the token was good for when issued, so "less than 10% of its life" has meaning.
     public var tokenLife: TimeInterval {
-        didSet { defaults.set(tokenLife, forKey: "vidaDelToken") }
+        didSet { defaults.set(tokenLife, forKey: "tokenLife") }
     }
 
     /// The project to ask about, or `nil` for every one. Stored as the numeric id Sentry uses.
     public var selectedProjectID: String? {
-        didSet { defaults.set(selectedProjectID ?? "", forKey: "proyectoElegido") }
+        didSet { defaults.set(selectedProjectID ?? "", forKey: "selectedProject") }
     }
 
     /// The environment to ask about, or `nil` for every one. Today the organization has only
     /// `production`, so the control stays hidden until there is something to choose between.
     public var selectedEnvironment: String? {
-        didSet { defaults.set(selectedEnvironment ?? "", forKey: "entornoElegido") }
+        didSet { defaults.set(selectedEnvironment ?? "", forKey: "selectedEnvironment") }
     }
 
     /// The last thing the Keychain said when it refused. `nil` when the last write went fine.
@@ -110,28 +110,78 @@ public final class AppSettings {
         self.defaults = defaults
         self.tokenAccount = tokenAccount
         self.refreshAccount = refreshAccount
-        organization = defaults.string(forKey: "organizacion") ?? ""
+        AppSettings.renameOldKeys(in: defaults)
+        organization = defaults.string(forKey: "organization") ?? ""
         host = defaults.string(forKey: "host") ?? "https://sentry.io"
-        window = TimeWindow(rawValue: defaults.string(forKey: "ventana") ?? "") ?? .twentyFourHours
-        let savedInterval = defaults.double(forKey: "intervaloSegundos")
+        window = TimeWindow(rawValue: defaults.string(forKey: "window") ?? "") ?? .twentyFourHours
+        let savedInterval = defaults.double(forKey: "intervalSeconds")
         intervalSeconds = savedInterval > 0 ? savedInterval : 300
-        let savedMax = defaults.integer(forKey: "maximoIssues")
+        let savedMax = defaults.integer(forKey: "maxIssues")
         maxIssues = savedMax > 0 ? savedMax : 15
-        let savedClient = defaults.string(forKey: "clientIDOAuth") ?? ""
+        let savedClient = defaults.string(forKey: "oauthClientID") ?? ""
         oauthClientID = savedClient.isEmpty ? DeviceFlow.centinelaClientID : savedClient
-        let savedExpiry = defaults.double(forKey: "venceElToken")
+        let savedExpiry = defaults.double(forKey: "tokenExpiresAt")
         tokenExpiresAt = savedExpiry > 0 ? Date(timeIntervalSince1970: savedExpiry) : nil
-        let savedLife = defaults.double(forKey: "vidaDelToken")
+        let savedLife = defaults.double(forKey: "tokenLife")
         tokenLife = savedLife > 0 ? savedLife : 3600
-        let savedProject = defaults.string(forKey: "proyectoElegido") ?? ""
+        let savedProject = defaults.string(forKey: "selectedProject") ?? ""
         selectedProjectID = savedProject.isEmpty ? nil : savedProject
-        let savedEnvironment = defaults.string(forKey: "entornoElegido") ?? ""
+        let savedEnvironment = defaults.string(forKey: "selectedEnvironment") ?? ""
         selectedEnvironment = savedEnvironment.isEmpty ? nil : savedEnvironment
         token = (try? Keychain.read(account: tokenAccount)).flatMap { $0 } ?? ""
+        if token.isEmpty { token = adoptTokenFromOldAccount() }
+    }
+
+    /// The preference keys were Spanish until they were not, and a rename that quietly forgets
+    /// somebody's organization and refresh interval is not a rename, it is data loss.
+    ///
+    /// Copy rather than read-through: it runs once, the old key is removed, and after that
+    /// nothing in the class has to know two names for the same thing.
+    private static let renamedKeys = [
+        ("organizacion", "organization"),
+        ("ventana", "window"),
+        ("intervaloSegundos", "intervalSeconds"),
+        ("maximoIssues", "maxIssues"),
+        ("clientIDOAuth", "oauthClientID"),
+        ("venceElToken", "tokenExpiresAt"),
+        ("vidaDelToken", "tokenLife"),
+        ("proyectoElegido", "selectedProject"),
+        ("entornoElegido", "selectedEnvironment")
+    ]
+
+    private static func renameOldKeys(in defaults: UserDefaults) {
+        for (old, new) in renamedKeys where defaults.object(forKey: new) == nil {
+            guard let value = defaults.object(forKey: old) else { continue }
+            defaults.set(value, forKey: new)
+            defaults.removeObject(forKey: old)
+        }
+    }
+
+    /// The Keychain accounts were renamed with the preference keys, and this moves a session
+    /// across instead of silently signing somebody out.
+    ///
+    /// It costs no extra password dialog: reading the new account finds no item at all, which
+    /// never prompts, and reading the old one is the single read this init used to do anyway.
+    private func adoptTokenFromOldAccount() -> String {
+        guard tokenAccount == AppSettings.defaultTokenAccount,
+              let old = try? Keychain.read(account: "token-de-organizacion"),
+              !old.isEmpty else { return "" }
+        try? Keychain.save(old, account: tokenAccount)
+        try? Keychain.delete(account: "token-de-organizacion")
+        return old
     }
 
     public var refreshToken: String? {
-        (try? Keychain.read(account: refreshAccount)).flatMap { $0 }
+        if let current = (try? Keychain.read(account: refreshAccount)).flatMap({ $0 }) { return current }
+        // Migrated here and not in `init` on purpose: reading it is a Keychain read, and the whole
+        // point of checking the clock first in `shouldRefresh` is to keep those off the startup
+        // path. This runs the first time a renewal is actually due.
+        guard refreshAccount == AppSettings.defaultRefreshAccount,
+              let old = (try? Keychain.read(account: "token-de-refresco")).flatMap({ $0 })
+        else { return nil }
+        try? Keychain.save(old, account: refreshAccount)
+        try? Keychain.delete(account: "token-de-refresco")
+        return old
     }
 
     /// Returns `true` when the Keychain accepted the write. Callers must NOT assume it did.

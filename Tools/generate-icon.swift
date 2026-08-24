@@ -72,10 +72,10 @@ try FileManager.default.createDirectory(at: output, withIntermediateDirectories:
 for (base, escala) in [(16, 1), (16, 2), (32, 1), (32, 2), (128, 1), (128, 2), (256, 1), (256, 2), (512, 1), (512, 2)] {
     let lado = base * escala
     let imagen = draw(side: lado)
-    let sufijo = escala == 1 ? "" : "@2x"
-    let archivo = output.appendingPathComponent("icon_\(base)x\(base)\(sufijo).png")
-    let destino = CGImageDestinationCreateWithURL(archivo as CFURL, "public.png" as CFString, 1, nil)!
-    CGImageDestinationAddImage(destino, imagen, nil)
-    CGImageDestinationFinalize(destino)
+    let suffix = escala == 1 ? "" : "@2x"
+    let file = output.appendingPathComponent("icon_\(base)x\(base)\(suffix).png")
+    let destination = CGImageDestinationCreateWithURL(file as CFURL, "public.png" as CFString, 1, nil)!
+    CGImageDestinationAddImage(destination, imagen, nil)
+    CGImageDestinationFinalize(destination)
 }
 print("iconset at \(output.path). Next: iconutil -c icns \(output.path)")

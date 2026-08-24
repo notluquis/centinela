@@ -238,9 +238,9 @@ Two entitlements that would not otherwise be here:
 
 That second one is the honest cost. It is worth weighing against what it protects:
 
-**The Sentry token in the Keychain is already readable by any process running as you.** Measured, not assumed: `security find-generic-password -s cl.bioalergia.centinela -a token-de-organizacion -w` returns it from a terminal with no prompt. The Keychain here buys storage that is not a plaintext file in your home directory and that requires the machine to be unlocked. It does not buy per-application isolation, because the item is not bound to this app's signature.
+**An earlier version of this section said the token was already readable by any process running as you, and that was wrong.** Measured on a throwaway item created by a signed build: `/usr/bin/security` reading it prompts for the login password, and `securityd` logs `displaying keychain prompt for /usr/bin/security`. The item **is** bound to a signature, so the Keychain does buy per-application isolation on top of storage that is not a plaintext file and that needs the machine unlocked.
 
-So disabling library validation does not meaningfully change the exposure of the token. It does widen code injection into the process in general. A Developer ID (99 USD a year) removes the need for the entitlement entirely; until then, this is the trade, written down rather than buried.
+Which makes the entitlement cost more than that older paragraph claimed, not less. Library validation is what stops a code-signed library from being loaded into this process, and code running inside the process is precisely the identity the Keychain lets through without asking. Placing such a library still requires write access to the bundle in `/Applications`, which is to say another process running as you — so the entitlement does not create the exposure on its own, it removes the last obstacle for something that already has a foothold. A Developer ID (99 USD a year) removes the need for the entitlement entirely; until then this is the trade, written down rather than buried, and now written down correctly.
 
 ## No global keyboard shortcut
 

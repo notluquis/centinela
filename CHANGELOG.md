@@ -6,6 +6,15 @@ The release workflow reads the section for the tag being published out of this f
 
 ## [Unreleased]
 
+### Changed
+
+- **Every persisted key is in English, and the old values move across.** Nine `UserDefaults` keys and both Keychain accounts were Spanish. A rename that quietly forgets somebody's organization and refresh interval is data loss, not a rename, so the old names are copied forward once and then removed. The Keychain accounts move too, and it costs no extra password dialog: reading the new account finds no item, which never prompts, and reading the old one is the read that init already did. The refresh token migrates on first use rather than at startup, which is where the clock-before-Keychain rule from 0.6.0 wants it. The old names survive verbatim in one migration table and the test that exercises it, because there they are data.
+- Comments and local names in `Centinela.entitlements`, `Tools/appcast.py`, `Tools/generate-icon.swift` and the issue fixture are English.
+
+### Fixed
+
+- **The README claimed the Keychain token was already readable by any process running as you, and it was not.** Measured on a throwaway item created by a signed build: `/usr/bin/security` reading it prompts, and `securityd` logs `displaying keychain prompt for /usr/bin/security`. The item is bound to a signature. That inverts the paragraph resting on it: `disable-library-validation` costs more than was written, not less, because code inside the process is exactly the identity the Keychain admits without asking.
+
 ## [0.6.1] — 2026-08-23
 
 ### Fixed
