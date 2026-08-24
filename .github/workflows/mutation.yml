@@ -25,6 +25,13 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
+      # Muter mutates a COPY of the project and runs `swift test` there, which resolves
+      # dependencies from scratch. With nothing in SwiftPM's shared cache that copy tries to
+      # clone Sparkle over the network and the first real run died on exactly that: "Failed to
+      # clone repository". Resolving here fills the cache the copy then reads.
+      - name: Fill SwiftPM's cache before muter copies the project
+        run: swift package resolve
+
       - name: Install muter
         run: brew install muter-mutation-testing/formulae/muter
 
