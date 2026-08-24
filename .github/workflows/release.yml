@@ -134,20 +134,18 @@ jobs:
             exit 1
           fi
 
-          # Two halves, deliberately different lengths.
+          # The dialog gets the whole section, which now OPENS with the summary line.
           #
-          # The GitHub release gets everything: it is read on a page, with room to scroll, by
-          # somebody who came looking. The in-app dialog gets the summary line only — the text
-          # between the version heading and the first `###`. Sparkle draws that dialog at about
-          # 600 points, and v0.7.0's notes were 7334 characters, which is a wall nobody reads and
-          # a "see all" link right underneath it.
+          # v0.7.0's notes were 7334 characters and Sparkle draws that dialog at about 600
+          # points, so what somebody saw first was the middle of a wall. The fix is not showing
+          # less, it is putting the gist first: every version now opens with one line between its
+          # heading and the first `###`, and the detail follows underneath for whoever wants it.
           #
-          # The fallback is the whole section, so a version written without a summary line still
-          # publishes a dialog with something in it rather than an empty one.
-          awk '/^### /{exit} {print}' notes.md > summary.md
-          if [ ! -s "$(printf %s summary.md)" ] || ! grep -q '[^[:space:]]' summary.md; then
-            echo "::warning::no summary line under '## [$VERSION]'; the dialog gets the whole section"
-            cp notes.md summary.md
+          # The check below does not change what is published. It only says when a version was
+          # written without that line, because a section that starts straight into `### Fixed`
+          # puts the reader back in the middle of the wall.
+          if ! awk '/^### /{exit} {print}' notes.md | grep -q '[^[:space:]]'; then
+            echo "::warning::no summary line under '## [$VERSION]': the dialog opens on a heading"
           fi
           cp notes.md changelog-section.md
 
@@ -213,7 +211,7 @@ jobs:
             --url "https://github.com/$GITHUB_REPOSITORY/releases/download/$GITHUB_REF_NAME/Centinela.zip" \
             --signature "$(cat signature.txt)" \
             --notes-url "https://github.com/$GITHUB_REPOSITORY/releases/tag/$GITHUB_REF_NAME" \
-            --notes-file summary.md
+            --notes-file changelog-section.md
 
       # `gh release` ships with the runner. A third-party action for this would be supply-chain
       # surface with nothing to show for it.

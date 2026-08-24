@@ -72,9 +72,9 @@ def main() -> None:
     SP = "{http://www.andymatuschak.org/xml-namespaces/sparkle}"
 
     # Republishing the same version would offer people an update to what they already run.
-    for viejo in canal.findall("item"):
-        if (viejo.findtext(f"{SP}shortVersionString") or "") == args.version:
-            canal.remove(viejo)
+    for existing in canal.findall("item"):
+        if (existing.findtext(f"{SP}shortVersionString") or "") == args.version:
+            canal.remove(existing)
 
     item = ET.Element("item")
     ET.SubElement(item, "title").text = f"Version {args.version}"
