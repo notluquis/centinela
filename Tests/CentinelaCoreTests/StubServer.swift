@@ -5,6 +5,10 @@ struct StubResponse {
     let path: String
     let status: Int
     let body: String
+    /// Extra headers. Sentry says things in headers that change behaviour — `Retry-After` on a
+    /// 429, and the deprecation pair — so a stub that could only carry a body could not test
+    /// any of it.
+    var headers: [String: String] = [:]
 }
 
 /// Records how long each polling round slept.
@@ -61,11 +65,15 @@ final class StubServer: URLProtocol, @unchecked Sendable {
         return URLSession(configuration: conf)
     }
 
-    static func enqueue(_ session: URLSession, _ path: String, _ body: String, status: Int = 200) {
+    static func enqueue(
+        _ session: URLSession, _ path: String, _ body: String,
+        status: Int = 200, headers: [String: String] = [:]
+    ) {
         guard let identifier = identifier(of: session) else { return }
         lock.lock()
         defer { lock.unlock() }
-        queues[identifier, default: []].append(StubResponse(path: path, status: status, body: body))
+        queues[identifier, default: []].append(
+            StubResponse(path: path, status: status, body: body, headers: headers))
     }
 
     static func requests(_ session: URLSession) -> [(path: String, body: String)] {
@@ -99,7 +107,8 @@ final class StubServer: URLProtocol, @unchecked Sendable {
 
         let http = HTTPURLResponse(
             url: request.url!, statusCode: chosen.status,
-            httpVersion: "HTTP/1.1", headerFields: ["Content-Type": "application/json"]
+            httpVersion: "HTTP/1.1",
+            headerFields: ["Content-Type": "application/json"].merging(chosen.headers) { _, stub in stub }
         )!
         client?.urlProtocol(self, didReceive: http, cacheStoragePolicy: .notAllowed)
         client?.urlProtocol(self, didLoad: Data(chosen.body.utf8))

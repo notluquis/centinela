@@ -323,6 +323,19 @@ public final class AppSettings {
         )
     }
 
+    /// When Sentry said not to ask again before, or `nil` when it has not said so.
+    ///
+    /// Not persisted: a rate limit is measured in seconds and the app can be closed for days, so
+    /// carrying it across launches would only ever delay a cycle that Sentry would have accepted.
+    public var askAgainAfter: Date?
+
+    /// `true` while Sentry's own `Retry-After` has not elapsed. Asking anyway is what that header
+    /// exists to prevent, and the answer would be another 429.
+    public var isRateLimited: Bool {
+        guard let until = askAgainAfter else { return false }
+        return until > Date()
+    }
+
     public var isConfigured: Bool { !organization.isEmpty && !token.isEmpty }
 
     public func credentials() -> Credentials? {

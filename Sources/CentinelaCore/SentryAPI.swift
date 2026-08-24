@@ -17,8 +17,11 @@ public enum SentryError: LocalizedError, Sendable {
         case .forbidden(let detail):
             "The token is not allowed to do this: \(detail)"
         case .rateLimited(let wait):
-            wait.map { "Sentry rate-limited the request. Retrying in \(Int($0))s." }
-                ?? "Sentry rate-limited the request."
+            // It used to say "Retrying in 30s", and nothing retried. The header was read, put in
+            // the error, printed, and ignored. Now the cycle honours it and this says what will
+            // happen rather than what sounded reassuring.
+            wait.map { "Sentry rate-limited this. Not asking again for \(Int($0))s." }
+                ?? "Sentry rate-limited this."
         case .http(let code):
             "Sentry answered \(code)."
         case .unexpectedResponse(let what):

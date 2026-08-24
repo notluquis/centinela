@@ -19,10 +19,9 @@ final class AppState {
     /// rather than eighteen assignments somebody has to remember to keep in step.
     var data = SessionData()
 
+    /// Whether a request is in flight. This one is NOT session data: it describes the app, not
+    /// the account, and `forgetSession()` has no business clearing it.
     var loading = false
-    var lastError: String?
-    var tokenTooPowerful = false
-    var deprecation: DeprecationNotice?
 
     /// Persisted: after a restart the panel used to show nothing instead of saying how old the
     /// data on screen is. Not a secret, so `UserDefaults` rather than the Keychain.
@@ -65,7 +64,7 @@ final class AppState {
             projectID: settings.selectedProjectID,
             environment: settings.selectedEnvironment
         ) { [weak self] notice in
-            Task { @MainActor in self?.deprecation = notice }
+            Task { @MainActor in self?.data.deprecation = notice }
         }
     }
 
@@ -123,11 +122,16 @@ final class AppState {
 
     func refreshCheap() async {
         guard !asleep else { return }
+        // Sentry's own `Retry-After`, honoured. It used to be read out of the header, put in an
+        // error, printed as "Retrying in 30s" and then ignored: nothing retried and nothing
+        // waited, so the app carried on asking on its own schedule, which is the behaviour that
+        // header exists to stop.
+        guard !settings.isRateLimited else { return }
         // Before asking for anything: if the OAuth token is about to expire, renew it. This
         // lives here rather than on its own timer because what matters is having a live token
         // right when it is about to be used, not having tried while the machine was asleep.
         if let refreshFailure = await login.refreshIfNeeded() {
-            lastError = refreshFailure
+            data.lastError = refreshFailure
         }
         // Not a plain `return`: leaving early without clearing is what kept a signed-out menu
         // bar counting the previous account's errors.
@@ -144,15 +148,15 @@ final class AppState {
             data.series = try await series
             data.monitors = try await monitors
             data.crons = try await crons
-            lastError = nil
+            data.lastError = nil
             lastUpdated = .now
         } catch {
-            lastError = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+            note(error)
         }
     }
 
     func refreshExpensive() async {
-        guard let client else { return }
+        guard !settings.isRateLimited, let client else { return }
         loading = true
         defer { loading = false }
         do {
@@ -184,15 +188,15 @@ final class AppState {
             }
             data.replays = (try? await client.replays(window: settings.window)) ?? []
             data.feedback = (try? await client.userFeedback()) ?? []
-            lastError = nil
+            data.lastError = nil
         } catch {
-            lastError = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+            note(error)
         }
     }
 
     func checkTokenPower() async {
         guard let client else { return }
-        tokenTooPowerful = await !client.tokenLooksReadOnly()
+        data.tokenTooPowerful = await !client.tokenLooksReadOnly()
     }
 
     // MARK: - What gets drawn up top
@@ -219,6 +223,22 @@ final class AppState {
     func forgetSession() {
         data = SessionData()
         lastUpdated = nil
+    }
+
+    /// Records what went wrong, and — when Sentry asked for silence — for how long.
+    ///
+    /// One place rather than one per `catch`, so a second call site cannot quietly forget the
+    /// second half. Forgetting it is what this replaces.
+    private func note(_ error: Error) {
+        data.lastError = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+        if case SentryError.rateLimited(let wait) = error {
+            // No header means Sentry did not say for how long. A minute is this project's guess
+            // and is marked as one; the alternative is asking again at once, which is the
+            // behaviour being fixed.
+            settings.askAgainAfter = Date().addingTimeInterval(wait ?? 60)
+        } else {
+            settings.askAgainAfter = nil
+        }
     }
 
     var totalErrors: Int { data.series.total }

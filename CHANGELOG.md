@@ -6,7 +6,12 @@ The release workflow reads the section for the tag being published out of this f
 
 ## [Unreleased]
 
-Releases carry a disk image, the install instructions stop describing a macOS that stopped existing a year ago, and the app ships Sparkle's licence as Sparkle's licence asks.
+Three warnings that stopped appearing in 0.7.0 appear again, Sentry's rate limit is obeyed instead of narrated, releases carry a disk image, and the install instructions stop describing a macOS that stopped existing a year ago.
+
+### Fixed
+
+- **Three warnings have been invisible since 0.7.0, and it was this project's own refactor that did it.** Moving the session's data into one value renamed what the interface *reads* to `data.lastError`, `data.tokenTooPowerful` and `data.deprecation`, and left `AppState` still *writing* to three properties of its own with the same names. Nothing failed to compile, because both existed. So the error banner, the warning that a token can reach the audit log, and the notice that Sentry is deprecating a route were all being written to fields nobody read — for two releases. The duplicates are gone; the compiler then named all seven write sites.
+- **Sentry's rate limit was narrated rather than obeyed.** A 429 carries `Retry-After`, and the app read it, put it in the error, printed "Retrying in 30s" and ignored it: nothing retried and nothing waited, so the next cycle asked again on its own schedule, which is exactly what that header exists to prevent. Both cycles now stay quiet until the deadline passes, the message says what happens instead of what sounds reassuring, and errors are recorded in one place so a second call site cannot forget the second half.
 
 ### Added
 

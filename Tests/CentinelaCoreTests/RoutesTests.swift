@@ -207,4 +207,38 @@ struct RoutesTests {
         StubServer.enqueue(session, "/transaction-threshold/configure/", #"{"threshold":"lgtm"}"#)
         #expect(try await client(session).transactionThreshold(projectSlug: "x") == nil)
     }
+
+    // MARK: - Being told to stop
+
+    /// Sentry's `Retry-After` used to be read out of the header, put in the error, printed as
+    /// "Retrying in 30s" and then ignored: nothing retried and nothing waited. These pin the two
+    /// halves that make the sentence true — that the header reaches the error, and that a
+    /// deadline in the future means silence.
+    @Test("A 429 carries Sentry's own Retry-After")
+    func rateLimitCarriesTheHeader() async {
+        let session = StubServer.session()
+        StubServer.enqueue(session, "/issues/", "", status: 429, headers: ["Retry-After": "45"])
+        do {
+            _ = try await client(session).unresolvedIssues(window: .twentyFourHours)
+            Issue.record("a 429 should not have succeeded")
+        } catch SentryError.rateLimited(let wait) {
+            #expect(wait == 45)
+        } catch {
+            Issue.record("expected rateLimited, got \(error)")
+        }
+    }
+
+    @Test("A 429 without the header is still a rate limit")
+    func rateLimitWithoutHeader() async {
+        let session = StubServer.session()
+        StubServer.enqueue(session, "/issues/", "", status: 429)
+        do {
+            _ = try await client(session).unresolvedIssues(window: .twentyFourHours)
+            Issue.record("a 429 should not have succeeded")
+        } catch SentryError.rateLimited(let wait) {
+            #expect(wait == nil)
+        } catch {
+            Issue.record("expected rateLimited, got \(error)")
+        }
+    }
 }
