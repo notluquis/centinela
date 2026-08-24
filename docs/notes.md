@@ -170,6 +170,18 @@ Sparkle's framework ships ad-hoc signed itself (`codesign -dv` reports `Signatur
 
 What an update is verified against is an **EdDSA signature** made with a key pair of this project: the public half sits in `Info.plist` as `SUPublicEDKey`, the private half exists only as a repo secret used by the release workflow. Apple is not involved in that check, which is why the signature Apple would care about is not in the way.
 
+## The appcast is served by a CDN, so an update is not instant
+
+`SUFeedURL` points at `raw.githubusercontent.com`, which caches. Measured on 2026-08-24: the release workflow committed a new `appcast.xml` and pushed it, the GitHub API returned the new file immediately, and `raw.githubusercontent.com` was still serving the previous one minutes later.
+
+Nothing is broken by that — Sparkle checks on its own schedule and will see it on a later pass — but it does mean **"Check for updates" right after a release can honestly report that there is none**. Verify against the API rather than the raw URL when checking whether a release actually published:
+
+```bash
+gh api repos/notluquis/centinela/contents/appcast.xml --jq '.content' | base64 -d
+```
+
+The alternative is serving the appcast from GitHub Pages or from the release assets, which trades this delay for a second thing to keep in step with the tag. Not worth it for a delay of minutes on a check that runs daily.
+
 ## Mutation testing, and why it is not running
 
 `muter.conf.yml` and `.github/workflows/mutation.yml` have been in this repository since early on and **had never once executed**. The workflow was weekly and was added days before the first Monday, so the first real run was triggered by hand. It failed five times, each failure hiding the next:
