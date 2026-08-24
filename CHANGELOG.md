@@ -10,6 +10,15 @@ Three warnings that stopped appearing in 0.7.0 appear again, Sentry's rate limit
 
 ### Fixed
 
+- **The About tab's "Last checked" never moved.** `SPUUpdater` is an Objective-C object that knows nothing about Observation, so reading it through a computed property was invisible to SwiftUI: press "Check for updates", watch the check finish, and the line still said what it said when the window opened. Both values are KVO-compliant, so they are mirrored into stored properties SwiftUI can see. The comment above that class also still described these builds as ad-hoc signed, which stopped being true in 0.5.0.
+- **Approving the login item in System Settings left the app saying it still needed approval.** `SMAppService` has no notification of its own and the status was read once, so the button that sends people to System Settings sent them somewhere that could not change what they came back to. It is read again whenever the app comes to the front.
+
+### Changed
+
+- **`Keychain` no longer counts its own reads.** That counter was production code kept alive by a single test, added before `SecretStore` existed. Now that there is a seam, the test brings its own counting store and production carries nothing for it. Verified the guard still fails: restoring the old ordering in `shouldRefresh` turns it red.
+
+### Fixed
+
 - **The rate-limit guard was placed where it resurrected an older bug.** It sat before the check that clears the session when there is no token, so signing out while Sentry had the app silenced would return before anything was cleared and the menu bar would keep counting the previous account's errors — which is precisely the bug that clearing was added for, in 0.6.0. Moved below it. A rate limit is also forgotten on sign-out now: it belongs to the token that earned it, and left behind it would silence the next session waiting out somebody else's deadline.
 - **The issue list built a set of every project slug once per row.** Quadratic in the length of the list, re-run on every pass of `body`, and `body` runs on every frame of an animation: fifty issues came to two and a half thousand string hashes a frame, for an answer that cannot change while the view exists. Computed once now, when the view is made.
 - **Three warnings have been invisible since 0.7.0, and it was this project's own refactor that did it.** Moving the session's data into one value renamed what the interface *reads* to `data.lastError`, `data.tokenTooPowerful` and `data.deprecation`, and left `AppState` still *writing* to three properties of its own with the same names. Nothing failed to compile, because both existed. So the error banner, the warning that a token can reach the audit log, and the notice that Sentry is deprecating a route were all being written to fields nobody read — for two releases. The duplicates are gone; the compiler then named all seven write sites.

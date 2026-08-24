@@ -287,5 +287,15 @@ private struct QueryTab: View {
             }
         }
         .formStyle(.grouped)
+        // The only way to approve a login item is System Settings, and the button above sends
+        // people there. Without this they come back to an app still saying "still needs
+        // approval" about something they just approved, and the switch still down. `SMAppService`
+        // has no notification of its own, so the moment to look again is when this app is in
+        // front again.
+        .task {
+            let awake = NotificationCenter.default.notifications(
+                named: NSApplication.didBecomeActiveNotification)
+            for await _ in awake { launchAtLogin.refresh() }
+        }
     }
 }

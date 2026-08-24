@@ -21,16 +21,7 @@ public enum Keychain {
         }
     }
 
-    /// How many times the Keychain has actually been read.
-    ///
-    /// It exists for one test and it earns its place: reordering `AppSettings.shouldRefresh` so
-    /// the clock is consulted before the Keychain does not change a single answer it gives, only
-    /// whether the read happens. Without something to count, the test for that ordering passes
-    /// just as happily with the wrong order, which is worse than having no test.
-    public private(set) static var reads = 0
-
     public static func read(account: String) throws -> String? {
-        reads += 1
         var query = base(account: account)
         query[kSecReturnData as String] = true
         query[kSecMatchLimit as String] = kSecMatchLimitOne

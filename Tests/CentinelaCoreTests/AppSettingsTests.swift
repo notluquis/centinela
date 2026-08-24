@@ -196,11 +196,28 @@ struct AppSettingsTests {
     /// hold on to is whether the Keychain was touched. `refreshToken` is a Keychain read, this
     /// runs every cycle, and with no team identifier every read after an update costs a password
     /// dialog.
+    /// A store that counts, so the ordering can be checked without production code counting for
+    /// it. `Keychain` carried a `reads` counter for exactly this test until `SecretStore` existed;
+    /// once there was a seam, the counter was production code kept alive by a test.
+    private final class CountingStore: SecretStore, @unchecked Sendable {
+        private(set) var reads = 0
+        var items: [String: String] = [:]
+
+        func read(account: String) throws -> String? {
+            reads += 1
+            return items[account]
+        }
+        func save(_ value: String, account: String) throws { items[account] = value }
+        func delete(account: String) throws { items[account] = nil }
+    }
+
     @Test("A token with life left decides without reading the Keychain")
     func freshTokenDoesNotReadTheRefreshToken() {
-        let fixture = fresh()
-        let settings = fixture.settings
-        defer { clean(fixture) }
+        let store = CountingStore()
+        let suiteName = "centinela.tests.clock.\(UUID().uuidString)"
+        let suite = UserDefaults(suiteName: suiteName)!
+        defer { UserDefaults.standard.removePersistentDomain(forName: suiteName) }
+        let settings = AppSettings(defaults: suite, store: store)
 
         settings.saveSession(DeviceFlow.Grant(
             accessToken: "from-oauth",
@@ -208,15 +225,15 @@ struct AppSettingsTests {
             expiresAt: Date().addingTimeInterval(3600)
         ))
 
-        let before = Keychain.reads
+        let before = store.reads
         #expect(!settings.shouldRefresh)
-        #expect(Keychain.reads == before)
+        #expect(store.reads == before, "a token with life left has nothing to ask the Keychain")
 
         // And when a renewal really is due, it does read: the guard is an ordering, not a way of
         // never looking.
         settings.tokenExpiresAt = Date().addingTimeInterval(60)
         #expect(settings.shouldRefresh)
-        #expect(Keychain.reads > before)
+        #expect(store.reads > before)
     }
 
     /// Changing what Sentry is asked has to be visible as a change; changing something else must
