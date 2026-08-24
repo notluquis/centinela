@@ -4,7 +4,7 @@ Everything here was in `README.md` and was moved so the front page answers "what
 
 ## What it costs to ask Sentry
 
-Measured against a real organization:
+Measured on 2026-08-22 against a real organization. The date is here because the memory table below rotted without one, and an undated number reads as a fact forever:
 
 | API route | Time | Size |
 |---|---|---|
@@ -45,13 +45,14 @@ What is done instead to avoid asking too much:
 
 | | Centinela | SwiftBar plus a script |
 |---|---|---|
-| On disk | **5.3 MB** (2.8 is Sparkle, 1.1 the icon) | 7.1 MB |
-| Resident, panel never opened | 7.6 MB | 6–8 MB |
-| Resident, after opening it | ~25 MB | 6–8 MB |
+| On disk | **5.6 MB** (3.0 is Sparkle, 1.4 the binary, 1.1 the icon) | 7.1 MB |
+| Resident, panel never opened | 19 MB physical footprint, 26 MB RSS | 6–8 MB |
 | Per cycle | nothing: `async` inside the process | **+19 MB and 1.5 s**, an interpreter starting from scratch |
 | Depends on | nothing | SwiftBar staying installed and staying working |
 
-**Opening the panel triples memory and it does not come back down.** SwiftUI builds the window the first time it is shown and keeps it. Before that, both apps cost the same. If your criterion is steady-state RAM, SwiftBar wins, and that is worth knowing before installing anything.
+**On memory, SwiftBar wins, and that is worth knowing before installing anything.** An earlier version of this table said 7.6 MB with the panel never opened, and it is 19 MB now — the app grew five sections, an updater and a settings window since. Numbers rot: the ones in the Centinela column were re-measured on 2026-08-24 against the running app, and the SwiftBar column was measured on 2026-08-22 and has not been re-run, because SwiftBar is not installed on this machine any more. Where the two dates differ the comparison is weaker than it looks, and saying so costs nothing.
+
+The row for memory after opening the panel is gone rather than guessed: measuring it needs somebody to click, and the last figure written down for it was taken against a build several releases old.
 
 - `MenuBarExtra` with `.menuBarExtraStyle(.window)`: an `NSMenu` cannot draw a sparkline or two-line rows.
 - `@Observable` (Observation), not `ObservableObject`.

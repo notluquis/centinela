@@ -9,7 +9,7 @@ Your Sentry issues in the macOS menu bar. A count, a sparkline of the last few h
 
 <img src="docs/panel.png" alt="The panel, showing an error count, a sparkline of the last 24 hours and a list of unresolved issues" width="380">
 
-Actually native: SwiftUI, `MenuBarExtra`, a 5.3 MB app, **read-only** access to Sentry. Not a web wrapper and not a script inside somebody else's app. There was no other one to use — [the search that says so](docs/notes.md#there-was-no-app-to-use) is written down.
+Actually native: SwiftUI, `MenuBarExtra`, a 5.6 MB app, **read-only** access to Sentry. Not a web wrapper and not a script inside somebody else's app. There was no other one to use — [the search that says so](docs/notes.md#there-was-no-app-to-use) is written down.
 
 ## Install
 
@@ -66,7 +66,7 @@ What the Keychain does and does not buy, measured, is in [SECURITY.md](SECURITY.
 
 ```bash
 make build     # swift build -c release
-make test      # 59 tests, no graphics session needed
+make test      # 73 tests, no graphics session needed
 make lint      # swiftlint --strict
 make app       # assembles build/Centinela.app and signs it
 make run       # the above, then opens it

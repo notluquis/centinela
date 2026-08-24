@@ -8,6 +8,8 @@ This is a menu bar app that reads Sentry's API with a token. The rules below are
 
 **2. The token lives in the Keychain.** Never in `UserDefaults`, never in a file, never in a log, never in an error message. A Sentry organization token does not expire on its own. This project started because the token was sitting in `~/.sentryclirc` in plain text.
 
+**3b. `grep` on a development machine is not the `grep` in CI.** The hygiene job's token check passed locally and failed on the runner over the same file. The local `grep` here is `ugrep`, and it did not match what GNU grep matched. Run a guard with `/usr/bin/grep` before believing it, or believe the runner.
+
 **3. No real data in the repository.** The fixtures are invented and stay that way: real responses carry error titles with internal URLs and business data, and this is public. A CI job fails if something shaped like a Sentry token or a real name shows up in the fixtures. Both guards were probed by injecting the violation, not by watching them pass.
 
 **4. Nothing is written to disk at run time.** `URLSessionConfiguration.ephemeral`, no cache, no cookies. If something ever has to be persisted, it should not be issue titles.
@@ -58,7 +60,7 @@ Declaring `count` as `Int` does not break that field: it fails the whole array w
 
 ```bash
 make build   # zero errors and zero warnings
-make test    # 59 tests, all green
+make test    # 73 tests, all green
 make lint    # zero violations
 make app     # the bundle assembles and the signature verifies
 ```
