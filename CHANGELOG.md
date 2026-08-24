@@ -6,6 +6,17 @@ The release workflow reads the section for the tag being published out of this f
 
 ## [Unreleased]
 
+The About tab stops describing a version of the app that no longer exists, and links to what changed.
+
+### Fixed
+
+- **About said the ad-hoc signature was not in the way.** Builds stopped being ad-hoc in 0.5.0 — they carry a self-signed certificate — so the app was describing a version of itself that no longer existed, in its own interface. It now says what is true: updates are verified with this project's EdDSA key, the certificate is not a Developer ID, and macOS still wants right click, Open the first time. That is the third claim in the interface or the documentation found to have rotted this week, after the Keychain sentence in the account tab and the three numbers in the README.
+
+### Added
+
+- **A "What is new" link in About**, to the releases page rather than to this version's tag: a development build reports 0.0.0, and a link that 404s from inside the app is worse than one that lands on a list with the newest at the top.
+- The app icon in About is hidden from VoiceOver. It is decoration, and the name is on the next line.
+
 ## [0.8.0] — 2026-08-24
 
 Changing a setting asks Sentry again, a refused Keychain write no longer destroys the session it was migrating, and the update dialog shows a summary instead of the whole changelog.

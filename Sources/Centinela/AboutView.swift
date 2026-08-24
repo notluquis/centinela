@@ -8,6 +8,9 @@ struct AboutView: View {
     private static let license = URL(
         string: "https://github.com/\(AppState.repository)/blob/main/LICENSE"
     )!
+    private static let releases = URL(
+        string: "https://github.com/\(AppState.repository)/releases"
+    )!
 
     let state: AppState
     @State private var updater = Updater()
@@ -18,12 +21,21 @@ struct AboutView: View {
                 Image(nsImage: icon)
                     .resizable()
                     .frame(width: 96, height: 96)
+                    // Decoration. The name is right underneath it, and VoiceOver reading an app
+                    // icon adds a stop that says nothing the next line does not.
+                    .accessibilityHidden(true)
             }
             Text("Centinela").font(.title2.weight(.semibold))
             Text("Version \(state.installedVersion)")
                 .font(.callout)
                 .foregroundStyle(.secondary)
                 .textSelection(.enabled)
+
+            // The releases page rather than this version's tag. A development build reports
+            // 0.0.0, and a link that 404s from inside the app is worse than one that lands on a
+            // list with the newest at the top.
+            Link("What is new", destination: Self.releases)
+                .font(.callout)
 
             Button("Check for updates", action: updater.checkNow)
                 .disabled(!updater.canCheck)
@@ -34,8 +46,12 @@ struct AboutView: View {
                     .foregroundStyle(.secondary)
             }
 
-            Text("Updates are verified with an EdDSA signature of our own, not with an Apple"
-                + " certificate, so the ad-hoc signature is not in the way.")
+            // This said the ad-hoc signature was not in the way. Builds stopped being ad-hoc in
+            // 0.5.0 — they carry a self-signed certificate now — so the sentence described a
+            // version of the app that no longer existed, in the app itself.
+            Text("Updates are verified with an EdDSA signature of this project's own, not with an"
+                + " Apple certificate. The build is signed with a self-signed certificate, which"
+                + " is not a Developer ID: macOS still asks for right click, Open the first time.")
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
