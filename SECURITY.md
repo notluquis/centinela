@@ -73,6 +73,21 @@ The trust is scoped to code signing with `-p codeSign`, not granted for everythi
 
 **What it does not buy.** It is not a Developer ID: there is no team identifier, so Gatekeeper still asks for right-click-to-open on a downloaded copy, notarization is still impossible, and `com.apple.security.cs.disable-library-validation` is still required for Sparkle. Measured: with both the app and Sparkle signed by this certificate, dyld still refuses with "mapping process and mapped file (non-platform) have different Team IDs", because library validation wants a real team and a self-signed certificate has none.
 
+### What the two update entitlements cost
+
+Two entitlements that would not otherwise be here:
+
+| Entitlement | Why | What it gives up |
+|---|---|---|
+| `com.apple.security.temporary-exception.mach-lookup.global-name` (`-spks`, `-spki`) | A sandboxed app cannot replace itself, so Sparkle installs from `Installer.xpc` and has to look it up by name | Little: it can talk to two named services, both shipped inside the bundle |
+| `com.apple.security.cs.disable-library-validation` | Without it dyld refuses to load Sparkle: the hardened runtime requires every loaded library to share the app's Team ID, and two ad-hoc signatures count as different teams. The measured error is `mapping process and mapped file (non-platform) have different Team IDs` | Real: any code-signed library placed in the bundle can be loaded into the process |
+
+That second one is the honest cost. It is worth weighing against what it protects:
+
+**An earlier version of this section said the token was already readable by any process running as you, and that was wrong.** Measured on a throwaway item created by a signed build: `/usr/bin/security` reading it prompts for the login password, and `securityd` logs `displaying keychain prompt for /usr/bin/security`. The item **is** bound to a signature, so the Keychain does buy per-application isolation on top of storage that is not a plaintext file and that needs the machine unlocked.
+
+Which makes the entitlement cost more than that older paragraph claimed, not less. Library validation is what stops a code-signed library from being loaded into this process, and code running inside the process is precisely the identity the Keychain lets through without asking. Placing such a library still requires write access to the bundle in `/Applications`, which is to say another process running as you — so the entitlement does not create the exposure on its own, it removes the last obstacle for something that already has a foothold. A Developer ID (99 USD a year) removes the need for the entitlement entirely; until then this is the trade, written down rather than buried, and now written down correctly.
+
 ## What the app asks the system for
 
 Sandbox on. Two permissions, and they can be read end to end in `Centinela.entitlements`:

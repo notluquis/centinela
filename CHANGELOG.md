@@ -8,6 +8,7 @@ The release workflow reads the section for the tag being published out of this f
 
 ### Changed
 
+- **The README is a front page again, not an engineering diary.** It opened with the search that proved no such app existed, then API timings, then a memory comparison against SwiftBar, and reached "how do I install this" on line 54 of 311. It is 108 lines now: badges, install, what it shows, signing in, building, what it deliberately does not do, and an index. Every measurement moved rather than disappeared — into `docs/notes.md`, or into `SECURITY.md` where the entitlement trade belongs — and a check confirms all thirty figures and proper names from the old file still exist somewhere.
 - **Every persisted key is in English, and the old values move across.** Nine `UserDefaults` keys and both Keychain accounts were Spanish. A rename that quietly forgets somebody's organization and refresh interval is data loss, not a rename, so the old names are copied forward once and then removed. The Keychain accounts move too, and it costs no extra password dialog: reading the new account finds no item, which never prompts, and reading the old one is the read that init already did. The refresh token migrates on first use rather than at startup, which is where the clock-before-Keychain rule from 0.6.0 wants it. The old names survive verbatim in one migration table and the test that exercises it, because there they are data.
 - Comments and local names in `Centinela.entitlements`, `Tools/appcast.py`, `Tools/generate-icon.swift` and the issue fixture are English.
 
