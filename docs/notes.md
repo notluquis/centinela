@@ -181,7 +181,23 @@ What an update is verified against is an **EdDSA signature** made with a key pai
 | 4 | `Applying debug entitlements … unable to spawn process` | `swift test` in debug makes SwiftPM code-sign the executable target, and that spawn fails inside muter. A release build never reaches it, and it is what `make test` runs anyway |
 | 5 | The suite fails on the baseline, in `Renamed preference keys carry their old values over` | Unresolved |
 
-The fifth is where it stands. That test passes locally, passes in CI, and passes when the tracked files are copied to another directory and run there with the same `swift test -c release`, which is the closest reproduction of what muter does. What is left that differs is muter's own transformation: it inserts every mutant into the source behind `ProcessInfo.processInfo.environment[…] != nil`, and failure 3 is direct evidence that those insertions can be malformed — it produced `return milliseconds >= 1000?`. A malformed insertion in `AppSettings.swift` that breaks the migration even with the mutant switched off would fail exactly this test and nothing else.
+The fifth was the last one that could be fixed here. Building muter from `main` instead of installing release 16 gets past it — release 16 is from September 2023 and predates Swift Testing entirely, so it parses XCTest output while this suite contains none, and `main` carries "Fix: detect Swift Testing failures in mutation test logs" from July 2026 that no release has.
+
+The run then completes and produces a report, and the report says **0 of 45 mutants killed**.
+
+That number is not about the tests. The mutants landed on lines that named tests cover:
+
+| Mutant | Test that must kill it |
+|---|---|
+| `Keychain.swift:73`, `\|\|` → `&&` in `delete` | "Deleting twice does not fail the second time" |
+| `Sparkline.swift:20` and `:29`, relational operators | The whole `Sparkline` suite |
+| `Models.swift:203`, the connector in `CronMonitor.isActive` | The decoding tests |
+
+Forty-five out of forty-five surviving, in code the suite exercises, means the mutated code never ran. That is filed upstream twice: #307, "Schemata silently never applied: ApplySchemata re-parses sources, so node-identity-keyed SchemataMutationMapping never matches (replays run unmutated code)", and #310, "Fix schemata never being applied after a re-parse (SPM score always 0%)". Both open.
+
+So: mutation testing does not work on this project with any muter that exists, and the 0% is a property of the tool rather than a measurement of the suite. The workflow now fails when nothing is killed, because a green job reporting 0% teaches the opposite of what it should.
+
+The original fifth failure is where it stood before that. That test passes locally, passes in CI, and passes when the tracked files are copied to another directory and run there with the same `swift test -c release`, which is the closest reproduction of what muter does. What is left that differs is muter's own transformation: it inserts every mutant into the source behind `ProcessInfo.processInfo.environment[…] != nil`, and failure 3 is direct evidence that those insertions can be malformed — it produced `return milliseconds >= 1000?`. A malformed insertion in `AppSettings.swift` that breaks the migration even with the mutant switched off would fail exactly this test and nothing else.
 
 The schedule is off until a run gets past the baseline. A job that fails every Monday teaches people to ignore Monday.
 

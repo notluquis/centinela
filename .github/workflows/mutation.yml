@@ -77,10 +77,21 @@ jobs:
           report = json.load(open("muter-report.json"))
           files = (report.get("fileReports") or report.get("fileMutations")
                    or report.get("mutationScores") or [])
-          score = report.get("mutationScore", report.get("globalMutationScore"))
-          print(f"files mutated: {len(files)}   mutation score: {score}")
+          score = report.get("globalMutationScore", report.get("mutationScore"))
+          killed = report.get("numberOfKilledMutants")
+          total = report.get("totalAppliedMutationOperators")
+          print(f"files mutated: {len(files)}   mutants: {total}   killed: {killed}   score: {score}")
           if not files:
               print("::error::the report came out empty: the config is not pointing at the code")
+              sys.exit(1)
+          # Nothing killed is not a result, it is a symptom. Either the suite is worthless or the
+          # mutants never ran, and the second is what happened here: mutants landed on lines that
+          # named existing tests cover — `Keychain.delete`'s `||`, which "Deleting twice does not
+          # fail the second time" must catch — and every one of them came back passed.
+          if total and not killed:
+              print("::error::0 of "
+                    f"{total} mutants killed. Either the suite tests nothing, or the mutants were "
+                    "never applied (muter #307, #310). See docs/notes.md.")
               sys.exit(1)
           PY
 
