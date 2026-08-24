@@ -10,6 +10,11 @@
 executable: /usr/bin/swift
 arguments:
   - test
+  # `swift test` builds the executable target too, and SwiftPM code-signs it to apply debug
+  # entitlements. Inside muter that spawn fails with "unable to spawn process", which the same
+  # command does not do when run by hand. SwiftPM's own sandbox is the difference worth trying:
+  # it is what restricts spawning during a build.
+  - --disable-sandbox
 excludeFileList:
   - Tests
   - Tools
