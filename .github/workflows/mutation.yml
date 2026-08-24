@@ -29,7 +29,11 @@ jobs:
         run: brew install muter-mutation-testing/formulae/muter
 
       - name: Mutate
-        run: muter run --output-json muter-report.json || true
+        # `--format json --output <file>`, which is what `muter run` actually accepts. It was
+        # `--output-json`, a flag that does not exist, and the run died with "Unknown option"
+        # before mutating anything. Nobody saw it because this workflow had never been run: it is
+        # weekly, and it was added days before the first Monday.
+        run: muter run --format json --output muter-report.json || true
 
       # The `|| true` above lets through the case where muter never ran, crashed, or rejected
       # `muter.conf.yml`. That file cannot be validated locally (muter does not build without
@@ -40,9 +44,21 @@ jobs:
         run: |
           set -euo pipefail
           test -s muter-report.json || { echo "::error::muter left no report: check muter.conf.yml"; exit 1; }
-          mutants=$(python3 -c "import json;d=json.load(open('muter-report.json'));print(len(d.get('fileMutations') or d.get('mutationScores') or []))")
-          echo "mutants/files in the report: $mutants"
-          test "$mutants" -gt 0 || { echo "::error::the report came out empty: the config is not pointing at the code"; exit 1; }
+          # The report's exact shape cannot be checked here: muter does not build without Xcode,
+          # so nobody can run it on a development machine. The guard therefore reads whatever
+          # key carries the per-file results and refuses an empty one, rather than depending on
+          # a field name that a muter release could rename underneath it.
+          python3 - <<'PY'
+          import json, sys
+          report = json.load(open("muter-report.json"))
+          files = (report.get("fileReports") or report.get("fileMutations")
+                   or report.get("mutationScores") or [])
+          score = report.get("mutationScore", report.get("globalMutationScore"))
+          print(f"files mutated: {len(files)}   mutation score: {score}")
+          if not files:
+              print("::error::the report came out empty: the config is not pointing at the code")
+              sys.exit(1)
+          PY
 
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
