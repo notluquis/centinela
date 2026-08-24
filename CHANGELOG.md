@@ -6,6 +6,14 @@ The release workflow reads the section for the tag being published out of this f
 
 ## [Unreleased]
 
+CI was red for two pushes over a check of mine that could not report failure, and the app bundle stops calling a licence a copyright.
+
+### Fixed
+
+- **A lint failure went unnoticed for two pushes because the check around it could not fail.** `make lint | tail -1 >/dev/null && echo ok` reports ok whatever lint did: a pipeline's exit status is its last command's, and `tail` always succeeds. `make lint` had been reporting the violation correctly the whole time. The test file for `AppSettings` had crossed swiftlint's 250-line type body, and the migrations move to their own file, which is where they belonged anyway — they share a subject with each other and not with the observation tests beside them.
+- **`NSHumanReadableCopyright` said "MIT".** That names a licence, not a copyright holder, and Finder's Get Info and the standard About panel show it verbatim. `LSApplicationCategoryType` was missing entirely, leaving the app uncategorised in Finder and Launchpad; it reads Sentry and nothing else, so it is a developer tool.
+- **The repository's own About panel on GitHub was in Spanish**, which is the most visible text the project has and the one place rule 6 of `AGENTS.md` had never been applied. It has topics now as well: a README whose first argument is that no such app could be found is a poor place to leave the next person's search with nothing to match.
+
 Issue rows fit on one line again, About stops describing a version of the app that no longer exists, and the README opens with a picture of the app rather than a rectangle.
 
 ### Fixed

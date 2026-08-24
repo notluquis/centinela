@@ -39,8 +39,14 @@
 	<true/>
 	<key>SUEnableAutomaticChecks</key>
 	<true/>
+	<!-- Finder's Get Info and the standard About panel show this verbatim. It said "MIT",
+	     which names a licence and not a copyright holder. -->
 	<key>NSHumanReadableCopyright</key>
-	<string>MIT</string>
+	<string>Copyright © 2026 Lucas Pulgar-Escobar. MIT licensed.</string>
+	<!-- Absent until now, which leaves the app uncategorised in Finder and Launchpad. It reads
+	     Sentry and nothing else, so developer tools is what it is. -->
+	<key>LSApplicationCategoryType</key>
+	<string>public.app-category.developer-tools</string>
 	<key>NSSupportsAutomaticTermination</key>
 	<true/>
 	<key>NSSupportsSuddenTermination</key>

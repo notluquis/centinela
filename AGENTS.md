@@ -8,6 +8,8 @@ This is a menu bar app that reads Sentry's API with a token. The rules below are
 
 **2. The token lives in the Keychain.** Never in `UserDefaults`, never in a file, never in a log, never in an error message. A Sentry organization token does not expire on its own. This project started because the token was sitting in `~/.sentryclirc` in plain text.
 
+**3c. `cmd | tail -1 && echo ok` reports ok whatever `cmd` did.** A pipeline's exit status is its LAST command's, and `tail` always succeeds. Two pushes went red on a lint failure that `make lint` was reporting correctly the whole time, because the check around it swallowed the status. Run `make lint` on its own and read what it prints.
+
 **3b. `grep` on a development machine is not the `grep` in CI.** The hygiene job's token check passed locally and failed on the runner over the same file. The local `grep` here is `ugrep`, and it did not match what GNU grep matched. Run a guard with `/usr/bin/grep` before believing it, or believe the runner.
 
 **3. No real data in the repository.** The fixtures are invented and stay that way: real responses carry error titles with internal URLs and business data, and this is public. A CI job fails if something shaped like a Sentry token or a real name shows up in the fixtures. Both guards were probed by injecting the violation, not by watching them pass.
