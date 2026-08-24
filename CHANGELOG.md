@@ -6,7 +6,7 @@ The release workflow reads the section for the tag being published out of this f
 
 ## [Unreleased]
 
-Issue rows fit on one line again, About stops describing a version of the app that no longer exists, and the README picture looks like the app instead of a rectangle.
+Issue rows fit on one line again, About stops describing a version of the app that no longer exists, and the README opens with a picture of the app rather than a rectangle.
 
 ### Fixed
 
@@ -15,6 +15,7 @@ Issue rows fit on one line again, About stops describing a version of the app th
 
 ### Added
 
+- **The README picture is two panels, and it is still the real view.** `MainPanel` takes the section it opens on, so `make screenshot` renders Issues in front and Health behind it, offset and dimmed, with the rounded corners and the shadow the panel actually has and a transparent margin. It is the same view compiled against the same sources, so a picture that stops matching the app is a compile error rather than an illustration nobody updated.
 - **A "What is new" link in About**, to the releases page rather than to this version's tag: a development build reports 0.0.0, and a link that 404s from inside the app is worse than one that lands on a list with the newest at the top.
 - The app icon in About is hidden from VoiceOver. It is decoration, and the name is on the next line.
 

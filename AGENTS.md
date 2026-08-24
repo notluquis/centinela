@@ -60,7 +60,7 @@ Declaring `count` as `Int` does not break that field: it fails the whole array w
 
 ```bash
 make build   # zero errors and zero warnings
-make test    # 73 tests, all green
+make test    # the whole suite, all green
 make lint    # zero violations
 make app     # the bundle assembles and the signature verifies
 ```

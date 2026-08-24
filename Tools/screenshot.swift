@@ -70,69 +70,106 @@ import SwiftUI
         state.data.series = (try? EventSeries(json: Data(raw.utf8))) ?? EventSeries(points: [])
         state.lastUpdated = now
 
-        // A background of its own. Alone the panel has none of the material `MenuBarExtra` draws,
-        // and with no vibrancy behind it every label resolves to white: the first version of this
-        // image came out with the sparkline, the level icons, and not one letter. Dark on
-        // purpose, which is also how it looks in the bar.
-        let root = ZStack {
-            Color(nsColor: NSColor(calibratedWhite: 0.13, alpha: 1))
-            MainPanel(state: state)
-        }
-        let host = NSHostingView(rootView: root)
-        let win = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 380, height: 430),
-                           styleMask: [.borderless], backing: .buffered, defer: false)
-        win.contentView = host
-        // On screen rather than offscreen: the view needs a real backing store to draw text.
-        win.appearance = NSAppearance(named: .darkAqua)
-        win.setFrameOrigin(NSPoint(x: 100, y: 100))
-        win.orderFrontRegardless()
-        host.layoutSubtreeIfNeeded()
-        // Sized to its content, the way the real panel is. The list reserves 300 to 420 pt, so a
-        // short list leaves blank space here exactly as it does in the app.
-        let height = max(host.fittingSize.height, 260)
-        win.setContentSize(NSSize(width: 380, height: height))
-        host.frame = NSRect(x: 0, y: 0, width: 380, height: height)
-        host.layoutSubtreeIfNeeded()
-        for _ in 0..<60 {
-            RunLoop.main.run(until: Date().addingTimeInterval(0.02))
+        // Health needs something in it, because the second panel in the picture shows that
+        // tab and an empty one would say the app has nothing to show.
+        state.data.crashFree = 0.9987
+        let uptime = """
+        [{"id":"1","name":"api.example.com","status":"active","url":"https://api.example.com",
+          "intervalSeconds":60,"uptimeStatus":1}]
+        """
+        let decoder = JSONDecoder()
+        state.data.monitors = (try? decoder.decode([UptimeMonitor].self, from: Data(uptime.utf8))) ?? []
+        let byProject = """
+        {"groups":[{"by":{"project":1},"totals":{"sum(quantity)":214}},
+                   {"by":{"project":2},"totals":{"sum(quantity)":14}}]}
+        """
+        let projects = """
+        [{"id":"1","slug":"example-api","name":"example-api"},
+         {"id":"2","slug":"example-web","name":"example-web"}]
+        """
+        state.data.errorsByProject = (try? ProjectErrorCount.from(
+            statsJSON: Data(byProject.utf8),
+            projects: decoder.decode([Project].self, from: Data(projects.utf8)))) ?? []
+
+        // Two panels, the same view twice with a different tab showing. Rendered from
+        // `MainPanel` rather than drawn by hand, so a picture that stops matching the app is a
+        // compile error and not a stale illustration.
+        //
+        // A background of its own on each. Alone the panel has none of the material
+        // `MenuBarExtra` draws, and with no vibrancy behind it every label resolves to white:
+        // the first version of this image came out with the sparkline, the level icons, and not
+        // one letter. Dark on purpose, which is also how it looks in the bar.
+        func shot(_ tab: PanelSection) -> NSImage? {
+            let root = ZStack {
+                Color(nsColor: NSColor(calibratedWhite: 0.13, alpha: 1))
+                MainPanel(initialSection: tab, state: state)
+            }
+            let host = NSHostingView(rootView: root)
+            let win = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 380, height: 430),
+                               styleMask: [.borderless], backing: .buffered, defer: false)
+            win.contentView = host
+            // On screen rather than offscreen: the view needs a real backing store to draw text.
+            win.appearance = NSAppearance(named: .darkAqua)
+            win.setFrameOrigin(NSPoint(x: 100, y: 100))
+            win.orderFrontRegardless()
             host.layoutSubtreeIfNeeded()
+            // Sized to its content, the way the real panel is.
+            let height = max(host.fittingSize.height, 260)
+            win.setContentSize(NSSize(width: 380, height: height))
+            host.frame = NSRect(x: 0, y: 0, width: 380, height: height)
+            host.layoutSubtreeIfNeeded()
+            for _ in 0..<60 {
+                RunLoop.main.run(until: Date().addingTimeInterval(0.02))
+                host.layoutSubtreeIfNeeded()
+                host.displayIfNeeded()
+            }
+            // The probe signs in with an invented token, so Sentry answers 401 and the panel says
+            // so. That banner belongs to the probe, not to the app, and does not go in the image.
+            state.data.lastError = nil
+            state.lastUpdated = now.addingTimeInterval(-8)
             host.displayIfNeeded()
+            RunLoop.main.run(until: Date().addingTimeInterval(0.05))
+            guard let rep = host.bitmapImageRepForCachingDisplay(in: host.bounds) else { return nil }
+            host.cacheDisplay(in: host.bounds, to: rep)
+            let image = NSImage(size: host.bounds.size)
+            image.addRepresentation(rep)
+            win.orderOut(nil)
+            return image
         }
-        // The probe signs in with an invented token, so Sentry answers 401 and the panel says
-        // so. That banner belongs to the probe, not to the app, and does not go in the image.
-        state.data.lastError = nil
-        state.lastUpdated = now.addingTimeInterval(-8)
-        host.displayIfNeeded()
-        RunLoop.main.run(until: Date().addingTimeInterval(0.05))
-        guard let rep = host.bitmapImageRepForCachingDisplay(in: host.bounds) else { return }
-        host.cacheDisplay(in: host.bounds, to: rep)
 
-        // Composed rather than written straight out. A flat rectangle is not what this looks
-        // like on screen: `MenuBarExtra(.window)` draws a rounded panel that floats over the
-        // desktop, and a screenshot without the corners or the shadow reads as a mock-up of the
-        // app rather than a picture of it. The margin is transparent, so the image sits on
-        // whatever background reads it.
+        guard let front = shot(.issues), let back = shot(.health) else { return }
+
+        // `MenuBarExtra(.window)` draws a rounded panel that floats over the desktop. Written out
+        // flat it read as a mock-up of the app rather than a picture of it. The margin is
+        // transparent, so the image sits on whatever background reads it.
         let radius: CGFloat = 12
-        let margin: CGFloat = 28
-        let panel = NSImage(size: host.bounds.size)
-        panel.addRepresentation(rep)
+        let margin: CGFloat = 34
+        let offset = NSSize(width: 104, height: 52)
+        let size = NSSize(width: front.size.width + offset.width + margin * 2,
+                          height: max(front.size.height, back.size.height) + offset.height + margin * 2)
 
-        let canvas = NSImage(size: NSSize(width: host.bounds.width + margin * 2,
-                                          height: host.bounds.height + margin * 2))
+        let canvas = NSImage(size: size)
         canvas.lockFocus()
-        let frame = NSRect(x: margin, y: margin,
-                           width: host.bounds.width, height: host.bounds.height)
-        let shadow = NSShadow()
-        shadow.shadowColor = NSColor.black.withAlphaComponent(0.55)
-        shadow.shadowBlurRadius = 18
-        shadow.shadowOffset = NSSize(width: 0, height: -6)
-        shadow.set()
-        NSBezierPath(roundedRect: frame, xRadius: radius, yRadius: radius).fill()
-        NSGraphicsContext.current?.saveGraphicsState()
-        let clip = NSBezierPath(roundedRect: frame, xRadius: radius, yRadius: radius)
-        clip.addClip()
-        panel.draw(in: frame)
-        NSGraphicsContext.current?.restoreGraphicsState()
+        func place(_ image: NSImage, at origin: NSPoint, dimmed: Bool) {
+            let frame = NSRect(origin: origin, size: image.size)
+            let shadow = NSShadow()
+            shadow.shadowColor = NSColor.black.withAlphaComponent(dimmed ? 0.45 : 0.6)
+            shadow.shadowBlurRadius = dimmed ? 14 : 22
+            shadow.shadowOffset = NSSize(width: 0, height: -6)
+            NSGraphicsContext.current?.saveGraphicsState()
+            shadow.set()
+            NSBezierPath(roundedRect: frame, xRadius: radius, yRadius: radius).fill()
+            NSGraphicsContext.current?.restoreGraphicsState()
+            NSGraphicsContext.current?.saveGraphicsState()
+            NSBezierPath(roundedRect: frame, xRadius: radius, yRadius: radius).addClip()
+            image.draw(in: frame, from: .zero, operation: .sourceOver,
+                       fraction: dimmed ? 0.75 : 1)
+            NSGraphicsContext.current?.restoreGraphicsState()
+        }
+        // The one behind first, up and to the right, so the front panel overlaps its lower left.
+        place(back, at: NSPoint(x: margin + offset.width,
+                                y: size.height - margin - back.size.height), dimmed: true)
+        place(front, at: NSPoint(x: margin, y: margin), dimmed: false)
         canvas.unlockFocus()
 
         guard let data = canvas.tiffRepresentation,

@@ -2,6 +2,10 @@ import CentinelaCore
 import SwiftUI
 
 struct MainPanel: View {
+    /// Which section is showing when the panel is built. It exists so `make screenshot` can put
+    /// two of them side by side without redrawing the panel by hand — the picture in the README
+    /// is worth having only if it is this view and not a copy of it.
+    var initialSection: PanelSection = .issues
     let state: AppState
     @Environment(\.openSettings) private var openSettings
 
@@ -20,7 +24,7 @@ struct MainPanel: View {
             } else {
                 PanelHeader(state: state)
                 Divider()
-                PanelContent(state: state)
+                PanelContent(state: state, section: initialSection)
             }
             Divider()
             PanelFooter(state: state, openSettings: openSettingsInFront)
@@ -134,7 +138,12 @@ enum IssueFilter: String, CaseIterable, Identifiable {
 
 struct PanelContent: View {
     let state: AppState
-    @State private var section: PanelSection = .issues
+    @State private var section: PanelSection
+
+    init(state: AppState, section: PanelSection = .issues) {
+        self.state = state
+        _section = State(initialValue: section)
+    }
     @State private var filter: IssueFilter = .unresolved
 
     var body: some View {

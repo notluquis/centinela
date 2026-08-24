@@ -7,7 +7,9 @@
 
 Your Sentry issues in the macOS menu bar. A count, a sparkline of the last few hours, and the state of your uptime monitors, without opening a browser.
 
-<img src="docs/panel.png" alt="The panel, showing an error count, a sparkline of the last 24 hours and a list of unresolved issues" width="380">
+<p align="center">
+  <img src="docs/panel.png" alt="The panel, showing an error count, a sparkline of the last 24 hours and a list of unresolved issues" width="520">
+</p>
 
 Actually native: SwiftUI, `MenuBarExtra`, a 5.6 MB app, **read-only** access to Sentry. Not a web wrapper and not a script inside somebody else's app. There was no other one to use — [the search that says so](docs/notes.md#there-was-no-app-to-use) is written down.
 
@@ -66,7 +68,7 @@ What the Keychain does and does not buy, measured, is in [SECURITY.md](SECURITY.
 
 ```bash
 make build     # swift build -c release
-make test      # 73 tests, no graphics session needed
+make test      # the whole suite, no graphics session needed
 make lint      # swiftlint --strict
 make app       # assembles build/Centinela.app and signs it
 make run       # the above, then opens it
@@ -77,12 +79,14 @@ The package is two targets on purpose: `CentinelaCore` imports neither AppKit no
 
 ## What is not verified
 
-Two things are in the code without live data behind them, and they say so rather than pretending:
+Some of this is in the code without live data behind it, and says so rather than pretending:
 
 | | Why |
 |---|---|
-| **Cron monitors** | The organization this was built against has none. The decoder comes from Sentry's published OpenAPI schema (`getsentry/sentry-api-schema`) and the fixture is derived from it |
+| **Cron monitors** | The organization this was built against has none. The decoder comes from Sentry's published OpenAPI schema (`getsentry/sentry-api-schema`), the fixture is derived from it, and the test pins a shape nobody has seen live rather than proving it right |
+| **Session replays and user feedback** | The same: none of either here, decoders written against the schema, tests that pin the shape |
 | **Incidents and alert rules** | Deliberately absent. No data to look at, and Sentry does not publish their schema either, so a decoder would be a guess |
+| **Mutation testing** | Configured, and it has never produced a usable number. Every muter that exists reports 0 of 45 mutants killed on code the suite demonstrably covers, which is [an open upstream bug](docs/notes.md#mutation-testing-and-why-it-is-not-running) and not a statement about the tests |
 
 ## What it does NOT do, on purpose
 
