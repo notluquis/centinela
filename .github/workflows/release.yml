@@ -109,6 +109,13 @@ jobs:
       - name: Compress
         run: ditto -c -k --keepParent build/Centinela.app build/Centinela.zip
 
+      # Both artifacts, for different readers. Sparkle updates from the zip — it is what the
+      # appcast points at, and a disk image would only add a mount step to something nobody
+      # watches. The disk image is for the first install, where "drag this onto that" is a
+      # picture and "unzip it, then move it to Applications" is instructions.
+      - name: Build the disk image
+        run: make dmg
+
       # The notes are assembled here rather than with `--generate-notes` alone. The CHANGELOG
       # section says WHY the change matters; the generated list says WHAT changed, with links.
       # Both go in, in that order.
@@ -226,6 +233,7 @@ jobs:
           gh release create "$GITHUB_REF_NAME" \
             --title "$GITHUB_REF_NAME" \
             --notes-file notes.md \
+            build/Centinela.dmg \
             build/Centinela.zip
 
       # Committed AFTER publishing on purpose: if the release failed, the feed must not point at

@@ -15,7 +15,11 @@ Actually native: SwiftUI, `MenuBarExtra`, a 5.6 MB app, **read-only** access to 
 
 ## Install
 
-Download `Centinela.zip` from the [latest release](https://github.com/notluquis/centinela/releases/latest), unzip it into `/Applications`, then **right click → Open** the first time. Builds are signed with a self-signed certificate rather than a Developer ID, so Gatekeeper asks once.
+Download `Centinela.dmg` from the [latest release](https://github.com/notluquis/centinela/releases/latest) and drag the app onto the Applications folder in the window that opens.
+
+The first launch needs one extra step, and it is not the one most instructions give. Builds are signed with a self-signed certificate rather than a Developer ID, so Gatekeeper refuses them — and **macOS 15 removed the Control-click → Open bypass**, which is what this page used to tell you to do. Open the app, let it be refused, then go to **System Settings → Privacy & Security**, find Centinela near the bottom of the Security section, and press **Open Anyway**. Once. After that it opens like anything else.
+
+[`SECURITY.md`](SECURITY.md) has what the certificate does and does not buy, measured. Notarizing would remove that step and costs 99 USD a year, which for a tool that runs on the Macs of whoever builds it does not pay for itself yet.
 
 From source instead:
 

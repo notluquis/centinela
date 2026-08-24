@@ -52,7 +52,7 @@ APP_DIR       := build/$(APP).app
 SIGNING_NAME  ?= Centinela Signing
 IDENTITY      ?= $(shell security find-identity -v -p codesigning 2>/dev/null | grep -q "$(SIGNING_NAME)" && echo "$(SIGNING_NAME)" || echo "-")
 
-.PHONY: build app run test lint clean install toolchain screenshot
+.PHONY: build app run test lint clean install toolchain screenshot dmg
 
 toolchain:
 	@echo "swift: $(SWIFT)"
@@ -139,6 +139,30 @@ screenshot: build
 	  -Xlinker -rpath -Xlinker "$(PWD)/$(BUILD_DIR)" \
 	  $$APPSRC Tools/screenshot.swift $$OBJS -o $(BUILD_DIR)/screenshot
 	$(BUILD_DIR)/screenshot docs/panel.png
+
+# A disk image for people, next to the zip Sparkle updates from.
+#
+# The zip stays the update artifact: Sparkle reads it from the appcast and a DMG would only add a
+# mount step to something nobody watches. The DMG is for the first install, where "drag this onto
+# that" is a picture and "unzip, then move it to Applications" is instructions.
+#
+# UDZO is the compressed read-only format; the Applications symlink is what makes the window a
+# drag target rather than a folder.
+dmg: app
+	rm -rf build/dmg build/$(APP).dmg
+	mkdir -p build/dmg
+	cp -R $(APP_DIR) build/dmg/
+	ln -s /Applications build/dmg/Applications
+	@# `diskutil image create` on macOS 26 and newer; `hdiutil create` says of itself that it is
+	@# deprecated and names this as the replacement. The fallback is not ceremony: `diskutil
+	@# image create` does not exist before 26, and this project builds on 14.
+	@if diskutil image create from --help >/dev/null 2>&1; then \
+		diskutil image create from --format UDZO --volumeName "$(APP)" build/dmg build/$(APP).dmg; \
+	else \
+		hdiutil create -volname "$(APP)" -srcfolder build/dmg -ov -format UDZO build/$(APP).dmg; \
+	fi
+	@rm -rf build/dmg
+	@echo "Done: build/$(APP).dmg"
 
 clean:
 	rm -rf .build build

@@ -71,7 +71,7 @@ security add-trusted-cert -r trustRoot -p codeSign -k ~/Library/Keychains/login.
 
 The trust is scoped to code signing with `-p codeSign`, not granted for everything. `make` picks the identity up on its own and falls back to ad-hoc when it is absent, which builds and runs fine and only costs the Keychain prompt.
 
-**What it does not buy.** It is not a Developer ID: there is no team identifier, so Gatekeeper still asks for right-click-to-open on a downloaded copy, notarization is still impossible, and `com.apple.security.cs.disable-library-validation` is still required for Sparkle. Measured: with both the app and Sparkle signed by this certificate, dyld still refuses with "mapping process and mapped file (non-platform) have different Team IDs", because library validation wants a real team and a self-signed certificate has none.
+**What it does not buy.** It is not a Developer ID: there is no team identifier, so Gatekeeper still refuses the app, and since macOS 15 the way past it is System Settings → Privacy & Security → Open Anyway rather than Control-click → Open on a downloaded copy, notarization is still impossible, and `com.apple.security.cs.disable-library-validation` is still required for Sparkle. Measured: with both the app and Sparkle signed by this certificate, dyld still refuses with "mapping process and mapped file (non-platform) have different Team IDs", because library validation wants a real team and a self-signed certificate has none.
 
 ### What the two update entitlements cost
 

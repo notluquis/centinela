@@ -138,7 +138,15 @@ Sparkle's signing tools are pinned to the version in `Package.resolved` rather t
 
 ## Distribution
 
-Releases are signed with a self-signed certificate, no Developer ID and no notarization. macOS asks for confirmation the first time: right click, Open.
+Releases are signed with a self-signed certificate, no Developer ID and no notarization. Gatekeeper refuses them, measured against the published archive:
+
+```
+$ spctl -a -t exec -vvv Centinela.app
+Centinela.app: rejected
+origin=Centinela Signing
+```
+
+**The way past it is not Control-click → Open.** macOS 15 removed that bypass; the first launch has to be allowed from System Settings → Privacy & Security → Open Anyway, once. This file said otherwise until 2026-08-24, which made it the fifth claim here found to have rotted — written when it was true, never read again.
 
 Notarizing costs 99 USD a year and, for a tool that runs on the Macs of whoever builds it, does not pay for itself. If that changes: a `Developer ID Application` in the runner's keychain and an `xcrun notarytool submit --wait` step. The `Makefile` already accepts `IDENTITY=` so it does not have to be touched. `SECURITY.md` has what the certificate does and does not fix, measured.
 

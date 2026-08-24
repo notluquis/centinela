@@ -6,7 +6,11 @@ The release workflow reads the section for the tag being published out of this f
 
 ## [Unreleased]
 
-The app ships Sparkle's licence, as Sparkle's licence asks; CI was red for two pushes over a check that could not report failure; and the repository gets the community files it never had.
+Releases carry a disk image, the install instructions stop describing a macOS that stopped existing a year ago, and the app ships Sparkle's licence as Sparkle's licence asks.
+
+### Added
+
+- **A disk image on every release, next to the zip.** Nobody had to build the app — there has been a zip since 0.1.0 — but "unzip it, then move it to Applications" is instructions, and a window with the app and an arrow to Applications is a picture. The zip stays what Sparkle updates from: the appcast points at it, and a disk image would add a mount step to something nobody watches. Built with `diskutil image create`, because `hdiutil create` now says of itself that it is deprecated and names that as the replacement, with a fallback for machines older than macOS 26 where the new command does not exist. 2.41 MB, and the app inside is still signed with the certificate.
 
 ### Added
 
@@ -15,6 +19,8 @@ The app ships Sparkle's licence, as Sparkle's licence asks; CI was red for two p
 - **Issue templates, a pull request template, `CONTRIBUTING.md` and a code of conduct.** The bug template asks for the version and the macOS build, and opens by saying not to paste a token or a screenshot with real issue titles in it, because titles carry internal endpoints and customer names and this repository is public. The pull request template lives at `.github/PULL_REQUEST_TEMPLATE.md`, one of the three paths GitHub actually reads — a well-known macOS project keeps its at `PULL_REQUEST.md`, which is not one of them.
 
 ### Fixed
+
+- **The install instructions described a macOS that stopped existing a year ago.** They said to Control-click and choose Open, and **macOS 15 removed that bypass** — the first launch has to be allowed from System Settings → Privacy & Security → Open Anyway. The app requires macOS 14, so almost everybody reading it was being told to do something that no longer works. Measured on the published archive rather than assumed: `spctl -a -t exec -vvv` answers `rejected`, `origin=Centinela Signing`. That is the fifth claim in this repository found to have rotted, and all five have the same shape: written when true, never read again.
 
 - **A lint failure went unnoticed for two pushes because the check around it could not fail.** `make lint | tail -1 >/dev/null && echo ok` reports ok whatever lint did: a pipeline's exit status is its last command's, and `tail` always succeeds. `make lint` had been reporting the violation correctly the whole time. The test file for `AppSettings` had crossed swiftlint's 250-line type body, and the migrations move to their own file, which is where they belonged anyway — they share a subject with each other and not with the observation tests beside them.
 - **`NSHumanReadableCopyright` said "MIT".** That names a licence, not a copyright holder, and Finder's Get Info and the standard About panel show it verbatim. `LSApplicationCategoryType` was missing entirely, leaving the app uncategorised in Finder and Launchpad; it reads Sentry and nothing else, so it is a developer tool.
