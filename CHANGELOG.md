@@ -7,6 +7,11 @@ The release workflow reads the section for the tag being published out of this f
 ## [Unreleased]
 
 Issues that crashed say so, Dependabot watches the pinned actions, and mutation testing turned out never to have run.
+### Fixed
+
+- **Changing the window, the project, the environment or the issue limit changed nothing on screen.** The value was stored and the panel kept showing the answer to the previous question, for up to five minutes, with the only clue being that the numbers no longer matched the controls. Reported with a screenshot: the header still said 539 errors after the settings had moved. Those four preferences are one comparable value now, and both the panel's expensive fetch and the settings window key their work on it, so a change is a change. The refresh interval and launch at login stay out of it on purpose and cost no request — there is a test for that half, because folding the interval in would make the app re-ask Sentry every time somebody moves a slider.
+- **The handler that noticed was on a tab nobody was looking at.** It sat on the Account tab's form, and a `TabView` does not keep unselected tabs alive, so a change made on the Query tab — which is where all four of these live — reached nothing at all. It is on the window now, alive for as long as Settings is open.
+
 ### Changed
 
 - **The update dialog shows a summary line, not the whole changelog.** v0.7.0's notes were 7334 characters in a dialog Sparkle draws at about 600 points: a wall nobody reads with a "see all" link right underneath it. Every version now opens with one line between its heading and the first `###`, the dialog gets that line — 127 characters for 0.7.0 — and the GitHub release keeps everything, because that one is read on a page by somebody who came looking. A version written without a summary line still publishes the whole section rather than an empty dialog, and the workflow says so in a warning.

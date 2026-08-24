@@ -20,6 +20,17 @@ struct SettingsView: View {
         }
         .frame(width: 480, height: 430)
         .task { await state.loadEnvironments() }
+        // On the window and not inside a tab. It lived on the Account tab's `Form`, and a
+        // `TabView` does not keep the tabs nobody is looking at alive, so changing the window or
+        // the project — which happens on the Query tab — reached nothing. Here it is alive for
+        // as long as Settings is open, which is exactly as long as any of this can be changed.
+        .onChange(of: state.settings.queryShape) { _, _ in
+            guard state.settings.isConfigured else { return }
+            Task {
+                await state.checkTokenPower()
+                await state.refreshCheap()
+            }
+        }
     }
 }
 
@@ -74,13 +85,6 @@ private struct AccountTab: View {
             }
         }
         .formStyle(.grouped)
-        .onChange(of: settings.isConfigured) { _, configured in
-            guard configured else { return }
-            Task {
-                await state.checkTokenPower()
-                await state.refreshCheap()
-            }
-        }
     }
 
     @ViewBuilder private var account: some View {

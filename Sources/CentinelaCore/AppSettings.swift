@@ -269,6 +269,32 @@ public final class AppSettings {
         return tokenExpiresAt == nil ? .pastedToken : .deviceFlow
     }
 
+    /// Everything that changes WHAT Sentry is asked, as one comparable value.
+    ///
+    /// Changing the window, the project, the environment or the issue limit used to change
+    /// nothing on screen until the next cycle, up to five minutes later: the value was stored,
+    /// the panel kept showing the answer to the previous question, and the only clue was that
+    /// the numbers did not match the controls. Views key their work on this so a change is a
+    /// change, and a preference that does not shape a query — the refresh interval, launch at
+    /// login — deliberately stays out of it and does not cost a request.
+    public struct QueryShape: Equatable, Sendable {
+        let configured: Bool
+        let window: TimeWindow
+        let project: String?
+        let environment: String?
+        let maxIssues: Int
+    }
+
+    public var queryShape: QueryShape {
+        QueryShape(
+            configured: isConfigured,
+            window: window,
+            project: selectedProjectID,
+            environment: selectedEnvironment,
+            maxIssues: maxIssues
+        )
+    }
+
     public var isConfigured: Bool { !organization.isEmpty && !token.isEmpty }
 
     public func credentials() -> Credentials? {

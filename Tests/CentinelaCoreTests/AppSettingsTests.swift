@@ -254,4 +254,39 @@ struct AppSettingsTests {
         #expect(suite.object(forKey: "organizacion") == nil)
         #expect(suite.string(forKey: "organization") == "example")
     }
+
+    /// Changing what Sentry is asked has to be visible as a change; changing something else must
+    /// not be, or every preference costs a request. Both halves are the point, and the second is
+    /// the one a careless edit breaks: fold `intervalSeconds` in and the app re-asks Sentry every
+    /// time somebody moves a slider.
+    @Test("The query shape tracks what shapes the query, and nothing else")
+    func queryShapeTracksTheRightPreferences() {
+        let fixture = fresh()
+        let settings = fixture.settings
+        defer { clean(fixture) }
+        settings.organization = "example"
+        settings.saveManualToken("t")
+
+        var shape = settings.queryShape
+        settings.window = .sevenDays
+        #expect(settings.queryShape != shape, "the window shapes the query")
+
+        shape = settings.queryShape
+        settings.selectedProjectID = "11"
+        #expect(settings.queryShape != shape, "the project shapes the query")
+
+        shape = settings.queryShape
+        settings.selectedEnvironment = "staging"
+        #expect(settings.queryShape != shape, "the environment shapes the query")
+
+        shape = settings.queryShape
+        settings.maxIssues = 30
+        #expect(settings.queryShape != shape, "the issue limit shapes the query")
+
+        // How often to ask is not part of what is asked, and neither is signing out and back in
+        // to the same account.
+        shape = settings.queryShape
+        settings.intervalSeconds = 900
+        #expect(settings.queryShape == shape, "the refresh interval must not cost a request")
+    }
 }

@@ -34,7 +34,7 @@ struct MainPanel: View {
         // it returned at the guard, and the issue list stayed empty over a menu bar counting 539
         // errors until somebody closed and reopened the panel. The key makes it run again the
         // moment there is something to ask.
-        .task(id: state.settings.isConfigured) { await state.refreshExpensive() }
+        .task(id: state.settings.queryShape) { await state.refreshExpensive() }
     }
 }
 
