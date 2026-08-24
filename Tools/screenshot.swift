@@ -129,7 +129,18 @@ import SwiftUI
             // The probe signs in with an invented token, so Sentry answers 401 and the panel says
             // so. That banner belongs to the probe, not to the app, and does not go in the image.
             state.data.lastError = nil
-            state.lastUpdated = now.addingTimeInterval(-8)
+            // Ninety seconds and not eight. The footer renders this relative to the real clock,
+            // so at eight seconds the string moved between one render and the next — "10 seconds
+            // ago", then "12" — and every `make screenshot` rewrote both images with visually
+            // identical content, leaving a new half-megabyte blob in the repository each time.
+            // Eight versions of this file already account for a third of `.git`. At ninety
+            // seconds the string is "1 minute ago" with half a minute of slack either side, which
+            // a render measured at about two seconds cannot cross.
+            //
+            // Measured after the change: two consecutive runs produce byte-identical files. A
+            // run that follows a rebuild of this tool can still differ, so the rule stands —
+            // regenerate when the interface changed, not out of habit.
+            state.lastUpdated = now.addingTimeInterval(-90)
             host.displayIfNeeded()
             RunLoop.main.run(until: Date().addingTimeInterval(0.05))
             guard let rep = host.bitmapImageRepForCachingDisplay(in: host.bounds) else { return nil }
