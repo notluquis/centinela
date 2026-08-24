@@ -6,7 +6,9 @@ The release workflow reads the section for the tag being published out of this f
 
 ## [Unreleased]
 
-Issues that crashed say so, Dependabot watches the pinned actions, and mutation testing turned out never to have run.
+## [0.8.0] — 2026-08-24
+
+Changing a setting asks Sentry again, a refused Keychain write no longer destroys the session it was migrating, and the update dialog shows a summary instead of the whole changelog.
 ### Fixed
 
 - **A refused Keychain write destroyed the session it was migrating.** Both account migrations copied the secret with `try?` and then deleted the old one unconditionally, so a Keychain that refuses the write — which this project has documented refusing things — took the only copy with it and signed somebody out for good, silently. The delete now happens only after the copy is confirmed, and a refusal is reported instead of swallowed.
