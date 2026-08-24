@@ -6,6 +6,11 @@ The release workflow reads the section for the tag being published out of this f
 
 ## [Unreleased]
 
+Issues that crashed say so, Dependabot watches the pinned actions, and mutation testing turned out never to have run.
+### Changed
+
+- **The update dialog shows a summary line, not the whole changelog.** v0.7.0's notes were 7334 characters in a dialog Sparkle draws at about 600 points: a wall nobody reads with a "see all" link right underneath it. Every version now opens with one line between its heading and the first `###`, the dialog gets that line — 127 characters for 0.7.0 — and the GitHub release keeps everything, because that one is read on a page by somebody who came looking. A version written without a summary line still publishes the whole section rather than an empty dialog, and the workflow says so in a warning.
+
 ### Added
 
 - **An issue that crashed says so.** `isUnhandled` had been decoded since the first commit and shown nowhere: an unhandled error is a crash rather than something the code caught and carried on from, which is the next thing worth knowing after the title, and Sentry sends it on every issue for free. It is a marker rather than the word "crash", because the word fit until it did not — with it in place the metadata line wrapped and pushed the timestamp onto a second row at the panel's 380 pt. The full sentence is in the tooltip and in what VoiceOver reads. With that, nothing decoded from Sentry goes unused: the other five candidates a sweep turns up are all read through a computed property.
@@ -18,6 +23,7 @@ The release workflow reads the section for the tag being published out of this f
 
 ## [0.7.0] — 2026-08-24
 
+The panel is usable with VoiceOver, glass switches off under Reduce Transparency, and signing out can no longer forget a field.
 ### Added
 
 - **Four more tests, and now every route has one.** `replays`, `userFeedback` and the transaction threshold were the last three without. The first two have never been seen with live data, so their decoders came from Sentry's published schema; pinning the shape is the honest half of that debt, so the day real data arrives there is something written down to compare it against. The threshold test also pins the second field Sentry sends as **text** where a number is expected, after `issue.count`.
@@ -56,12 +62,14 @@ The release workflow reads the section for the tag being published out of this f
 
 ## [0.6.1] — 2026-08-23
 
+Signing in with the panel already open no longer leaves the issue list empty.
 ### Fixed
 
 - **Signing in with the panel already open left the issue list empty over a menu bar counting 539 errors.** The cheap cycle was fixed in 0.6.0 to run the moment a session appears, but the expensive route hangs off the panel's `.task`, which runs once per appearance and never again: it had already run and returned at `guard let client` while there was still no token. It is keyed on the session being usable now, so it runs again the moment there is something to ask. Same shape as the bug above it, one level down, which is the argument for keying rather than adding another call site.
 
 ## [0.6.0] — 2026-08-23
 
+Signing out actually clears the panel, one Sign out replaces two, and the menu bar stops claiming everything is fine when there is no session.
 ### Fixed
 
 - **The signed-out menu bar icon was drawn in secondary grey and washed out.** The menu bar background is the wallpaper, so a dimmed glyph loses its contrast against a light desktop and reads as a rendering fault rather than as a state. It is drawn at full strength now; the crossed-out eye already carries the meaning without the dimming.
@@ -83,6 +91,7 @@ The release workflow reads the section for the tag being published out of this f
 
 ## [0.5.0] — 2026-08-23
 
+Builds are signed with a stable identity, and the update dialog shows the changelog instead of GitHub's page.
 ### Fixed
 
 - **macOS asks for the Keychain password less often.** (This entry said "stopped". It did not stop, and the correction is under Unreleased.) The cause was not a bug to work around: with an ad-hoc signature the app's designated requirement is literally its code hash, so every build was, to the Keychain, a different application asking for someone else's item. Builds are signed with a self-signed certificate now, which makes the requirement identity-based and stable. Measured on the same read: 7709 ms before, 18 ms after. **The claim that the dialog stopped was wrong and is corrected under Unreleased below.** The release workflow fails if a build ever comes out hash-signed, because a release signed ad-hoc would put the dialog back for everyone who updates.
@@ -95,6 +104,7 @@ The release workflow reads the section for the tag being published out of this f
 
 ## [0.4.0] — 2026-08-23
 
+Six more Sentry surfaces: performance, feedback, escalating and regressed issues, health, and filtering by project and environment.
 Six more Sentry surfaces, all verified against the live organization except the one that has no data to verify against, which says so.
 
 ### Added
@@ -131,6 +141,7 @@ The rule these follow: **with live data it is verified, with a published schema 
 
 ## [0.3.0] — 2026-08-23
 
+Centinela updates itself through Sparkle, and `SECURITY.md` says what the Keychain does and does not buy.
 ### Added
 
 - **Centinela updates itself**, through Sparkle. The previous release only told you a new version existed.
@@ -147,6 +158,7 @@ The rule these follow: **with live data it is verified, with a published schema 
 
 ## [0.2.0] — 2026-08-22
 
+The whole project is in English, and signing in goes through Sentry's OAuth device flow.
 ### Changed
 
 - **The whole project is in English**: interface, source, comments, documentation and CI. It was written in Spanish and this is a public repository.
@@ -169,6 +181,7 @@ The rule these follow: **with live data it is verified, with a published schema 
 
 ## [0.1.0] — 2026-08-22
 
+First release: the error count, a sparkline and the issue list in the menu bar.
 First published version. Ad-hoc signature, not notarized: the first time, macOS asks for confirmation (right click on the app, Open).
 
 ### In the menu bar
