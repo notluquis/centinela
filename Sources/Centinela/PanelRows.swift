@@ -11,6 +11,11 @@ struct IssueSection: View {
     /// and differ only in colour. With the setting on, the word goes in the metadata line.
     @Environment(\.accessibilityDifferentiateWithoutColor) private var differentiateWithoutColor
 
+    /// The project only earns its place when the rows do not all come from the same one. In an
+    /// organization with one busy project it says the same thing on every line, and that is the
+    /// width the short id needs to fit whole.
+    private var showsProject: Bool { Set(issues.map(\.project.slug)).count > 1 }
+
     /// What VoiceOver reads for a row, in the order somebody would want it: how bad Sentry
     /// thinks it is, what broke, where, and how much.
     private func spoken(_ issue: SentryIssue) -> String {
@@ -85,27 +90,45 @@ struct IssueSection: View {
                                 // timestamp onto a second row at the panel's 380 pt. The meaning
                                 // is carried by the tooltip for a pointer and by the row's
                                 // accessibility label for VoiceOver, which both say it in full.
+                                // No separator after it. A dot between two words is a
+                                // separator; a dot between an icon and a word is a character
+                                // nobody reads, and it costs the width that keeps the short id
+                                // whole on the rows that carry this marker.
                                 Image(systemName: "exclamationmark.octagon.fill")
                                     .foregroundStyle(.orange)
                                     .help("Unhandled: this one crashed")
-                                Text("·")
                             }
+                            // A real short id is `BIOALERGIA-API-1W`, not `API-41`. Measured
+                            // against live data this line ran past 380 points and wrapped in the
+                            // middle of a word, leaving the crash marker alone on a line of its
+                            // own. Shrinking every field was worse: the id truncated to
+                            // `EXAMPLE…` is the part somebody copies, made useless. So the field
+                            // that repeats on every row is the one that goes.
                             Text(issue.shortId)
                                 .font(.system(.caption2, design: .monospaced))
-                            Text("·")
-                            Text(issue.project.slug)
+                            if showsProject {
+                                Text("·")
+                                Text(issue.project.slug)
+                                    .truncationMode(.middle)
+                                    .layoutPriority(-1)
+                            }
                             Text("·")
                             // `inflect` so one event is not "1 events".
                             Text("^[\(issue.count) event](inflect: true)")
+                                .layoutPriority(1)
                             if issue.userCount > 0 {
                                 Text("·")
                                 Text("^[\(issue.userCount) person](inflect: true)")
+                                    .layoutPriority(1)
                             }
                             Text("·")
                             Text(issue.lastSeen, format: .relative(presentation: .numeric))
                         }
                         .font(.caption2)
                         .foregroundStyle(.secondary)
+                        // One line, always. Wrapping put the timestamp under the id and made two
+                        // rows out of one.
+                        .lineLimit(1)
                     }
                     Spacer(minLength: 0)
                 }

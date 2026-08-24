@@ -6,10 +6,11 @@ The release workflow reads the section for the tag being published out of this f
 
 ## [Unreleased]
 
-The About tab stops describing a version of the app that no longer exists, and links to what changed.
+Issue rows fit on one line again, About stops describing a version of the app that no longer exists, and the README picture looks like the app instead of a rectangle.
 
 ### Fixed
 
+- **An issue row wrapped in the middle of a word.** Reported with screenshots of live data, which is where it showed: a real short id is `BIOALERGIA-API-1W`, not the `API-41` the invented fixture used, and with a project slug beside it the metadata line ran past the panel's 380 points and broke mid-token, leaving the crash marker alone on a line of its own. Shrinking every field was worse — a short id truncated to `EXAMPLE…` is the part somebody copies, made useless — so the field that repeats on every row goes instead: the project is shown only when the rows do not all come from the same one. The fixture uses realistic identifiers now, so the next one of these shows up in the README picture rather than in somebody's menu bar.
 - **About said the ad-hoc signature was not in the way.** Builds stopped being ad-hoc in 0.5.0 — they carry a self-signed certificate — so the app was describing a version of itself that no longer existed, in its own interface. It now says what is true: updates are verified with this project's EdDSA key, the certificate is not a Developer ID, and macOS still wants right click, Open the first time. That is the third claim in the interface or the documentation found to have rotted this week, after the Keychain sentence in the account tab and the three numbers in the README.
 
 ### Added

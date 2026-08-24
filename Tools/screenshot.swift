@@ -32,12 +32,12 @@ import SwiftUI
                    _ users: Int, _ sub: String, _ pri: String, _ seen: String,
                    _ unhandled: Bool = false) -> SentryIssue {
             let json = """
-            {"id":"\(id)","shortId":"API-\(id)","title":"\(title)","culprit":"\(culprit)",
+            {"id":"\(id)","shortId":"EXAMPLE-API-\(id)","title":"\(title)","culprit":"\(culprit)",
              "level":"error","substatus":"\(sub)","priority":"\(pri)",
              "permalink":"https://example.sentry.io/issues/\(id)/",
              "lastSeen":"\(seen)","userCount":\(users),"count":"\(count)",
              "isUnhandled":\(unhandled),
-             "project":{"id":"1","slug":"api","name":"api"}}
+             "project":{"id":"1","slug":"example-api","name":"example-api"}}
             """
             let dec = JSONDecoder(); dec.dateDecodingStrategy = .iso8601
             return try! dec.decode(SentryIssue.self, from: Data(json.utf8))
@@ -106,8 +106,39 @@ import SwiftUI
         RunLoop.main.run(until: Date().addingTimeInterval(0.05))
         guard let rep = host.bitmapImageRepForCachingDisplay(in: host.bounds) else { return }
         host.cacheDisplay(in: host.bounds, to: rep)
-        try? rep.representation(using: .png, properties: [:])!
-            .write(to: URL(fileURLWithPath: CommandLine.arguments[1]))
+
+        // Composed rather than written straight out. A flat rectangle is not what this looks
+        // like on screen: `MenuBarExtra(.window)` draws a rounded panel that floats over the
+        // desktop, and a screenshot without the corners or the shadow reads as a mock-up of the
+        // app rather than a picture of it. The margin is transparent, so the image sits on
+        // whatever background reads it.
+        let radius: CGFloat = 12
+        let margin: CGFloat = 28
+        let panel = NSImage(size: host.bounds.size)
+        panel.addRepresentation(rep)
+
+        let canvas = NSImage(size: NSSize(width: host.bounds.width + margin * 2,
+                                          height: host.bounds.height + margin * 2))
+        canvas.lockFocus()
+        let frame = NSRect(x: margin, y: margin,
+                           width: host.bounds.width, height: host.bounds.height)
+        let shadow = NSShadow()
+        shadow.shadowColor = NSColor.black.withAlphaComponent(0.55)
+        shadow.shadowBlurRadius = 18
+        shadow.shadowOffset = NSSize(width: 0, height: -6)
+        shadow.set()
+        NSBezierPath(roundedRect: frame, xRadius: radius, yRadius: radius).fill()
+        NSGraphicsContext.current?.saveGraphicsState()
+        let clip = NSBezierPath(roundedRect: frame, xRadius: radius, yRadius: radius)
+        clip.addClip()
+        panel.draw(in: frame)
+        NSGraphicsContext.current?.restoreGraphicsState()
+        canvas.unlockFocus()
+
+        guard let data = canvas.tiffRepresentation,
+              let out = NSBitmapImageRep(data: data)?.representation(using: .png, properties: [:])
+        else { return }
+        try? out.write(to: URL(fileURLWithPath: CommandLine.arguments[1]))
         print("  escrito: \(CommandLine.arguments[1])")
         try? Keychain.delete(account: "centinela-shot-t")
         suite.removePersistentDomain(forName: domain)
