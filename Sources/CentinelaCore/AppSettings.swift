@@ -267,6 +267,9 @@ public final class AppSettings {
         saveToken("")
         try? store.delete(account: refreshAccount)
         tokenExpiresAt = nil
+        // A rate limit belongs to the token that hit it. Left behind, signing in with a
+        // different one would sit silent until a deadline earned by somebody else expired.
+        askAgainAfter = nil
     }
 
     /// `true` when there is an OAuth session and the token has less than 10% of its life left.

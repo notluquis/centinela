@@ -254,4 +254,36 @@ struct AppSettingsTests {
         #expect(settings.queryShape == shape, "the refresh interval must not cost a request")
     }
 
+    /// A rate limit belongs to the token that earned it. Left behind on sign-out, the next
+    /// session would sit silent waiting out somebody else's deadline, and the only symptom would
+    /// be an app that fetched nothing and said nothing about why.
+    @Test("Signing out forgets the rate limit along with the token")
+    func signingOutClearsTheRateLimit() {
+        let fixture = fresh()
+        let settings = fixture.settings
+        defer { clean(fixture) }
+        settings.organization = "example"
+        settings.saveManualToken("t")
+
+        settings.askAgainAfter = Date().addingTimeInterval(300)
+        #expect(settings.isRateLimited)
+
+        settings.signOut()
+        #expect(!settings.isRateLimited, "the next token starts with a clean slate")
+        #expect(settings.askAgainAfter == nil)
+    }
+
+    /// A deadline in the past is not a rate limit. Reading it as one would silence the app for
+    /// good after a single 429.
+    @Test("A deadline that has passed is not a rate limit")
+    func expiredDeadlineIsNotALimit() {
+        let fixture = fresh()
+        let settings = fixture.settings
+        defer { clean(fixture) }
+
+        settings.askAgainAfter = Date().addingTimeInterval(-1)
+        #expect(!settings.isRateLimited)
+        settings.askAgainAfter = Date().addingTimeInterval(30)
+        #expect(settings.isRateLimited)
+    }
 }

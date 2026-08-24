@@ -14,7 +14,19 @@ struct IssueSection: View {
     /// The project only earns its place when the rows do not all come from the same one. In an
     /// organization with one busy project it says the same thing on every line, and that is the
     /// width the short id needs to fit whole.
-    private var showsProject: Bool { Set(issues.map(\.project.slug)).count > 1 }
+    ///
+    /// Stored and not computed: as a computed property it was read inside the `ForEach`, so it
+    /// built a `Set` of every slug once per row — quadratic in the list, re-run on every pass of
+    /// `body`, and `body` runs on every frame of an animation. Fifty issues came to two and a
+    /// half thousand string hashes a frame for an answer that cannot change while the view
+    /// exists.
+    private let showsProject: Bool
+
+    init(issues: [SentryIssue], loading: Bool) {
+        self.issues = issues
+        self.loading = loading
+        self.showsProject = Set(issues.map(\.project.slug)).count > 1
+    }
 
     /// What VoiceOver reads for a row, in the order somebody would want it: how bad Sentry
     /// thinks it is, what broke, where, and how much.

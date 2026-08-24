@@ -122,11 +122,6 @@ final class AppState {
 
     func refreshCheap() async {
         guard !asleep else { return }
-        // Sentry's own `Retry-After`, honoured. It used to be read out of the header, put in an
-        // error, printed as "Retrying in 30s" and then ignored: nothing retried and nothing
-        // waited, so the app carried on asking on its own schedule, which is the behaviour that
-        // header exists to stop.
-        guard !settings.isRateLimited else { return }
         // Before asking for anything: if the OAuth token is about to expire, renew it. This
         // lives here rather than on its own timer because what matters is having a live token
         // right when it is about to be used, not having tried while the machine was asleep.
@@ -136,6 +131,15 @@ final class AppState {
         // Not a plain `return`: leaving early without clearing is what kept a signed-out menu
         // bar counting the previous account's errors.
         guard let client else { forgetSession(); return }
+        // Sentry's own `Retry-After`, honoured. It used to be read out of the header, put in an
+        // error, printed as "Retrying in 30s" and then ignored: nothing retried and nothing
+        // waited, so the app carried on asking on its own schedule, which is what that header
+        // exists to stop.
+        //
+        // AFTER the guard above, not before it. Placed first, signing out while Sentry had the
+        // app silenced would return before anything was cleared, and the menu bar would keep
+        // counting the previous account's errors — which is the bug that guard was added for.
+        guard !settings.isRateLimited else { return }
         loading = true
         defer { loading = false }
         do {
