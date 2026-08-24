@@ -168,16 +168,17 @@ struct PanelContent: View {
                 VStack(alignment: .leading, spacing: 0) {
                     switch section {
                     case .issues:
-                        IssueSection(issues: issues(filter))
+                        IssueSection(issues: issues(filter), loading: state.loading)
                     case .health:
                         HealthSection(state: state)
                     case .performance:
                         PerformanceSection(
                             transactions: state.transactions,
+                            loading: state.loading,
                             thresholdMilliseconds: state.transactionThreshold
                         )
                     case .releases:
-                        ReleaseSection(releases: state.releases)
+                        ReleaseSection(releases: state.releases, loading: state.loading)
                     case .feedback:
                         FeedbackSection(feedback: state.feedback, replays: state.replays)
                     }
@@ -265,14 +266,15 @@ struct PanelContent: View {
 
 struct ReleaseSection: View {
     let releases: [Release]
+    let loading: Bool
 
     var body: some View {
         if releases.isEmpty {
-            Text("Nothing here.")
-                .font(.callout)
-                .foregroundStyle(.secondary)
-                .padding(.horizontal, 12)
-                .padding(.vertical, 4)
+            if loading {
+                PlaceholderRows(lines: 2)
+            } else {
+                EmptySection()
+            }
         }
         ForEach(releases) { release in
             HStack {

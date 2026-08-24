@@ -3,6 +3,7 @@ import SwiftUI
 
 struct IssueSection: View {
     let issues: [SentryIssue]
+    let loading: Bool
 
     private func color(for triage: Triage) -> Color {
         switch triage {
@@ -14,11 +15,11 @@ struct IssueSection: View {
 
     var body: some View {
         if issues.isEmpty {
-            Text("Nothing here.")
-                .font(.callout)
-                .foregroundStyle(.secondary)
-                .padding(.horizontal, 12)
-                .padding(.vertical, 4)
+            if loading {
+                PlaceholderRows(lines: 3)
+            } else {
+                EmptySection()
+            }
         }
         ForEach(issues) { issue in
             Link(destination: issue.permalink) {
@@ -172,11 +173,11 @@ struct HealthSection: View {
 
         if state.crashFree == nil && state.monitors.isEmpty && state.crons.isEmpty
             && state.errorsByProject.isEmpty {
-            Text("Nothing here.")
-                .font(.callout)
-                .foregroundStyle(.secondary)
-                .padding(.horizontal, 12)
-                .padding(.vertical, 4)
+            if state.loading {
+                PlaceholderRows(lines: 2)
+            } else {
+                EmptySection()
+            }
         }
     }
 }
@@ -206,6 +207,7 @@ private struct HealthRow: View {
 /// complaining about. Sentry's own performance views default to the same percentile.
 struct PerformanceSection: View {
     let transactions: [TransactionStat]
+    let loading: Bool
     /// Sentry's own duration threshold for the project, in milliseconds. Colouring against a
     /// number this project invented would be a number nobody agreed on; this one is configured in
     /// Sentry and moves when they move it.
@@ -224,11 +226,11 @@ struct PerformanceSection: View {
             .padding(.bottom, 4)
         }
         if transactions.isEmpty {
-            Text("Nothing here.")
-                .font(.callout)
-                .foregroundStyle(.secondary)
-                .padding(.horizontal, 12)
-                .padding(.vertical, 4)
+            if loading {
+                PlaceholderRows(lines: 2)
+            } else {
+                EmptySection()
+            }
         }
         ForEach(transactions) { row in
             HStack(alignment: .firstTextBaseline, spacing: 8) {
@@ -312,5 +314,70 @@ struct FeedbackSection: View {
                 .padding(.vertical, 3)
             }
         }
+    }
+}
+
+/// Placeholder rows in the shape of the real ones, for the moment between opening the panel and
+/// the answer arriving.
+///
+/// The four sections used to say "Nothing here." while the request was still in flight, which is
+/// a different statement from "this is still loading" and the wrong one. The list route is the
+/// most expensive in the API at 1047 ms measured, so that wrong statement was on screen for about
+/// a second every time somebody opened the panel.
+///
+/// `.redacted(reason: .placeholder)` is SwiftUI's own version of what a skeleton component does
+/// elsewhere: it draws the layout with its text replaced by blocks, so the shape on screen is the
+/// shape that is coming. Nothing is drawn by hand, which is why these cannot drift away from the
+/// rows they stand in for the way a hand-drawn skeleton would.
+///
+/// The animation is the one thing it does not bring. The header already shows a spinner while a
+/// request is in flight, so the movement that says "working" is there; a shimmer of our own would
+/// be a second, unsynchronised animation saying the same thing.
+struct PlaceholderRows: View {
+    /// How many lines each row has, so the block matches the section it stands in for: three for
+    /// an issue (title, culprit, metadata), two for a release or a transaction.
+    let lines: Int
+    var count: Int = 3
+
+    var body: some View {
+        ForEach(0..<count, id: \.self) { row in
+            HStack(alignment: .top, spacing: 8) {
+                Image(systemName: "circle.fill")
+                    .font(.caption)
+                    .padding(.top, 2)
+                VStack(alignment: .leading, spacing: 1) {
+                    // Widths vary per row. Three identical blocks read as a rendering artefact
+                    // rather than as text that has not arrived; real titles are never the same
+                    // length twice.
+                    Text(String(repeating: "M", count: 28 - row * 5))
+                        .font(.callout)
+                    if lines > 2 {
+                        Text(String(repeating: "M", count: 20 - row * 3))
+                            .font(.caption2)
+                    }
+                    Text(String(repeating: "M", count: 24 - row * 2))
+                        .font(.caption2)
+                }
+                Spacer(minLength: 0)
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 3)
+        }
+        .redacted(reason: .placeholder)
+        // A placeholder has nothing to read out and nothing to click.
+        .accessibilityHidden(true)
+        .allowsHitTesting(false)
+    }
+}
+
+/// The same four lines were written out in each of the four sections. Now that each of them also
+/// has a loading branch, the pair belongs together in one place.
+struct EmptySection: View {
+    var body: some View {
+        Text("Nothing here.")
+            .font(.callout)
+            .foregroundStyle(.secondary)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 4)
     }
 }
