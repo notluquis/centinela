@@ -15,12 +15,26 @@ import SwiftUI
 /// The deployment target is macOS 14, so everything sits behind `#available`: on 14 and 15 it
 /// falls back to the plain style, which is the correct one there.
 extension View {
-    @ViewBuilder
     func glassButton() -> some View {
-        if #available(macOS 26.0, *) {
-            buttonStyle(.glass)
+        modifier(GlassButton())
+    }
+}
+
+/// Glass is a transparent material, and "Reduce transparency" is the system switch for people who
+/// cannot read text over one. Honouring it is not optional decoration: with it on, the footer
+/// controls fall back to the plain style, which is what that setting is asking for.
+///
+/// Neither of the two repositories this project is modelled on handles it. Measured across both
+/// checkouts: zero files mention `accessibilityReduceTransparency`.
+private struct GlassButton: ViewModifier {
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+
+    @ViewBuilder
+    func body(content: Content) -> some View {
+        if #available(macOS 26.0, *), !reduceTransparency {
+            content.buttonStyle(.glass)
         } else {
-            buttonStyle(.plain)
+            content.buttonStyle(.plain)
         }
     }
 }

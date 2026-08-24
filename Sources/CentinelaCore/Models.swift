@@ -97,6 +97,10 @@ public enum Triage: String, Sendable {
     init(sentryPriority: String?) {
         self = Triage(rawValue: sentryPriority ?? "") ?? .medium
     }
+
+    /// The word, for the places where the tint alone will not do: what VoiceOver reads, and what
+    /// the row shows when the system asks to differentiate without colour.
+    public var label: String { rawValue }
 }
 
 public enum Severity: String, Sendable {

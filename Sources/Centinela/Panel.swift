@@ -52,6 +52,10 @@ struct PanelHeader: View {
                     .panelMotion(state.totalErrors)
                 Text("in the last \(state.settings.window.label)")
                     .foregroundStyle(.secondary)
+                    // Read as one sentence. Two Texts are two stops for VoiceOver, and "228
+                    // errors" followed by a pause and "in the last 24 hours" is not how anybody
+                    // would say it.
+                    .accessibilityElement(children: .combine)
                 Spacer()
                 if state.loading {
                     ProgressView()
@@ -334,16 +338,21 @@ struct PanelFooter: View {
                 }
                 .glassButton()
                 .help("Refresh")
+                .accessibilityLabel("Refresh")
 
                 Button(action: openSettings) { Image(systemName: "gearshape") }
                     .glassButton()
                     .help("Settings")
+                    .accessibilityLabel("Settings")
 
                 Button { NSApplication.shared.terminate(nil) } label: {
                     Image(systemName: "power")
                 }
                 .glassButton()
                 .help("Quit")
+                // `.help` is a tooltip and a hint. Without a label VoiceOver falls back to the
+                // symbol's own name, so this announced itself as "power".
+                .accessibilityLabel("Quit Centinela")
             }
         }
         .padding(.horizontal, 12)

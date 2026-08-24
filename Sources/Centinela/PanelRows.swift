@@ -5,6 +5,28 @@ struct IssueSection: View {
     let issues: [SentryIssue]
     let loading: Bool
 
+    /// Sentry's triage reaches the eye only as a tint, and this is the system switch for people
+    /// who cannot tell those tints apart. The severity symbol already varies by shape, but that
+    /// is a different axis: an escalating warning and a one-off error can carry the same symbol
+    /// and differ only in colour. With the setting on, the word goes in the metadata line.
+    @Environment(\.accessibilityDifferentiateWithoutColor) private var differentiateWithoutColor
+
+    /// What VoiceOver reads for a row, in the order somebody would want it: how bad Sentry
+    /// thinks it is, what broke, where, and how much.
+    private func spoken(_ issue: SentryIssue) -> String {
+        var parts: [String] = []
+        parts.append(issue.triage.label + " priority")
+        parts.append(issue.title)
+        if let culprit = issue.culprit, !culprit.isEmpty {
+            parts.append("in " + culprit)
+        }
+        parts.append(issue.count == 1 ? "1 event" : "\(issue.count) events")
+        if issue.userCount > 0 {
+            parts.append(issue.userCount == 1 ? "1 person" : "\(issue.userCount) people")
+        }
+        return parts.joined(separator: ", ")
+    }
+
     private func color(for triage: Triage) -> Color {
         switch triage {
         case .high: .red
@@ -46,6 +68,9 @@ struct IssueSection: View {
                         HStack(spacing: 6) {
                             // The short id is what you paste into a message when asking someone
                             // about it. It was decoded from the first commit and never shown.
+                            if differentiateWithoutColor {
+                                Text(issue.triage.label)
+                            }
                             Text(issue.shortId)
                                 .font(.system(.caption2, design: .monospaced))
                             Text("·")
@@ -70,6 +95,12 @@ struct IssueSection: View {
                 .padding(.vertical, 5)
             }
             .buttonStyle(.plain)
+            // One element, not six. Without this VoiceOver reads the title, the file, the short
+            // id, the project, the event count, the people count and the time as seven separate
+            // stops, and getting past a list of fifteen issues takes a hundred swipes.
+            .accessibilityElement(children: .combine)
+            .accessibilityLabel(spoken(issue))
+            .accessibilityHint("Opens the issue in Sentry")
         }
     }
 }
