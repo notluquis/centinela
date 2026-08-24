@@ -32,8 +32,23 @@ jobs:
       - name: Fill SwiftPM's cache before muter copies the project
         run: swift package resolve
 
-      - name: Install muter
-        run: brew install muter-mutation-testing/formulae/muter
+      # Built from `main`, not `brew install`. The last muter RELEASE is 16, from September
+      # 2023, which predates Swift Testing entirely: it parses XCTest output, and this suite has
+      # no XCTest in it. `main` carries "Fix: detect Swift Testing failures in mutation test
+      # logs" from July 2026, which no release contains.
+      #
+      # The commit is printed so a run can be traced back to what it actually built. Whether the
+      # schemata corruption that blocks this workflow is also fixed there is the open question:
+      # it is filed upstream as #308, "v16 mutation schemata generate corrupt or missing code in
+      # four distinct ways", one of which is a corrupted neutral branch — the failure seen here.
+      - name: Build muter from main
+        run: |
+          set -euo pipefail
+          git clone --depth 1 https://github.com/muter-mutation-testing/muter.git "$RUNNER_TEMP/muter"
+          cd "$RUNNER_TEMP/muter"
+          echo "muter commit: $(git rev-parse HEAD)"
+          make install PREFIX=/usr/local || sudo make install
+          muter --version || true
 
       - name: Mutate
         # `--format json --output <file>`, which is what `muter run` actually accepts. It was
