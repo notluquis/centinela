@@ -10,9 +10,10 @@ let package = Package(
     name: "Centinela",
     platforms: [.macOS(.v14)],
     dependencies: [
-        // Sparkle ships as a binary XCFramework through SwiftPM. Its update policy explicitly
-        // allows ad-hoc signatures ("If no Apple Code Signing certificate is available, adhoc
-        // signing can be used at minimum" — SUUpdateValidator.m), which is the case here.
+        // Sparkle ships as a binary XCFramework through SwiftPM. Its update policy does not need
+        // a signature from Apple ("If no Apple Code Signing certificate is available, adhoc
+        // signing can be used at minimum" — SUUpdateValidator.m). These builds carry a
+        // self-signed certificate, which is not a Developer ID either, and it is not in the way.
         .package(url: "https://github.com/sparkle-project/Sparkle", from: "2.9.6")
     ],
     targets: [

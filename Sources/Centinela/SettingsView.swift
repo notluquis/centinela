@@ -293,6 +293,11 @@ private struct QueryTab: View {
         // has no notification of its own, so the moment to look again is when this app is in
         // front again.
         .task {
+            // Once when this appears, and then on every activation. Without the first read, a
+            // task that starts while the app is already in front — switching to this tab, or
+            // coming back to it from About — waits for a transition that never happens, and the
+            // notice keeps saying "still needs approval" about something already approved.
+            launchAtLogin.refresh()
             let awake = NotificationCenter.default.notifications(
                 named: NSApplication.didBecomeActiveNotification)
             for await _ in awake { launchAtLogin.refresh() }

@@ -162,9 +162,16 @@ jobs:
             echo
             echo "## Installing"
             echo
-            echo "Unzip, drag to Applications, and the first time open it with right click, Open."
-            echo "The signature is ad-hoc and not notarized, so Gatekeeper asks once. Notarizing"
-            echo "costs 99 USD a year and does not pay for itself here."
+            echo "Open **Centinela.dmg** and drag the app onto Applications. The zip beside it is"
+            echo "what Sparkle updates from; either works to install."
+            echo
+            echo "The first launch needs one step, and it is not the one most instructions give."
+            echo "These builds carry a self-signed certificate rather than a Developer ID, so"
+            echo "Gatekeeper refuses them — and macOS 15 removed the Control-click bypass. Open it,"
+            echo "let it be refused, then go to **System Settings → Privacy & Security** and press"
+            echo "**Open Anyway**. Once. Notarizing removes that step and costs 99 USD a year,"
+            echo "which for a tool that runs on the Macs of whoever builds it does not pay for"
+            echo "itself yet."
             echo
             echo '    codesign -dv --verbose=4 Centinela.app'
             echo '    spctl -a -t exec -vvv Centinela.app'
@@ -174,7 +181,7 @@ jobs:
           } >> notes.md
 
       # Sparkle verifies updates with an EdDSA signature of ours, not with an Apple certificate.
-      # That is the whole reason automatic updates work here despite the ad-hoc code signature.
+      # That is the whole reason automatic updates work here without a Developer ID.
       # The private key lives only in this secret; the public half is in `Info.plist`.
       - name: Sign the archive for Sparkle
         id: sparkle

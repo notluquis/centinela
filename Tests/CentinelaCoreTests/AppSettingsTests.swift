@@ -196,28 +196,21 @@ struct AppSettingsTests {
     /// hold on to is whether the Keychain was touched. `refreshToken` is a Keychain read, this
     /// runs every cycle, and with no team identifier every read after an update costs a password
     /// dialog.
-    /// A store that counts, so the ordering can be checked without production code counting for
-    /// it. `Keychain` carried a `reads` counter for exactly this test until `SecretStore` existed;
-    /// once there was a seam, the counter was production code kept alive by a test.
-    private final class CountingStore: SecretStore, @unchecked Sendable {
-        private(set) var reads = 0
-        var items: [String: String] = [:]
-
-        func read(account: String) throws -> String? {
-            reads += 1
-            return items[account]
-        }
-        func save(_ value: String, account: String) throws { items[account] = value }
-        func delete(account: String) throws { items[account] = nil }
-    }
-
     @Test("A token with life left decides without reading the Keychain")
     func freshTokenDoesNotReadTheRefreshToken() {
-        let store = CountingStore()
+        let store = InMemoryStore()
         let suiteName = "centinela.tests.clock.\(UUID().uuidString)"
         let suite = UserDefaults(suiteName: suiteName)!
         defer { UserDefaults.standard.removePersistentDomain(forName: suiteName) }
-        let settings = AppSettings(defaults: suite, store: store)
+        // Explicit account names even with a fake store. The suite's rule is that tests never
+        // name the live accounts, and leaving the defaults here means the day something reaches
+        // `Keychain` statically instead of through the store, it lands on a real session.
+        let settings = AppSettings(
+            defaults: suite,
+            tokenAccount: "token-\(UUID().uuidString)",
+            refreshAccount: "refresh-\(UUID().uuidString)",
+            store: store
+        )
 
         settings.saveSession(DeviceFlow.Grant(
             accessToken: "from-oauth",

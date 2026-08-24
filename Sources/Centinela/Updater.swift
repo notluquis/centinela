@@ -27,6 +27,12 @@ final class Updater {
 
     /// Mirrored out of Sparkle rather than read through it.
     ///
+    /// `canCheckForUpdates` is documented KVO-compliant in Sparkle's own header. `lastUpdateCheckDate`
+    /// is **not**: its notification comes from `-updateLastUpdateCheckDate` calling
+    /// `will/didChangeValueForKey` by hand (`SPUUpdater.m`, read against Sparkle 2.9.6). If a
+    /// version bump drops that, this line goes stale again silently and no test here can see it,
+    /// because the app target has none.
+    ///
     /// `SPUUpdater` is an Objective-C object and knows nothing about Observation, so a computed
     /// property reading it is invisible to SwiftUI: the About tab showed whatever those values
     /// were when it was first drawn and never moved again. Press "Check for updates", watch the
@@ -45,14 +51,27 @@ final class Updater {
             userDriverDelegate: nil
         )
         let updater = controller.updater
+        // Seeded here, and `.new` only: with `.initial` the observer fires synchronously during
+        // `observe(...)` and schedules a task that assigns exactly what these two lines already
+        // assigned. Two mechanisms doing one job is one of them going quietly wrong later.
         canCheck = updater.canCheckForUpdates
         lastCheck = updater.lastUpdateCheckDate
+        // The handler reads through `self`, not through the `SPUUpdater` the callback hands over.
+        // That object is not `Sendable`, and capturing it into a `@MainActor` task sends it across
+        // an isolation boundary — quiet under Swift 5 language mode, diagnosed the moment this
+        // moves to 6. `self` is already on the main actor and holds the controller.
         watch = [
-            updater.observe(\.canCheckForUpdates, options: [.initial, .new]) { [weak self] updater, _ in
-                Task { @MainActor in self?.canCheck = updater.canCheckForUpdates }
+            updater.observe(\.canCheckForUpdates, options: [.new]) { [weak self] _, _ in
+                Task { @MainActor in
+                    guard let self else { return }
+                    self.canCheck = self.controller.updater.canCheckForUpdates
+                }
             },
-            updater.observe(\.lastUpdateCheckDate, options: [.initial, .new]) { [weak self] updater, _ in
-                Task { @MainActor in self?.lastCheck = updater.lastUpdateCheckDate }
+            updater.observe(\.lastUpdateCheckDate, options: [.new]) { [weak self] _, _ in
+                Task { @MainActor in
+                    guard let self else { return }
+                    self.lastCheck = self.controller.updater.lastUpdateCheckDate
+                }
             }
         ]
     }

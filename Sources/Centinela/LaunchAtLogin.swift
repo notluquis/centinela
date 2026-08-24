@@ -23,7 +23,15 @@ final class LaunchAtLogin {
 
     var needsApproval: Bool { status == .requiresApproval }
 
-    func refresh() { status = SMAppService.mainApp.status }
+    /// Re-reads the status, and drops any error from a previous attempt.
+    ///
+    /// Both halves matter. Without the second, somebody whose `register()` failed, who then went
+    /// to System Settings and approved it by hand, comes back to a switch that is finally on with
+    /// the orange failure still printed underneath it.
+    func refresh() {
+        status = SMAppService.mainApp.status
+        if status == .enabled || status == .notRegistered { lastError = nil }
+    }
 
     func toggle(_ on: Bool) {
         do {

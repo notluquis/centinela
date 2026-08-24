@@ -6,54 +6,54 @@ The release workflow reads the section for the tag being published out of this f
 
 ## [Unreleased]
 
-Three warnings that stopped appearing in 0.7.0 appear again, Sentry's rate limit is obeyed instead of narrated, releases carry a disk image, and the install instructions stop describing a macOS that stopped existing a year ago.
-
-### Fixed
-
-- **The About tab's "Last checked" never moved.** `SPUUpdater` is an Objective-C object that knows nothing about Observation, so reading it through a computed property was invisible to SwiftUI: press "Check for updates", watch the check finish, and the line still said what it said when the window opened. Both values are KVO-compliant, so they are mirrored into stored properties SwiftUI can see. The comment above that class also still described these builds as ad-hoc signed, which stopped being true in 0.5.0.
-- **Approving the login item in System Settings left the app saying it still needed approval.** `SMAppService` has no notification of its own and the status was read once, so the button that sends people to System Settings sent them somewhere that could not change what they came back to. It is read again whenever the app comes to the front.
-
-### Changed
-
-- **`Keychain` no longer counts its own reads.** That counter was production code kept alive by a single test, added before `SecretStore` existed. Now that there is a seam, the test brings its own counting store and production carries nothing for it. Verified the guard still fails: restoring the old ordering in `shouldRefresh` turns it red.
-
-### Fixed
-
-- **The rate-limit guard was placed where it resurrected an older bug.** It sat before the check that clears the session when there is no token, so signing out while Sentry had the app silenced would return before anything was cleared and the menu bar would keep counting the previous account's errors — which is precisely the bug that clearing was added for, in 0.6.0. Moved below it. A rate limit is also forgotten on sign-out now: it belongs to the token that earned it, and left behind it would silence the next session waiting out somebody else's deadline.
-- **The issue list built a set of every project slug once per row.** Quadratic in the length of the list, re-run on every pass of `body`, and `body` runs on every frame of an animation: fifty issues came to two and a half thousand string hashes a frame, for an answer that cannot change while the view exists. Computed once now, when the view is made.
-- **Three warnings have been invisible since 0.7.0, and it was this project's own refactor that did it.** Moving the session's data into one value renamed what the interface *reads* to `data.lastError`, `data.tokenTooPowerful` and `data.deprecation`, and left `AppState` still *writing* to three properties of its own with the same names. Nothing failed to compile, because both existed. So the error banner, the warning that a token can reach the audit log, and the notice that Sentry is deprecating a route were all being written to fields nobody read — for two releases. The duplicates are gone; the compiler then named all seven write sites.
-- **Sentry's rate limit was narrated rather than obeyed.** A 429 carries `Retry-After`, and the app read it, put it in the error, printed "Retrying in 30s" and ignored it: nothing retried and nothing waited, so the next cycle asked again on its own schedule, which is exactly what that header exists to prevent. Both cycles now stay quiet until the deadline passes, the message says what happens instead of what sounds reassuring, and errors are recorded in one place so a second call site cannot forget the second half.
+Two dead signals in the settings window come back to life, the install instructions and the release notes stop describing a macOS and a signature that stopped existing, releases carry a disk image, and Sentry's rate limit is obeyed instead of narrated.
 
 ### Added
 
 - **A disk image on every release, next to the zip.** Nobody had to build the app — there has been a zip since 0.1.0 — but "unzip it, then move it to Applications" is instructions, and a window with the app and an arrow to Applications is a picture. The zip stays what Sparkle updates from: the appcast points at it, and a disk image would add a mount step to something nobody watches. Built with `diskutil image create`, because `hdiutil create` now says of itself that it is deprecated and names that as the replacement, with a fallback for machines older than macOS 26 where the new command does not exist. 2.41 MB, and the app inside is still signed with the certificate.
 
-### Added
-
 - **`THIRD_PARTY_LICENSES.md`, and Sparkle's licence inside the app.** Sparkle is MIT, and MIT asks for the notice to be included in "all copies or substantial portions of the Software" — shipping `Sparkle.framework` inside the bundle is a copy, and it was going out without one. `make app` resolves the licence out of the SwiftPM artifact into `Contents/Resources/Sparkle-LICENSE.txt` and **fails** if it cannot find it. Resolved rather than vendored: a copy pasted into the repository goes stale on the next version bump and nobody notices.
+
 - **A social preview**, the image GitHub shows when the link is pasted into Slack or a timeline. `make screenshot` writes `docs/social-preview.png` at the 1280 by 640 GitHub asks for, from the same composed shot as the README picture, so it cannot end up advertising a version of the app that no longer looks like this. Uploading it is the one step that has no API: Settings → General → Social preview.
+
 - **Issue templates, a pull request template, `CONTRIBUTING.md` and a code of conduct.** The bug template asks for the version and the macOS build, and opens by saying not to paste a token or a screenshot with real issue titles in it, because titles carry internal endpoints and customer names and this repository is public. The pull request template lives at `.github/PULL_REQUEST_TEMPLATE.md`, one of the three paths GitHub actually reads — a well-known macOS project keeps its at `PULL_REQUEST.md`, which is not one of them.
 
+- **The README picture is two panels, and it is still the real view.** `MainPanel` takes the section it opens on, so `make screenshot` renders the panel over the settings window with the rounded corners, the shadow and the transparent margin the panel actually has. Stacking two copies of the panel was tried first and read as a rendering fault: the panel repeats its header, so the same large number appeared twice with one copy sliced by the one in front. Two different windows overlap without that problem. Both are the real views compiled against the same sources, so a picture that stops matching the app is a compile error rather than an illustration nobody updated.
+
+- **A "What is new" link in About**, to the releases page rather than to this version's tag: a development build reports 0.0.0, and a link that 404s from inside the app is worse than one that lands on a list with the newest at the top.
+
+- The app icon in About is hidden from VoiceOver. It is decoration, and the name is on the next line.
+
 ### Fixed
+
+- **The About tab's "Last checked" never moved.** `SPUUpdater` is an Objective-C object that knows nothing about Observation, so reading it through a computed property was invisible to SwiftUI: press "Check for updates", watch the check finish, and the line still said what it said when the window opened. Both values are KVO-compliant, so they are mirrored into stored properties SwiftUI can see. The comment above that class also still described these builds as ad-hoc signed, which stopped being true in 0.5.0.
+
+- **Approving the login item in System Settings left the app saying it still needed approval.** `SMAppService` has no notification of its own and the status was read once, so the button that sends people to System Settings sent them somewhere that could not change what they came back to. It is read when the Query tab appears and again whenever the app comes to the front, which covers both ways back from System Settings.
+
+- **The rate-limit guard was placed where it resurrected an older bug.** It sat before the check that clears the session when there is no token, so signing out while Sentry had the app silenced would return before anything was cleared and the menu bar would keep counting the previous account's errors — which is precisely the bug that clearing was added for, in 0.6.0. Moved below it. A rate limit is also forgotten on sign-out now: it belongs to the token that earned it, and left behind it would silence the next session waiting out somebody else's deadline.
+
+- **The issue list built a set of every project slug once per row.** Quadratic in the length of the list, re-run on every pass of `body`, and `body` runs on every frame of an animation: fifty issues came to two and a half thousand string hashes a frame, for an answer that cannot change while the view exists. Computed once now, when the view is made.
+
+- **Three warnings have been invisible since 0.7.0, and it was this project's own refactor that did it.** Moving the session's data into one value renamed what the interface *reads* to `data.lastError`, `data.tokenTooPowerful` and `data.deprecation`, and left `AppState` still *writing* to three properties of its own with the same names. Nothing failed to compile, because both existed. So the error banner, the warning that a token can reach the audit log, and the notice that Sentry is deprecating a route were all being written to fields nobody read — for two releases. The duplicates are gone; the compiler then named all seven write sites.
+
+- **Sentry's rate limit was narrated rather than obeyed.** A 429 carries `Retry-After`, and the app read it, put it in the error, printed "Retrying in 30s" and ignored it: nothing retried and nothing waited, so the next cycle asked again on its own schedule, which is exactly what that header exists to prevent. Both cycles now stay quiet until the deadline passes, the message says what happens instead of what sounds reassuring, and errors are recorded in one place so a second call site cannot forget the second half.
 
 - **The install instructions described a macOS that stopped existing a year ago.** They said to Control-click and choose Open, and **macOS 15 removed that bypass** — the first launch has to be allowed from System Settings → Privacy & Security → Open Anyway. The app requires macOS 14, so almost everybody reading it was being told to do something that no longer works. Measured on the published archive rather than assumed: `spctl -a -t exec -vvv` answers `rejected`, `origin=Centinela Signing`. That is the fifth claim in this repository found to have rotted, and all five have the same shape: written when true, never read again.
 
 - **A lint failure went unnoticed for two pushes because the check around it could not fail.** `make lint | tail -1 >/dev/null && echo ok` reports ok whatever lint did: a pipeline's exit status is its last command's, and `tail` always succeeds. `make lint` had been reporting the violation correctly the whole time. The test file for `AppSettings` had crossed swiftlint's 250-line type body, and the migrations move to their own file, which is where they belonged anyway — they share a subject with each other and not with the observation tests beside them.
-- **`NSHumanReadableCopyright` said "MIT".** That names a licence, not a copyright holder, and Finder's Get Info and the standard About panel show it verbatim. `LSApplicationCategoryType` was missing entirely, leaving the app uncategorised in Finder and Launchpad; it reads Sentry and nothing else, so it is a developer tool.
-- **The repository's own About panel on GitHub was in Spanish**, which is the most visible text the project has and the one place rule 6 of `AGENTS.md` had never been applied. It has topics now as well: a README whose first argument is that no such app could be found is a poor place to leave the next person's search with nothing to match.
 
+- **`NSHumanReadableCopyright` said "MIT".** That names a licence, not a copyright holder, and Finder's Get Info and the standard About panel show it verbatim. `LSApplicationCategoryType` was missing entirely, leaving the app uncategorised in Finder and Launchpad; it reads Sentry and nothing else, so it is a developer tool.
+
+- **The repository's own About panel on GitHub was in Spanish**, which is the most visible text the project has and the one place rule 6 of `AGENTS.md` had never been applied. It has topics now as well: a README whose first argument is that no such app could be found is a poor place to leave the next person's search with nothing to match.
 Issue rows fit on one line again, About stops describing a version of the app that no longer exists, and the README opens with a picture of the app rather than a rectangle.
 
-### Fixed
-
 - **An issue row wrapped in the middle of a word.** Reported with screenshots of live data, which is where it showed: a real short id is `BIOALERGIA-API-1W`, not the `API-41` the invented fixture used, and with a project slug beside it the metadata line ran past the panel's 380 points and broke mid-token, leaving the crash marker alone on a line of its own. Shrinking every field was worse — a short id truncated to `EXAMPLE…` is the part somebody copies, made useless — so the field that repeats on every row goes instead: the project is shown only when the rows do not all come from the same one. The fixture uses realistic identifiers now, so the next one of these shows up in the README picture rather than in somebody's menu bar.
+
 - **About said the ad-hoc signature was not in the way.** Builds stopped being ad-hoc in 0.5.0 — they carry a self-signed certificate — so the app was describing a version of itself that no longer existed, in its own interface. It now says what is true: updates are verified with this project's EdDSA key, the certificate is not a Developer ID, and macOS still wants right click, Open the first time. That is the third claim in the interface or the documentation found to have rotted this week, after the Keychain sentence in the account tab and the three numbers in the README.
 
-### Added
+### Removed
 
-- **The README picture is two panels, and it is still the real view.** `MainPanel` takes the section it opens on, so `make screenshot` renders the panel over the settings window with the rounded corners, the shadow and the transparent margin the panel actually has. Stacking two copies of the panel was tried first and read as a rendering fault: the panel repeats its header, so the same large number appeared twice with one copy sliced by the one in front. Two different windows overlap without that problem. Both are the real views compiled against the same sources, so a picture that stops matching the app is a compile error rather than an illustration nobody updated.
-- **A "What is new" link in About**, to the releases page rather than to this version's tag: a development build reports 0.0.0, and a link that 404s from inside the app is worse than one that lands on a list with the newest at the top.
-- The app icon in About is hidden from VoiceOver. It is decoration, and the name is on the next line.
+- **`Keychain` no longer counts its own reads.** That counter was production code kept alive by a single test, added before `SecretStore` existed. Now that there is a seam, the test brings its own counting store and production carries nothing for it. Verified the guard still fails: restoring the old ordering in `shouldRefresh` turns it red.
 
 ## [0.8.0] — 2026-08-24
 

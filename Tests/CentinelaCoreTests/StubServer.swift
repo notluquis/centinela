@@ -1,5 +1,7 @@
 import Foundation
 
+@testable import CentinelaCore
+
 /// A response queued in the stub server.
 struct StubResponse {
     let path: String
@@ -131,4 +133,34 @@ final class StubServer: URLProtocol, @unchecked Sendable {
         }
         return String(bytes: data, encoding: .utf8) ?? ""
     }
+}
+
+/// An in-memory `SecretStore`, shared because two suites had grown one each.
+///
+/// It counts reads and can refuse a write to one account. Both exist for a specific test — the
+/// ordering in `shouldRefresh`, which changes no answer and only decides whether the Keychain is
+/// touched, and the copy-before-delete in the migrations, which behaves identically to the wrong
+/// version every time a write succeeds. A real Keychain will not fail on demand and does not
+/// count, so neither could be tested through one.
+final class InMemoryStore: SecretStore, @unchecked Sendable {
+    private(set) var reads = 0
+    var items: [String: String]
+    let refusesWritesTo: String?
+
+    init(_ items: [String: String] = [:], refusesWritesTo: String? = nil) {
+        self.items = items
+        self.refusesWritesTo = refusesWritesTo
+    }
+
+    func read(account: String) throws -> String? {
+        reads += 1
+        return items[account]
+    }
+
+    func save(_ value: String, account: String) throws {
+        if account == refusesWritesTo { throw Keychain.Failure.system(-25299) }
+        items[account] = value
+    }
+
+    func delete(account: String) throws { items[account] = nil }
 }

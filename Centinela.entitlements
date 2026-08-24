@@ -7,9 +7,10 @@
 	     needed, it shows up in the diff.
 
 	     `keychain-access-groups` is deliberately not declared: `$(AppIdentifierPrefix)` only
-	     expands with a provisioning profile and these builds are signed ad-hoc. Without the key
+	     expands with a provisioning profile and these builds have no team identifier. Without it
 	     the default group is the app's own identifier, which is what is wanted. Verified by
-	     running a sandboxed ad-hoc bundle: SecItemAdd returns 0 and the value reads back. -->
+	     running a sandboxed bundle with no team identifier: SecItemAdd returns 0 and the value
+	     reads back. -->
 	<key>com.apple.security.app-sandbox</key>
 	<true/>
 	<key>com.apple.security.network.client</key>
@@ -18,7 +19,7 @@
 	     one reason: a sandboxed app cannot replace itself, so Sparkle installs the update from
 	     `Installer.xpc` and needs to be able to look those services up by name. The suffixes
 	     are Sparkle's own convention (`-spks` for the status service, `-spki` for the
-	     installer). No team identifier is involved, which is why this works with an ad-hoc
+	     installer). No team identifier is involved, which is why this works with a self-signed
 	     signature. -->
 	<!-- Measured: without this, dyld refuses to load Sparkle. -->
 	<key>com.apple.security.cs.disable-library-validation</key>

@@ -13,7 +13,8 @@ struct AboutView: View {
     )!
 
     let state: AppState
-    @State private var updater = Updater()
+
+    private var updater: Updater { state.updater }
 
     var body: some View {
         VStack(spacing: 14) {

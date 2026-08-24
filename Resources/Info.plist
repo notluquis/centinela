@@ -28,7 +28,7 @@
 	<true/>
 	<!-- Sparkle. The public half of the EdDSA key pair; the private half never leaves the
 	     release runner. This is what an update is verified against, and it does not involve
-	     Apple, which is why an ad-hoc signature is enough. -->
+	     Apple, which is why a signature Apple did not issue is enough. -->
 	<key>SUPublicEDKey</key>
 	<string>FaHOx61prb3WXdRUcCf/RTE6jX7jxYyCmmlli7BO998=</string>
 	<key>SUFeedURL</key>

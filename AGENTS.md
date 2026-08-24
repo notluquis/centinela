@@ -8,6 +8,8 @@ This is a menu bar app that reads Sentry's API with a token. The rules below are
 
 **2. The token lives in the Keychain.** Never in `UserDefaults`, never in a file, never in a log, never in an error message. A Sentry organization token does not expire on its own. This project started because the token was sitting in `~/.sentryclirc` in plain text.
 
+**3d. An incremental build does not re-emit warnings.** "Zero warnings" was checked dozens of times against a cached build and was wrong the whole time: four actor-isolation warnings sat in `AppSettings.swift` for hours. `make clean && make build`, or believe the runner.
+
 **3c. `cmd | tail -1 && echo ok` reports ok whatever `cmd` did.** A pipeline's exit status is its LAST command's, and `tail` always succeeds. Two pushes went red on a lint failure that `make lint` was reporting correctly the whole time, because the check around it swallowed the status. Run `make lint` on its own and read what it prints.
 
 **3b. `grep` on a development machine is not the `grep` in CI.** The hygiene job's token check passed locally and failed on the runner over the same file. The local `grep` here is `ugrep`, and it did not match what GNU grep matched. Run a guard with `/usr/bin/grep` before believing it, or believe the runner.

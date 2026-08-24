@@ -18,15 +18,22 @@ public final class AppSettings {
         case pastedToken
     }
 
+    // `nonisolated` on all four: they are the default values of `init` parameters, and a
+    // default value is evaluated at the CALL SITE, outside this type's actor. Without it the
+    // compiler warns four times that a main actor-isolated static cannot be referenced from a
+    // nonisolated context — the same trap AGENTS.md already records for `AppSettings()` as a
+    // default, walked into again. They are immutable strings, so there is nothing to isolate.
+    //
+    // They did not show up locally because an incremental build does not re-emit warnings.
     /// The names before the rename to English. They are injectable for the same reason the
     /// current ones are: guarding the migration with `tokenAccount == defaultTokenAccount` kept
     /// tests away from a live session, and in doing so made the migration itself impossible to
     /// test. A branch that no test can reach is a branch nobody has run.
-    public static let legacyTokenAccount = "token-de-organizacion"
-    public static let legacyRefreshAccount = "token-de-refresco"
+    nonisolated public static let legacyTokenAccount = "token-de-organizacion"
+    nonisolated public static let legacyRefreshAccount = "token-de-refresco"
 
-    public static let defaultTokenAccount = "organization-token"
-    public static let defaultRefreshAccount = "refresh-token"
+    nonisolated public static let defaultTokenAccount = "organization-token"
+    nonisolated public static let defaultRefreshAccount = "refresh-token"
 
     public var organization: String {
         didSet { defaults.set(organization, forKey: "organization") }

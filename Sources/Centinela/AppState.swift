@@ -19,6 +19,16 @@ final class AppState {
     /// rather than eighteen assignments somebody has to remember to keep in step.
     var data = SessionData()
 
+    /// Owned here, not by the view that shows it.
+    ///
+    /// `AboutView` declared it as `@State private var updater = Updater()`, and a `@State`
+    /// default is evaluated every time the struct is initialised — which is every pass of
+    /// `SettingsView.body`, so on every change of query shape. Each discarded instance had
+    /// already run `SPUStandardUpdaterController(startingUpdater: true)`, which schedules a check
+    /// and can fire an appcast download. Sparkle's `dealloc` cleans up, so this was waste rather
+    /// than a leak, but it was waste on a timer.
+    let updater = Updater()
+
     /// Whether a request is in flight. This one is NOT session data: it describes the app, not
     /// the account, and `forgetSession()` has no business clearing it.
     var loading = false

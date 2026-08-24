@@ -90,24 +90,6 @@ struct AppSettingsMigrationTests {
         #expect(try Keychain.read(account: newRefresh) == "a-refresh")
         #expect(try Keychain.read(account: oldRefresh) == nil)
     }
-    /// An in-memory store, so a test can say "the write fails" — which a real Keychain will not
-    /// do on demand, and which is exactly the case that loses somebody's session.
-    private final class Store: SecretStore, @unchecked Sendable {
-        var items: [String: String]
-        let refusesWritesTo: String?
-
-        init(_ items: [String: String] = [:], refusesWritesTo: String? = nil) {
-            self.items = items
-            self.refusesWritesTo = refusesWritesTo
-        }
-
-        func read(account: String) throws -> String? { items[account] }
-        func save(_ value: String, account: String) throws {
-            if account == refusesWritesTo { throw Keychain.Failure.system(-25299) }
-            items[account] = value
-        }
-        func delete(account: String) throws { items[account] = nil }
-    }
     /// The one that could not be written before the seam existed, and the reason the seam does.
     ///
     /// Copy first, delete second, and only if the copy worked. The other order reads the same and
@@ -115,7 +97,7 @@ struct AppSettingsMigrationTests {
     /// so the wrong version passed the suite. It fails this one.
     @Test("A refused write keeps the old secret instead of destroying it")
     func refusedMigrationKeepsTheOldSecret() {
-        let store = Store(["old-token": "a-token"], refusesWritesTo: "new-token")
+        let store = InMemoryStore(["old-token": "a-token"], refusesWritesTo: "new-token")
         let suiteName = "centinela.tests.refuse.\(UUID().uuidString)"
         let suite = UserDefaults(suiteName: suiteName)!
         defer { UserDefaults.standard.removePersistentDomain(forName: suiteName) }
