@@ -6,6 +6,50 @@
     <description>Your Sentry issues in the macOS menu bar.</description>
     <language>en</language>
     <item>
+      <title>Version 0.7.0</title>
+      <sparkle:version>54</sparkle:version>
+      <sparkle:shortVersionString>0.7.0</sparkle:shortVersionString>
+      <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+      <description sparkle:format="markdown">### Added
+
+- **Four more tests, and now every route has one.** `replays`, `userFeedback` and the transaction threshold were the last three without. The first two have never been seen with live data, so their decoders came from Sentry's published schema; pinning the shape is the honest half of that debt, so the day real data arrives there is something written down to compare it against. The threshold test also pins the second field Sentry sends as **text** where a number is expected, after `issue.count`.
+
+### Changed
+
+- **Signing out is one assignment instead of eighteen.** Everything a Sentry session told the app is one `SessionData` value now, so forgetting it is `data = SessionData()` and cannot miss a field. The previous version listed eighteen by hand, which is exactly how the menu bar ended up counting 539 errors from an account it no longer reached. There is deliberately no test for this: a test would assert what the type already makes true, and the fix is the construction rather than a check bolted on beside it. `lastUpdated` stays out of the value on purpose — it is persisted so the panel can say how old the data on screen is after a restart.
+- `PanelRows.swift` crossed 400 lines and is split along a seam that means something: rows that draw Sentry data stay, and everything drawn *in place of* data — no session yet, answer not arrived, answer was nothing — moves to `PanelStates.swift`.
+
+- **The panel is usable with VoiceOver, which it was not.** An issue row was seven separate stops — title, file, short id, project, event count, people count, time — so getting past a list of fifteen took a hundred swipes. Each row is one element now, and reads in the order somebody would want it: how bad Sentry thinks it is, what broke, where, how much. The three footer buttons had a tooltip and no label, so they announced themselves as "arrow clockwise", "gearshape" and "power".
+- **Liquid Glass switches off under Reduce Transparency.** Apple's own documentation for `accessibilityReduceTransparency` says elements "should not be semi-transparent; they should be rendered as opaque instead", and the footer controls ignored it. Neither of the two repositories this project was modelled on handles that setting: zero files mention it in one, none in the other.
+- **Sentry's triage stops being colour-only.** The severity symbol varies by shape, but the tint carries a different axis — Sentry's own priority — so an escalating warning and a one-off error could look identical apart from colour. With Differentiate Without Colour on, the word joins the metadata line.
+
+- **Nine tests for routes and guards that had none.** The list came from counting every public symbol in `CentinelaCore` against every name mentioned anywhere under `Tests/`: twenty were never named once. Two of the new tests are guards rather than coverage. **No error message carries the token**, checked across four failure modes, which until now was a rule in `AGENTS.md` with nothing holding it up — two of the six error cases build their text out of whatever Sentry sent back. And **the read-only check actually distinguishes**: the panel warns when a token can read the organization's audit log, and nothing stopped that check from quietly answering "read-only" for every token. Both were verified by breaking them.
+- **One motion vocabulary, and it honours reduce motion.** `Motion.curve` is the single curve, and `.panelMotion(_:)` applies it or applies nothing at all when the system says to reduce motion. Counts roll their digits with `.contentTransition(.numericText())` instead of being replaced; sections and the swap from placeholder rows to real ones cross fade instead of snapping.
+
+### Fixed
+
+- **The panel said "Nothing here." while it was still asking.** Four sections did it, and the issue list is the most expensive route in the API at 1047 ms measured, so a statement that was simply untrue sat on screen for about a second every time somebody opened the panel. Each section now draws placeholder rows in the shape of what is coming, and keeps "Nothing here." for when the answer really was nothing.
+
+### Changed
+
+- The placeholders are `.redacted(reason: .placeholder)`, which is SwiftUI's own version of a skeleton component: it draws the real layout with its text replaced by blocks. Nothing is hand-drawn, so these cannot drift away from the rows they stand in for. The animation is the one thing it does not bring, and the header already spins while a request is in flight — a shimmer of our own would be a second, unsynchronised animation saying the same thing.
+- The four copies of the empty-state text are one `EmptySection`. They were identical before and each of them now has a loading branch next to it.
+
+### Changed
+
+- **The README has the screenshot it was missing**, generated by `make screenshot` from invented data rather than pasted from a live organization. The tool compiles against the app's own sources, so a picture that stops matching the UI is a compile error instead of an image that quietly lies. Two things had to be found out first, both now commented where they bite: rendered offscreen the panel draws nothing at all, and rendered without a background of its own every label resolves to white, which is why the first attempts came out with a sparkline, the level icons, and not one letter.
+- **The README is a front page again, not an engineering diary.** It opened with the search that proved no such app existed, then API timings, then a memory comparison against SwiftBar, and reached "how do I install this" on line 54 of 311. It is 108 lines now: badges, install, what it shows, signing in, building, what it deliberately does not do, and an index. Every measurement moved rather than disappeared — into `docs/notes.md`, or into `SECURITY.md` where the entitlement trade belongs — and a check confirms all thirty figures and proper names from the old file still exist somewhere.
+- **Every persisted key is in English, and the old values move across.** Nine `UserDefaults` keys and both Keychain accounts were Spanish. A rename that quietly forgets somebody's organization and refresh interval is data loss, not a rename, so the old names are copied forward once and then removed. The Keychain accounts move too, and it costs no extra password dialog: reading the new account finds no item, which never prompts, and reading the old one is the read that init already did. The refresh token migrates on first use rather than at startup, which is where the clock-before-Keychain rule from 0.6.0 wants it. The old names survive verbatim in one migration table and the test that exercises it, because there they are data.
+- Comments and local names in `Centinela.entitlements`, `Tools/appcast.py`, `Tools/generate-icon.swift` and the issue fixture are English.
+
+### Fixed
+
+- **The README claimed the Keychain token was already readable by any process running as you, and it was not.** Measured on a throwaway item created by a signed build: `/usr/bin/security` reading it prompts, and `securityd` logs `displaying keychain prompt for /usr/bin/security`. The item is bound to a signature. That inverts the paragraph resting on it: `disable-library-validation` costs more than was written, not less, because code inside the process is exactly the identity the Keychain admits without asking.</description>
+      <sparkle:fullReleaseNotesLink>https://github.com/notluquis/centinela/releases/tag/v0.7.0</sparkle:fullReleaseNotesLink>
+      <pubDate>Mon, 24 Aug 2026 01:33:34 +0000</pubDate>
+      <enclosure url="https://github.com/notluquis/centinela/releases/download/v0.7.0/Centinela.zip" sparkle:edSignature="lHWWffVA9WaZhX1sFDD048HOFx4Nu6w23b/sI60x53uFXZYjGjAuHDoq1ucYbs5erj8bz2DE2xfmfmm5nVpoDw==" length="2606067" type="application/octet-stream" />
+    </item>
+    <item>
       <title>Version 0.6.1</title>
       <sparkle:version>45</sparkle:version>
       <sparkle:shortVersionString>0.6.1</sparkle:shortVersionString>
