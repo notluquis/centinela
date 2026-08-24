@@ -107,6 +107,9 @@ Some of this is in the code without live data behind it, and says so rather than
 | [SECURITY.md](SECURITY.md) | Where the token lives, what the signing certificate fixes and what it does not, all measured |
 | [docs/notes.md](docs/notes.md) | API costs, why it polls, what "native" costs in RAM, building without Xcode, cutting a release |
 | [AGENTS.md](AGENTS.md) | The rules this repository is held to, each one naming something that already went wrong |
+| [CONTRIBUTING.md](CONTRIBUTING.md) | The short version of those rules, plus the loop and what is deliberately absent |
+| [THIRD_PARTY_LICENSES.md](THIRD_PARTY_LICENSES.md) | One dependency, and where its licence travels inside the app |
+| [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) | Be decent; argue with the claim and not with whoever made it |
 
 ## Licence
 

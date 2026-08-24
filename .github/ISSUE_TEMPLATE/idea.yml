@@ -1,0 +1,25 @@
+name: An idea, or a question
+description: Something Centinela could do, or something about it that is unclear.
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Worth knowing before writing: Centinela is **read-only** on purpose and will stay that way.
+        Resolving, assigning and muting are not missing features, they are the property being kept —
+        the token can be read-only only as long as no code path writes. `README.md` has the rest of
+        the list of things it does not do and why.
+  - type: textarea
+    id: what
+    attributes:
+      label: What you are trying to do
+      description: The problem rather than the solution, if you can. It is often solvable another way.
+    validations:
+      required: true
+  - type: textarea
+    id: sentry
+    attributes:
+      label: Which Sentry data it would need
+      description: |
+        If it needs a route the app does not call yet, say which. Some are already decoded and
+        waiting for somebody with the data to verify them against — `README.md` lists those.

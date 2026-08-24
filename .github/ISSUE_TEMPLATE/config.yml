@@ -1,0 +1,5 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Security
+    url: https://github.com/notluquis/centinela/blob/main/SECURITY.md
+    about: How the token is stored, what the signing certificate fixes, and how to report a problem privately.

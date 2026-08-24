@@ -6,7 +6,12 @@ The release workflow reads the section for the tag being published out of this f
 
 ## [Unreleased]
 
-CI was red for two pushes over a check of mine that could not report failure, and the app bundle stops calling a licence a copyright.
+The app ships Sparkle's licence, as Sparkle's licence asks; CI was red for two pushes over a check that could not report failure; and the repository gets the community files it never had.
+
+### Added
+
+- **`THIRD_PARTY_LICENSES.md`, and Sparkle's licence inside the app.** Sparkle is MIT, and MIT asks for the notice to be included in "all copies or substantial portions of the Software" — shipping `Sparkle.framework` inside the bundle is a copy, and it was going out without one. `make app` resolves the licence out of the SwiftPM artifact into `Contents/Resources/Sparkle-LICENSE.txt` and **fails** if it cannot find it. Resolved rather than vendored: a copy pasted into the repository goes stale on the next version bump and nobody notices.
+- **Issue templates, a pull request template, `CONTRIBUTING.md` and a code of conduct.** The bug template asks for the version and the macOS build, and opens by saying not to paste a token or a screenshot with real issue titles in it, because titles carry internal endpoints and customer names and this repository is public. The pull request template lives at `.github/PULL_REQUEST_TEMPLATE.md`, one of the three paths GitHub actually reads — a well-known macOS project keeps its at `PULL_REQUEST.md`, which is not one of them.
 
 ### Fixed
 

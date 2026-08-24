@@ -85,6 +85,17 @@ app: build
 	fi
 	cp -R Resources/*.lproj $(APP_DIR)/Contents/Resources/
 	cp Resources/Centinela.icns $(APP_DIR)/Contents/Resources/
+	# Sparkle's licence travels with Sparkle. It is MIT, and MIT asks that the notice be included
+	# in "all copies or substantial portions of the Software" — shipping the framework inside this
+	# bundle without it is the one condition that licence sets, unmet. Resolved from the artifact
+	# rather than vendored, so a version bump cannot leave a stale notice behind.
+	@sparkle_license=$$(find .build/artifacts -maxdepth 4 -iname 'LICENSE*' -path '*[Ss]parkle*' | head -1); \
+	if [ -n "$$sparkle_license" ]; then \
+		cp "$$sparkle_license" $(APP_DIR)/Contents/Resources/Sparkle-LICENSE.txt; \
+	else \
+		echo "error: Sparkle's licence was not found; the bundle would ship it without one" >&2; \
+		exit 1; \
+	fi
 	# Sparkle travels inside the bundle. It arrives ad-hoc signed from its own project, which is
 	# consistent with how this app is signed.
 	mkdir -p $(APP_DIR)/Contents/Frameworks

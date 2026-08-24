@@ -1,0 +1,42 @@
+name: Something is wrong
+description: The app did something it should not, or did not do something it should.
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        **Do not paste a Sentry token, and do not paste a screenshot with real issue titles in it.**
+        Titles carry the names of internal endpoints and, often, of customers. This repository is
+        public and so is anything attached here. A screenshot with the text blurred is fine; so is
+        describing what you saw.
+  - type: input
+    id: version
+    attributes:
+      label: Which version
+      description: Settings → About, or the version in the menu bar app's Get Info.
+      placeholder: "0.8.0"
+    validations:
+      required: true
+  - type: input
+    id: macos
+    attributes:
+      label: Which macOS
+      placeholder: "26.1, or 27.0 beta (26A5416b)"
+    validations:
+      required: true
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened, and what you expected instead
+      description: |
+        If it is reproducible, the steps. If it is not, say so — an intermittent bug reported as
+        intermittent is far more useful than one described as if it always happens.
+    validations:
+      required: true
+  - type: textarea
+    id: extra
+    attributes:
+      label: Anything the app told you
+      description: |
+        A message from the panel, or lines from `log show --predicate 'process == "Centinela"' --last 10m`.
+        Read them before pasting: the app never logs the token, but your own paths can be in there.
