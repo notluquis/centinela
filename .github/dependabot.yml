@@ -1,0 +1,18 @@
+# Only `github-actions`. Swift Package Manager is **not** in Dependabot's supported ecosystems,
+# checked against GitHub's own table rather than assumed, so Sparkle's version is watched by hand
+# and `Package.resolved` is what the release workflow reads to pick its signing tools.
+#
+# The reason this file exists at all is that the workflows pin every action to a full commit SHA.
+# A pinned SHA is the right call — a tag can be moved under you — and it is also a version that
+# nobody will ever notice going stale. Dependabot is what notices.
+version: 2
+updates:
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    commit-message:
+      prefix: "chore(actions)"
+    labels: []
+    open-pull-requests-limit: 3

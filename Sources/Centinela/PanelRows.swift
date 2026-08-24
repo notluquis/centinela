@@ -17,6 +17,9 @@ struct IssueSection: View {
         var parts: [String] = []
         parts.append(issue.triage.label + " priority")
         parts.append(issue.title)
+        if issue.isUnhandled == true {
+            parts.append("unhandled, a crash")
+        }
         if let culprit = issue.culprit, !culprit.isEmpty {
             parts.append("in " + culprit)
         }
@@ -70,6 +73,22 @@ struct IssueSection: View {
                             // about it. It was decoded from the first commit and never shown.
                             if differentiateWithoutColor {
                                 Text(issue.triage.label)
+                                Text("·")
+                            }
+                            // Decoded since the first commit and never shown until now. An
+                            // unhandled error is a crash rather than something the code caught
+                            // and carried on from, which is the next thing worth knowing after
+                            // the title, and Sentry sends it for free on every issue.
+                            if issue.isUnhandled == true {
+                                // A symbol and not the word "crash". The word fits until it
+                                // does not: with it in place this line wrapped and pushed the
+                                // timestamp onto a second row at the panel's 380 pt. The meaning
+                                // is carried by the tooltip for a pointer and by the row's
+                                // accessibility label for VoiceOver, which both say it in full.
+                                Image(systemName: "exclamationmark.octagon.fill")
+                                    .foregroundStyle(.orange)
+                                    .help("Unhandled: this one crashed")
+                                Text("·")
                             }
                             Text(issue.shortId)
                                 .font(.system(.caption2, design: .monospaced))

@@ -29,12 +29,14 @@ import SwiftUI
         }
 
         func issue(_ id: String, _ title: String, _ culprit: String, _ count: Int,
-                   _ users: Int, _ sub: String, _ pri: String, _ seen: String) -> SentryIssue {
+                   _ users: Int, _ sub: String, _ pri: String, _ seen: String,
+                   _ unhandled: Bool = false) -> SentryIssue {
             let json = """
             {"id":"\(id)","shortId":"API-\(id)","title":"\(title)","culprit":"\(culprit)",
              "level":"error","substatus":"\(sub)","priority":"\(pri)",
              "permalink":"https://example.sentry.io/issues/\(id)/",
              "lastSeen":"\(seen)","userCount":\(users),"count":"\(count)",
+             "isUnhandled":\(unhandled),
              "project":{"id":"1","slug":"api","name":"api"}}
             """
             let dec = JSONDecoder(); dec.dateDecodingStrategy = .iso8601
@@ -43,7 +45,7 @@ import SwiftUI
 
         var list: [SentryIssue] = []
         list.append(issue("41", "TypeError: cannot read property of an undefined value",
-                           "src/routes/checkout.ts", 128, 34, "escalating", "high", minutesAgo(4)))
+                           "src/routes/checkout.ts", 128, 34, "escalating", "high", minutesAgo(4), true))
         list.append(issue("42", "TimeoutError: upstream did not answer in 30s",
                            "src/services/billing.ts", 61, 12, "ongoing", "medium", minutesAgo(37)))
         list.append(issue("43", "DecodingError: keyNotFound(invoice_id)",

@@ -6,6 +6,11 @@ The release workflow reads the section for the tag being published out of this f
 
 ## [Unreleased]
 
+### Added
+
+- **An issue that crashed says so.** `isUnhandled` had been decoded since the first commit and shown nowhere: an unhandled error is a crash rather than something the code caught and carried on from, which is the next thing worth knowing after the title, and Sentry sends it on every issue for free. It is a marker rather than the word "crash", because the word fit until it did not — with it in place the metadata line wrapped and pushed the timestamp onto a second row at the panel's 380 pt. The full sentence is in the tooltip and in what VoiceOver reads. With that, nothing decoded from Sentry goes unused: the other five candidates a sweep turns up are all read through a computed property.
+- **Dependabot, for the pinned actions.** Every action in the workflows is pinned to a full commit SHA, which is the right call because a tag can be moved underneath you, and it is also a version nobody will ever notice going stale. Swift Package Manager is **not** one of Dependabot's supported ecosystems — checked against GitHub's own table rather than assumed, the same lesson the muter config just taught — so Sparkle stays watched by hand.
+
 ### Fixed
 
 - **Mutation testing had never run once, and four of its five failures were real defects.** The workflow was weekly and was added days before the first Monday, so the first execution was triggered by hand. `--output-json` is not a muter flag, so it died before mutating a line. Muter mutates a copy and resolves dependencies there, so with nothing in SwiftPM's cache that copy tried to clone Sparkle over the network. `mutateFilesInDirectories` is ignored, so it mutated the SwiftUI target the config excludes and emitted Swift that does not compile. And `swift test` in debug makes SwiftPM code-sign the executable, a spawn that fails inside muter, where a release build — which is what `make test` runs anyway — never reaches it. All four fixed; the fifth, a baseline failure in one test that passes locally, in CI, and from a copied checkout, is written up in `docs/notes.md` and the weekly schedule is off until it is understood. A job that fails every Monday teaches people to ignore Monday.
