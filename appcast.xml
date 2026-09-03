@@ -6,6 +6,37 @@
     <description>Your Sentry issues in the macOS menu bar.</description>
     <language>en</language>
     <item>
+      <title>Version 0.10.0</title>
+      <sparkle:version>99</sparkle:version>
+      <sparkle:shortVersionString>0.10.0</sparkle:shortVersionString>
+      <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+      <description sparkle:format="markdown">The menu-bar number can count open issues instead of raw error events, the panel gets a design pass — a readable chart, status badges, a hover-and-copy list — and a release whose project id came back as a number no longer blanks the Health tab.
+
+### Added
+
+- **The menu-bar count is a choice now.** "147 error events" sat above "3 unresolved issues" and read as a contradiction — they are different quantities, occurrences versus open groups. Settings → Query → **Menu bar counts** picks which one the number answers: error events (the default, which rides the series the cheap cycle already fetches), or the count of unresolved / for-review / escalating / regressed issues. An issue count is the one sanctioned exception to the cheap/expensive split, and it persists once chosen; the default keeps a fresh install off the periodic issue-list read.
+- **The panel sparkline reads as a chart, not a hairline.** A gradient area under the line and a dot on the latest value, in the panel and the menu bar both; the pointer over it names the bucket's count and time. The segments stay straight — these are error spikes, and a smoothed curve would round a real one into a swell it never was.
+- **The issue list behaves like a list.** Rows highlight under the pointer, a right-click copies the short id, title or link without a trip to the browser, and the arrow keys move a selection that Return opens in Sentry (⌘R refreshes). Sentry's two highest-signal states, escalating and regressed, ride a small corner badge on the severity icon.
+- **Three more issue filters — Resolved, Archived and All** — alongside the open-issue states, so the panel can answer "what did we just close" and "everything" and not only "what is still open".
+- **The performance rows badge the HTTP method** (GET, POST, PUT, PATCH, DELETE) the way an API client colours them, so the verb reads at a glance and the routes line up.
+- **Releases say which project they went to**, when a release spans more than one.
+
+### Changed
+
+- Section headers are uppercase and letter-spaced, the way the menu-bar meters label their bands; counts use tabular figures so they line up down a list; a culprit path truncates in the middle to keep its filename.
+- The issue sub-filter is a right-aligned funnel menu instead of a second row of tabs stacked under the section switcher, which read as filtering twice.
+- The issue-limit control is a menu, consistent with the pickers around it, rather than a stepper whose value was stranded in its label.
+- A release named by an ISO-8601 timestamp renders as a short date instead of a wall of punctuation.
+- When the unresolved count saturates its fetch limit the number shows as `N+`, so a busy organization is not read as exactly the limit.
+
+### Fixed
+
+- **A release whose `projects[].id` arrived as a number blanked the Health tab.** Sentry sends that id as a string from `/projects/` but as a number where a project is embedded in a release — the quirk already recorded for `stats_v2`. The number threw a `typeMismatch` that aborted the whole periodic read, taking the crash-free rate and the per-project breakdown down with the releases. `Project` now decodes either shape, and releases, crash-free and the breakdown are tolerant so one surprising field never blanks the rest again.</description>
+      <sparkle:fullReleaseNotesLink>https://github.com/notluquis/centinela/releases/tag/v0.10.0</sparkle:fullReleaseNotesLink>
+      <pubDate>Thu, 03 Sep 2026 03:56:14 +0000</pubDate>
+      <enclosure url="https://github.com/notluquis/centinela/releases/download/v0.10.0/Centinela.zip" sparkle:edSignature="mMPj7b2qmvFqGP221G3ukfOR998rvZZfiX4qs0CMH7oS2NYjt9L+r1+soKRD/jqi/3ce/IvyC7yyH3Nv5OYXBA==" length="2698402" type="application/octet-stream" />
+    </item>
+    <item>
       <title>Version 0.9.0</title>
       <sparkle:version>91</sparkle:version>
       <sparkle:shortVersionString>0.9.0</sparkle:shortVersionString>
