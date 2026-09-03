@@ -3,12 +3,18 @@
     "version": "fa907c0c6616189f321a1cfa9de082c319662665",
     "shortVersion": "fa907c0c6616189f321a1cfa9de082c319662665",
     "dateCreated": "2026-08-22T18:15:40.781127Z",
-    "newGroups": 0
+    "newGroups": 0,
+    "projects": [
+      {"id": 4511380596523008, "slug": "example-api", "name": "example-api"}
+    ]
   },
   {
     "version": "v2.4.1",
     "shortVersion": "v2.4.1",
     "dateCreated": "2026-08-20T10:00:00Z",
-    "newGroups": 7
+    "newGroups": 7,
+    "projects": [
+      {"id": "2", "slug": "example-web", "name": "example-web"}
+    ]
   }
 ]

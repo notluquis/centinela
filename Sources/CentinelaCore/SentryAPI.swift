@@ -234,3 +234,46 @@ public enum TimeWindow: String, CaseIterable, Sendable {
         }
     }
 }
+
+/// What the menu-bar number counts.
+///
+/// Error *events* (`events-stats`, all issue statuses) read next to the panel's issue list as if
+/// they were the same quantity: 147 events across 3 unresolved issues invites the reading that 144
+/// are missing. They are different questions — one counts occurrences, the other open issue groups
+/// — so this lets the number answer the one the reader means.
+///
+/// `.errorEvents` is the default because it rides the cheap series the cycle already fetches
+/// (937 B), keeping a fresh install off the periodic issue-list read that AGENTS.md keeps out of
+/// the cheap cycle. Every other case adds one issue-list read per cycle, so choosing one is opting
+/// into that traffic knowingly — and it persists once chosen.
+public enum BadgeMetric: String, CaseIterable, Sendable {
+    case errorEvents
+    case unresolved
+    case forReview
+    case escalating
+    case regressed
+
+    /// For the Settings picker.
+    public var label: String {
+        switch self {
+        case .errorEvents: "Error events"
+        case .unresolved: "Unresolved issues"
+        case .forReview: "Issues for review"
+        case .escalating: "Escalating issues"
+        case .regressed: "Regressed issues"
+        }
+    }
+
+    /// The singular noun for the panel header. The head is the LAST word on purpose: the header
+    /// pluralizes by appending "s", so "for-review issue" → "for-review issues", where "issue for
+    /// review" would wrongly become "issue for reviews".
+    public var noun: String {
+        switch self {
+        case .errorEvents: "error"
+        case .unresolved: "unresolved issue"
+        case .forReview: "for-review issue"
+        case .escalating: "escalating issue"
+        case .regressed: "regressed issue"
+        }
+    }
+}

@@ -50,6 +50,22 @@ struct DecodingTests {
         #expect(releases.count == 2)
     }
 
+    @Test("A backend transaction splits into method and path; a page load has neither")
+    func transactionMethod() {
+        let post = TransactionStat(transaction: "POST /api/orpc/roles/rpc/syncPermissions", count: 2, p95: 3780)
+        #expect(post.method == "POST")
+        #expect(post.path == "/api/orpc/roles/rpc/syncPermissions")
+
+        let page = TransactionStat(transaction: "/finanzas/cash-flow", count: 350, p95: 4270)
+        #expect(page.method == nil)
+        #expect(page.path == "/finanzas/cash-flow")
+
+        // A first word that only looks method-ish is not one: the badge is for real HTTP verbs.
+        let weird = TransactionStat(transaction: "GETSTARTED /x", count: 1, p95: 1)
+        #expect(weird.method == nil)
+        #expect(weird.path == "GETSTARTED /x")
+    }
+
     @Test("Missing optional fields do not take down the list")
     func missingOptionals() throws {
         let data = try fixture("issues")
@@ -95,6 +111,27 @@ struct DecodingTests {
         let releases = try SentryClient.decoder.decode([Release].self, from: data)
         #expect(releases[0].label == "fa907c0")
         #expect(releases[1].label == "v2.4.1")
+        // The projects a release went to, when the response carries them. Embedded in a release,
+        // Sentry sends the project id as a NUMBER (unlike `/projects/`, which sends a string), so
+        // this also pins that the lenient `Project` decoder turns it back into the string id.
+        #expect(releases[0].primaryProjectSlug == "example-api")
+        #expect(releases[0].projects?.first?.id == "4511380596523008")
+        #expect(releases[1].primaryProjectSlug == "example-web")
+    }
+
+    /// Some pipelines name a release by an ISO-8601 timestamp; shown raw it is a wall of
+    /// punctuation, so `label` reformats it to a short date. Asserted by what it is NOT (no `T`,
+    /// no `Z`) so the check does not pin a locale-specific rendering.
+    @Test("A release named by an ISO timestamp shows as a date, not raw punctuation")
+    func releaseTimestampLabel() throws {
+        let json = """
+        [{"version":"2026-09-03T01:07:11Z","shortVersion":"2026-09-03T01:07:11Z",
+          "dateCreated":"2026-09-03T01:07:11Z","newGroups":0}]
+        """
+        let releases = try SentryClient.decoder.decode([Release].self, from: Data(json.utf8))
+        #expect(!releases[0].label.contains("T"))
+        #expect(!releases[0].label.contains("Z"))
+        #expect(releases[0].label != releases[0].shortVersion)
     }
 
     @Test("An unknown level does not break and falls back to error", arguments: [

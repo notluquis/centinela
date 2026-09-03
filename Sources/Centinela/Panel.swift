@@ -48,12 +48,15 @@ struct PanelHeader: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             HStack {
-                Text("\(state.totalErrors) errors")
+                // Noun follows what the number counts (`badgeMetric`): "147 errors" or "3
+                // unresolved issues", and "15+" when the fetch hit its limit so the number does
+                // not silently undercount.
+                Text(state.badgeHeadline)
                     .font(.title2.weight(.semibold))
                     // The digits roll instead of being replaced. A count that jumps from 228 to
                     // 231 with no motion reads as a redraw; rolling says a number changed.
-                    .contentTransition(.numericText(value: Double(state.totalErrors)))
-                    .panelMotion(state.totalErrors)
+                    .contentTransition(.numericText(value: Double(state.badgeValue)))
+                    .panelMotion(state.badgeValue)
                 Text("in the last \(state.settings.window.label)")
                     .foregroundStyle(.secondary)
                     // Read as one sentence. Two Texts are two stops for VoiceOver, and "228
@@ -67,9 +70,8 @@ struct PanelHeader: View {
                         .transition(.opacity)
                 }
             }
-            SparklinePath(values: state.data.series.points.map(\.count))
-                .frame(height: 34)
-                .foregroundStyle(.tint)
+            SparklinePath(points: state.data.series.points)
+                .frame(height: 40)
             // Uptime used to be repeated here. It lives in the Health section now, and the menu
             // bar icon already turns red when something is down, so the header stays the count
             // and the shape of the last few hours.
@@ -123,6 +125,9 @@ enum IssueFilter: String, CaseIterable, Identifiable {
     case forReview
     case escalating
     case regressed
+    case resolved
+    case archived
+    case all
 
     var id: Self { self }
 
@@ -132,6 +137,9 @@ enum IssueFilter: String, CaseIterable, Identifiable {
         case .forReview: "For review"
         case .escalating: "Escalating"
         case .regressed: "Regressed"
+        case .resolved: "Resolved"
+        case .archived: "Archived"
+        case .all: "All"
         }
     }
 }
@@ -145,6 +153,12 @@ struct PanelContent: View {
         _section = State(initialValue: section)
     }
     @State private var filter: IssueFilter = .unresolved
+
+    /// Keyboard navigation of the issue list: the id of the highlighted row, whether the list has
+    /// keyboard focus, and the environment opener that ↩ uses to open the selected issue.
+    @State private var selected: String?
+    @FocusState private var listFocused: Bool
+    @Environment(\.openURL) private var openURL
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -165,31 +179,50 @@ struct PanelContent: View {
             .padding(.top, 8)
 
             if section == .issues {
-                // A menu and NOT a second segmented control stacked under the first. Apple's
-                // guidance for segmented controls is explicit: "avoid putting other focusable
-                // elements close to segmented controls […] segments become selected when focus
-                // moves to them, not when people click them". Two of them touching is exactly
-                // that, and it showed: the lower one kept stealing the accent-coloured selection
-                // just from having focus.
-                Picker("Issues", selection: $filter) {
-                    ForEach(IssueFilter.allCases) { option in
-                        Text(issues(option).isEmpty ? option.label : "\(option.label) (\(issues(option).count))")
-                            .tag(option)
+                // Right-aligned behind a funnel, so it reads as a refinement OF the Issues tab
+                // rather than a second row of tabs stacked under the first — which is what a
+                // left-aligned, full-looking control next to the segmented bar read as.
+                //
+                // A menu and NOT a second segmented control: Apple's guidance is to avoid
+                // focusable elements close to a segmented control, because segments select on
+                // focus rather than on click, and two touching bars stole each other's selection.
+                HStack(spacing: 0) {
+                    Spacer()
+                    // One `Menu`, funnel and label together, so the funnel is part of the button
+                    // instead of a dead icon beside it — clicking anywhere on it opens the list.
+                    // The inline `Picker` inside gives the four options their selected checkmark.
+                    Menu {
+                        Picker("Filter issues", selection: $filter) {
+                            ForEach(IssueFilter.allCases) { option in
+                                Text(issues(option).isEmpty
+                                     ? option.label
+                                     : "\(option.label) (\(issues(option).count))")
+                                    .tag(option)
+                            }
+                        }
+                        .pickerStyle(.inline)
+                    } label: {
+                        HStack(spacing: 4) {
+                            Image(systemName: "line.3.horizontal.decrease")
+                            Text(issues(filter).isEmpty
+                                 ? filter.label
+                                 : "\(filter.label) (\(issues(filter).count))")
+                        }
+                        .font(.caption)
                     }
+                    .menuStyle(.borderlessButton)
+                    .fixedSize()
                 }
-                .pickerStyle(.menu)
-                .labelsHidden()
-                .controlSize(.small)
-                .fixedSize()
                 .padding(.horizontal, 12)
                 .padding(.top, 6)
             }
 
-            ScrollView {
+            ScrollViewReader { proxy in
+             ScrollView {
                 VStack(alignment: .leading, spacing: 0) {
                     switch section {
                     case .issues:
-                        IssueSection(issues: issues(filter), loading: state.loading)
+                        IssueSection(issues: issues(filter), loading: state.loading, selected: selected)
                     case .health:
                         HealthSection(state: state)
                     case .performance:
@@ -232,7 +265,41 @@ struct PanelContent: View {
             // on the frame height" never converges (91 pt against the 250 pt of the plain
             // arrangement, measured with `NSHostingView`).
             .frame(minHeight: 300, maxHeight: 420)
+             // Arrow keys move the selection, Return opens it in Sentry — the way a dev drives a
+             // list like this in Raycast. Focusable only on the Issues tab; the other tabs have
+             // nothing to select. Focus is claimed when the tab is shown so the keys work without
+             // a click first, and given up when leaving Issues so the pickers keep their own.
+             .focusable(section == .issues)
+             .focused($listFocused)
+             // No focus ring around the scroll area — the selected row's own highlight is the
+             // cue. Without this the whole list draws a blue border when it takes key focus.
+             .focusEffectDisabled()
+             .onKeyPress(.upArrow) { moveSelection(-1, proxy); return .handled }
+             .onKeyPress(.downArrow) { moveSelection(1, proxy); return .handled }
+             .onKeyPress(.return) { openSelected(); return .handled }
+             .onChange(of: section) { listFocused = section == .issues }
+             .onChange(of: filter) { selected = nil }
+             .onAppear { listFocused = section == .issues }
+            }
         }
+    }
+
+    /// Moves the keyboard selection within the current filter's list and scrolls it into view.
+    /// From no selection, the first press lands on the top row.
+    private func moveSelection(_ delta: Int, _ proxy: ScrollViewProxy) {
+        let list = issues(filter)
+        guard !list.isEmpty else { return }
+        let ids = list.map(\.id)
+        let current = selected.flatMap { ids.firstIndex(of: $0) } ?? -1
+        let next = max(0, min(ids.count - 1, current + delta))
+        selected = ids[next]
+        withAnimation { proxy.scrollTo(ids[next], anchor: .center) }
+    }
+
+    /// Opens the selected issue in Sentry, the same destination its row's `Link` points at.
+    private func openSelected() {
+        guard let id = selected, let issue = issues(filter).first(where: { $0.id == id }) else { return }
+        openURL(issue.permalink)
     }
 
     /// Feedback drops out when empty. Positions shift the day it appears, which is a day worth
@@ -247,6 +314,9 @@ struct PanelContent: View {
         case .forReview: state.data.forReview
         case .escalating: state.data.escalating
         case .regressed: state.data.regressed
+        case .resolved: state.data.resolved
+        case .archived: state.data.archived
+        case .all: state.data.allIssues
         }
     }
 
@@ -289,82 +359,5 @@ struct PanelContent: View {
                 color: .orange
             )
         }
-    }
-}
-
-struct ReleaseSection: View {
-    let releases: [Release]
-    let loading: Bool
-
-    var body: some View {
-        if releases.isEmpty {
-            if loading {
-                PlaceholderRows(lines: 2)
-            } else {
-                EmptySection()
-            }
-        }
-        ForEach(releases) { release in
-            HStack {
-                Text(release.label).font(.system(.callout, design: .monospaced))
-                Spacer()
-                Text("^[\(release.newGroups) new issue](inflect: true)")
-                    .font(.caption)
-                    .foregroundStyle(release.newGroups > 0 ? .orange : .secondary)
-                Text(release.dateCreated, format: .relative(presentation: .numeric))
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 4)
-        }
-    }
-}
-
-struct PanelFooter: View {
-    let state: AppState
-    let openSettings: () -> Void
-
-    var body: some View {
-        HStack {
-            if let when = state.lastUpdated {
-                // Forced into the past: `lastUpdated` is essentially `now` when the panel
-                // draws, and the relative formatter read it as the future ("updated in 0
-                // seconds"). One second back tells the truth and reads properly.
-                Text("Updated \(min(when, Date().addingTimeInterval(-1)), format: .relative(presentation: .numeric))")
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
-            }
-            Spacer()
-            GlassGroup {
-                Button {
-                    Task {
-                        await state.refreshCheap()
-                        await state.refreshExpensive()
-                    }
-                } label: {
-                    Image(systemName: "arrow.clockwise")
-                }
-                .glassButton()
-                .help("Refresh")
-                .accessibilityLabel("Refresh")
-
-                Button(action: openSettings) { Image(systemName: "gearshape") }
-                    .glassButton()
-                    .help("Settings")
-                    .accessibilityLabel("Settings")
-
-                Button { NSApplication.shared.terminate(nil) } label: {
-                    Image(systemName: "power")
-                }
-                .glassButton()
-                .help("Quit")
-                // `.help` is a tooltip and a hint. Without a label VoiceOver falls back to the
-                // symbol's own name, so this announced itself as "power".
-                .accessibilityLabel("Quit Centinela")
-            }
-        }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 8)
     }
 }

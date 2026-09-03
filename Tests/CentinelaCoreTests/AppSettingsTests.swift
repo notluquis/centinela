@@ -126,6 +126,7 @@ struct AppSettingsTests {
         first.organization = "example"
         first.window = .sevenDays
         first.maxIssues = 25
+        first.badgeMetric = .escalating
 
         let second = AppSettings(
             defaults: UserDefaults(suiteName: fixture.suiteName)!,
@@ -135,6 +136,17 @@ struct AppSettingsTests {
         #expect(second.organization == "example")
         #expect(second.window == .sevenDays)
         #expect(second.maxIssues == 25)
+        #expect(second.badgeMetric == .escalating)
+    }
+
+    /// The default is error events, the one metric that rides the series the cheap cycle already
+    /// fetches, so a fresh install does not pull an issue-list read into every periodic tick. A
+    /// blank preference reads as that default; an issue count is an explicit opt-in.
+    @Test("The menu-bar count defaults to error events, keeping the cheap cycle cheap")
+    func badgeMetricDefaultsToErrorEvents() {
+        let fixture = fresh()
+        defer { clean(fixture) }
+        #expect(fixture.settings.badgeMetric == .errorEvents)
     }
 
     @Test("`authMethod` tells the two ways in apart, and survives a restart")
@@ -256,6 +268,12 @@ struct AppSettingsTests {
         shape = settings.queryShape
         settings.maxIssues = 30
         #expect(settings.queryShape != shape, "the issue limit shapes the query")
+
+        // The menu-bar metric decides which route the cheap cycle asks for, so a change has to
+        // re-ask now, not at the next tick. That is exactly what belonging to the shape buys.
+        shape = settings.queryShape
+        settings.badgeMetric = .escalating
+        #expect(settings.queryShape != shape, "the menu-bar metric shapes the query")
 
         // How often to ask is not part of what is asked, and neither is signing out and back in
         // to the same account.

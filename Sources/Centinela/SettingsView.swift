@@ -213,6 +213,13 @@ private struct QueryTab: View {
     var body: some View {
         Form {
             Section {
+                Picker("Menu bar counts", selection: Binding(
+                    get: { settings.badgeMetric },
+                    set: { settings.badgeMetric = $0 }
+                )) {
+                    ForEach(BadgeMetric.allCases, id: \.self) { Text($0.label).tag($0) }
+                }
+
                 Picker("Window", selection: Binding(
                     get: { settings.window },
                     set: { settings.window = $0 }
@@ -230,10 +237,18 @@ private struct QueryTab: View {
                     Text("1 hour").tag(TimeInterval(3600))
                 }
 
-                Stepper("Show \(settings.maxIssues) issues", value: Binding(
+                // A menu, not a stepper. The stepper drew as two bare arrows with the value
+                // stranded in the label ("Show 20 issues"), the one control on this tab that did
+                // not match the pickers around it. This reads "Issues shown  [20 ▾]" like the
+                // rest.
+                Picker("Issues shown", selection: Binding(
                     get: { settings.maxIssues },
                     set: { settings.maxIssues = $0 }
-                ), in: 5...50, step: 5)
+                )) {
+                    ForEach(Array(stride(from: 5, through: 50, by: 5)), id: \.self) { count in
+                        Text("\(count)").tag(count)
+                    }
+                }
 
                 Picker("Project", selection: Binding(
                     get: { settings.selectedProjectID ?? "" },
@@ -259,9 +274,11 @@ private struct QueryTab: View {
                 }
             } footer: {
                 Text("Each cycle asks for two cheap routes (the error series and uptime status)."
-                    + " The issue list, which is ten times heavier, is only fetched when the"
-                    + " panel opens. Sentry offers no webhooks to a desktop app: its"
-                    + " notifications need a publicly reachable URL.")
+                    + " Counting *error events* in the menu bar rides that series for free;"
+                    + " counting any kind of *issue* adds one issue-list read per cycle — ten"
+                    + " times heavier, otherwise only fetched when the panel opens. The count is"
+                    + " capped at the issue limit above. Sentry offers no webhooks to a desktop"
+                    + " app: its notifications need a publicly reachable URL.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)

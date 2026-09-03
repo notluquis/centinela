@@ -48,8 +48,26 @@ extension SentryClient {
             try await issues(matching: "is:unresolved is:regressed", window: window, limit: limit)
         }
 
-        /// The four issue lists differ only in the search query, so they share one call. Adding a
-        /// fifth is a line, and none of them can forget the project or environment filter.
+        /// Issues someone has marked resolved. `is:resolved` is documented alongside `is:unresolved`.
+        public func resolvedIssues(window: TimeWindow = .fourteenDays, limit: Int = 10) async throws -> [SentryIssue] {
+            try await issues(matching: "is:resolved", window: window, limit: limit)
+        }
+
+        /// Archived (ignored) issues. Sentry renamed "ignored" to "archived"; the token is
+        /// `is:archived`.
+        public func archivedIssues(window: TimeWindow = .fourteenDays, limit: Int = 10) async throws -> [SentryIssue] {
+            try await issues(matching: "is:archived", window: window, limit: limit)
+        }
+
+        /// Every issue regardless of status. The endpoint defaults to `is:unresolved` when the
+        /// query is omitted, so "all" is an explicit EMPTY query — `query=` returns resolved and
+        /// archived issues too.
+        public func allIssues(window: TimeWindow = .fourteenDays, limit: Int = 10) async throws -> [SentryIssue] {
+            try await issues(matching: "", window: window, limit: limit)
+        }
+
+        /// The issue lists differ only in the search query, so they share one call. Adding another
+        /// is a line, and none of them can forget the project or environment filter.
         private func issues(matching query: String, window: TimeWindow, limit: Int) async throws -> [SentryIssue] {
             try await get([SentryIssue].self, "issues", [
                 .init(name: "query", value: query),
