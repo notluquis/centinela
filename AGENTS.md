@@ -32,6 +32,8 @@ The one sanctioned exception is the menu-bar count. `badgeMetric` lets someone m
 
 **There is no `ETag` in Sentry's API.** Measured: none of these routes returns one, so there is no 304. If someone proposes "cache with conditional revalidation", the answer is that there is nothing to revalidate against.
 
+**There is no cheap accurate count of unresolved issues.** `/issues/` returns no total-count header (only a `results="true"/"false"` Link that says whether *more* exist beyond `limit`), and there is no count endpoint. The obvious shortcut — `count_unique(issue)` on the `events` (errors) dataset with `is:unresolved` — does NOT match: measured against a real org on the same day, `/issues/?query=is:unresolved` returned **3** (with `results="false"`, so exactly 3), while `count_unique(issue)` with the same filter returned **21**. The events dataset's `is:unresolved` counts distinct issue ids among the window's error events by a looser notion of status, not the live open set. So the menu-bar unresolved count comes from the issue list itself, capped at `maxIssues` and shown as `N+` at the cap — that is as cheap as an accurate count gets, and for a monitoring widget the unresolved set is small in the case that matters.
+
 **Sentry announces deprecations through headers.** `X-Sentry-Deprecation-Date` and `X-Sentry-Replacement-Endpoint`. The client reads them and the panel says so. Do not drop that: without it the app finds out about a change on the day it breaks.
 
 **The three odd shapes of the response.** They are commented in the code, at the exact spot where they bite, and each has a test:
