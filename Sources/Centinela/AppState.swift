@@ -159,13 +159,44 @@ final class AppState {
             async let series = client.errorSeries(window: settings.window)
             async let monitors = client.uptimeMonitors()
             async let crons = client.cronMonitors()
+            // The issue list behind the menu-bar number, when it is not the plain event count.
+            // Read the metric once so the fetch and the store below cannot disagree if it is
+            // changed mid-flight. `nil` when the metric rides the series, which the sparkline
+            // already needs — that case adds no request.
+            let metric = settings.badgeMetric
+            async let badge = badgeIssues(for: metric, using: client)
             data.series = try await series
             data.monitors = try await monitors
             data.crons = try await crons
+            if let list = try await badge { store(list, for: metric) }
             data.lastError = nil
             lastUpdated = .now
         } catch {
             note(error)
+        }
+    }
+
+    /// The issue list whose length is the menu-bar number, or `nil` when the number is the
+    /// error-event count. Non-mutating so it can run in the cheap cycle's `async let` group.
+    private func badgeIssues(for metric: BadgeMetric, using client: SentryClient) async throws -> [SentryIssue]? {
+        switch metric {
+        case .errorEvents: nil
+        case .unresolved: try await client.unresolvedIssues(window: settings.window, limit: settings.maxIssues)
+        case .forReview: try await client.issuesForReview(window: settings.window, limit: settings.maxIssues)
+        case .escalating: try await client.escalatingIssues(window: settings.window, limit: settings.maxIssues)
+        case .regressed: try await client.regressedIssues(window: settings.window, limit: settings.maxIssues)
+        }
+    }
+
+    /// Files the fetched list into the same slot the panel reads, so the number the bar shows and
+    /// the list the panel opens to are the one fetch, not two that can drift.
+    private func store(_ list: [SentryIssue], for metric: BadgeMetric) {
+        switch metric {
+        case .errorEvents: break
+        case .unresolved: data.issues = list
+        case .forReview: data.forReview = list
+        case .escalating: data.escalating = list
+        case .regressed: data.regressed = list
         }
     }
 
@@ -185,13 +216,20 @@ final class AppState {
             data.forReview = try await forReview
             data.escalating = try await escalating
             data.regressed = try await regressed
-            data.releases = try await releases
-            data.crashFree = try await crashFree
-            data.errorsByProject = try await byProject
+            // Releases, crash-free and the per-project breakdown are tolerant on purpose: a
+            // surprise in any one of them must not abort the rest. A release whose project id
+            // arrived as a number once threw a `typeMismatch` here and, because it was `try await`
+            // in this group, blanked the crash-free rate and the project breakdown along with it.
+            data.releases = (try? await releases) ?? []
+            data.crashFree = try? await crashFree
+            data.errorsByProject = (try? await byProject) ?? []
 
-            // Performance and feedback go in their own step rather than the `async let` group
-            // above: they are the two routes with no live data behind them here, so a failure
-            // must not take down the lists that do work.
+            // The extra status filters and the two schema-only routes go in their own step rather
+            // than the `async let` group above: a failure in any of them must not take down the
+            // lists that do work.
+            data.resolved = (try? await client.resolvedIssues(window: settings.window, limit: settings.maxIssues)) ?? []
+            data.archived = (try? await client.archivedIssues(window: settings.window, limit: settings.maxIssues)) ?? []
+            data.allIssues = (try? await client.allIssues(window: settings.window, limit: settings.maxIssues)) ?? []
             data.transactions = (try? await client.slowestTransactions(window: settings.window)) ?? []
             // Only when a single project is selected: the threshold is a per-project setting and
             // there is no organization-wide one to ask for.
@@ -256,6 +294,22 @@ final class AppState {
     }
 
     var totalErrors: Int { data.series.total }
+
+    /// The number the menu bar and the panel header show, following `settings.badgeMetric`. For
+    /// the issue metrics it is the length of a list capped at `maxIssues`, so it reads "how many,
+    /// up to the limit you set" — the same cap the panel's list already has.
+    var badgeValue: Int {
+        switch settings.badgeMetric {
+        case .errorEvents: data.series.total
+        case .unresolved: data.issues.count
+        case .forReview: data.forReview.count
+        case .escalating: data.escalating.count
+        case .regressed: data.regressed.count
+        }
+    }
+
+    /// The singular noun for the header, inflected by `badgeValue` at the call site.
+    var badgeNoun: String { settings.badgeMetric.noun }
 
     var hasOutage: Bool { data.monitors.contains { $0.isActive && !$0.isHealthy } }
 

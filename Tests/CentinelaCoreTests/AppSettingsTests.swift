@@ -126,6 +126,7 @@ struct AppSettingsTests {
         first.organization = "example"
         first.window = .sevenDays
         first.maxIssues = 25
+        first.badgeMetric = .escalating
 
         let second = AppSettings(
             defaults: UserDefaults(suiteName: fixture.suiteName)!,
@@ -135,6 +136,17 @@ struct AppSettingsTests {
         #expect(second.organization == "example")
         #expect(second.window == .sevenDays)
         #expect(second.maxIssues == 25)
+        #expect(second.badgeMetric == .escalating)
+    }
+
+    /// The default is the count of unresolved issues, not the raw event volume: "how many fires
+    /// are still burning" is what a watch is for, and it is the number the panel's list agrees
+    /// with. A blank preference reads as the default, not as `.errorEvents`.
+    @Test("The menu-bar count defaults to unresolved issues")
+    func badgeMetricDefaultsToUnresolved() {
+        let fixture = fresh()
+        defer { clean(fixture) }
+        #expect(fixture.settings.badgeMetric == .unresolved)
     }
 
     @Test("`authMethod` tells the two ways in apart, and survives a restart")
@@ -256,6 +268,12 @@ struct AppSettingsTests {
         shape = settings.queryShape
         settings.maxIssues = 30
         #expect(settings.queryShape != shape, "the issue limit shapes the query")
+
+        // The menu-bar metric decides which route the cheap cycle asks for, so a change has to
+        // re-ask now, not at the next tick. That is exactly what belonging to the shape buys.
+        shape = settings.queryShape
+        settings.badgeMetric = .escalating
+        #expect(settings.queryShape != shape, "the menu-bar metric shapes the query")
 
         // How often to ask is not part of what is asked, and neither is signing out and back in
         // to the same account.

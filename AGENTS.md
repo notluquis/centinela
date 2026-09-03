@@ -26,7 +26,9 @@ This is a menu bar app that reads Sentry's API with a token. The rules below are
 
 ## What to understand before touching the client
 
-**The cheap/expensive split is the architecture, not an optimization.** `refreshCheap()` runs every cycle and asks for `events-stats` (378 ms / 937 B) and `uptime` (490 ms). `refreshExpensive()` asks for the issue list (1047 ms / 10.6 KB) and is called **only** when the panel opens. Moving the list into the periodic cycle multiplies the app's traffic elevenfold so that nobody looks at the result.
+**The cheap/expensive split is the architecture, not an optimization.** `refreshCheap()` runs every cycle and asks for `events-stats` (378 ms / 937 B) and `uptime` (490 ms). `refreshExpensive()` asks for the full issue list (1047 ms / 10.6 KB) and everything else the panel reads, and is called **only** when the panel opens. Moving that full read into the periodic cycle multiplies the app's traffic elevenfold so that nobody looks at the result.
+
+The one sanctioned exception is the menu-bar count. `badgeMetric` lets someone make the bar number the count of unresolved (or for-review / escalating / regressed) *issues* instead of error *events*, because "147 error events across 3 unresolved issues" reads as if 144 went missing — they are different questions, occurrences versus open groups. When the metric is an issue count, `refreshCheap()` pulls **one** issue-list read into the cycle for it; when it is `errorEvents` (which rides the series already fetched), it adds nothing. That is a deliberate, single, user-chosen extra request, not the door reopening on putting the whole expensive read on the timer. The count is capped at `maxIssues`, the same cap the panel's list has.
 
 **There is no `ETag` in Sentry's API.** Measured: none of these routes returns one, so there is no 304. If someone proposes "cache with conditional revalidation", the answer is that there is nothing to revalidate against.
 

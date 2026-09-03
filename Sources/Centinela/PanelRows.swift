@@ -1,160 +1,51 @@
 import CentinelaCore
 import SwiftUI
 
-struct IssueSection: View {
-    let issues: [SentryIssue]
+/// The latest releases, newest first, with the project they went to and how many new issues each
+/// brought in.
+struct ReleaseSection: View {
+    let releases: [Release]
     let loading: Bool
 
-    /// Sentry's triage reaches the eye only as a tint, and this is the system switch for people
-    /// who cannot tell those tints apart. The severity symbol already varies by shape, but that
-    /// is a different axis: an escalating warning and a one-off error can carry the same symbol
-    /// and differ only in colour. With the setting on, the word goes in the metadata line.
-    @Environment(\.accessibilityDifferentiateWithoutColor) private var differentiateWithoutColor
-
-    /// The project only earns its place when the rows do not all come from the same one. In an
-    /// organization with one busy project it says the same thing on every line, and that is the
-    /// width the short id needs to fit whole.
-    ///
-    /// Stored and not computed: as a computed property it was read inside the `ForEach`, so it
-    /// built a `Set` of every slug once per row — quadratic in the list, re-run on every pass of
-    /// `body`, and `body` runs on every frame of an animation. Fifty issues came to two and a
-    /// half thousand string hashes a frame for an answer that cannot change while the view
-    /// exists.
+    /// The project earns its place on the row only when the releases do not all come from the same
+    /// one — the same rule the issue rows use. In a single-project org it would say the same slug
+    /// on every line.
     private let showsProject: Bool
 
-    init(issues: [SentryIssue], loading: Bool) {
-        self.issues = issues
+    init(releases: [Release], loading: Bool) {
+        self.releases = releases
         self.loading = loading
-        self.showsProject = Set(issues.map(\.project.slug)).count > 1
-    }
-
-    /// What VoiceOver reads for a row, in the order somebody would want it: how bad Sentry
-    /// thinks it is, what broke, where, and how much.
-    private func spoken(_ issue: SentryIssue) -> String {
-        var parts: [String] = []
-        parts.append(issue.triage.label + " priority")
-        parts.append(issue.title)
-        if issue.isUnhandled == true {
-            parts.append("unhandled, a crash")
-        }
-        if let culprit = issue.culprit, !culprit.isEmpty {
-            parts.append("in " + culprit)
-        }
-        parts.append(issue.count == 1 ? "1 event" : "\(issue.count) events")
-        if issue.userCount > 0 {
-            parts.append(issue.userCount == 1 ? "1 person" : "\(issue.userCount) people")
-        }
-        return parts.joined(separator: ", ")
-    }
-
-    private func color(for triage: Triage) -> Color {
-        switch triage {
-        case .high: .red
-        case .medium: .orange
-        case .low: .secondary
-        }
+        self.showsProject = Set(releases.flatMap { $0.projects ?? [] }.map(\.slug)).count > 1
     }
 
     var body: some View {
-        if issues.isEmpty {
+        if releases.isEmpty {
             if loading {
-                PlaceholderRows(lines: 3)
+                PlaceholderRows(lines: 2)
             } else {
                 EmptySection()
             }
         }
-        ForEach(issues) { issue in
-            Link(destination: issue.permalink) {
-                HStack(alignment: .top, spacing: 8) {
-                    // Tinted by Sentry's triage rather than by the event level: a warning that
-                    // keeps escalating outranks a one-off error, and that is the call Sentry
-                    // already made.
-                    Image(systemName: issue.severity.symbol)
-                        .foregroundStyle(color(for: issue.triage))
-                        .font(.caption)
-                        .padding(.top, 2)
-                    VStack(alignment: .leading, spacing: 1) {
-                        Text(issue.title)
-                            .lineLimit(2)
-                            .font(.callout)
-                        // `culprit` says where it happened, which is the next thing anyone wants
-                        // after the title. It was decoded from the first commit and never shown.
-                        if let culprit = issue.culprit, !culprit.isEmpty {
-                            Text(culprit)
-                                .lineLimit(1)
-                                .font(.caption2)
-                                .foregroundStyle(.secondary)
-                        }
-                        HStack(spacing: 6) {
-                            // The short id is what you paste into a message when asking someone
-                            // about it. It was decoded from the first commit and never shown.
-                            if differentiateWithoutColor {
-                                Text(issue.triage.label)
-                                Text("·")
-                            }
-                            // Decoded since the first commit and never shown until now. An
-                            // unhandled error is a crash rather than something the code caught
-                            // and carried on from, which is the next thing worth knowing after
-                            // the title, and Sentry sends it for free on every issue.
-                            if issue.isUnhandled == true {
-                                // A symbol and not the word "crash". The word fits until it
-                                // does not: with it in place this line wrapped and pushed the
-                                // timestamp onto a second row at the panel's 380 pt. The meaning
-                                // is carried by the tooltip for a pointer and by the row's
-                                // accessibility label for VoiceOver, which both say it in full.
-                                // No separator after it. A dot between two words is a
-                                // separator; a dot between an icon and a word is a character
-                                // nobody reads, and it costs the width that keeps the short id
-                                // whole on the rows that carry this marker.
-                                Image(systemName: "exclamationmark.octagon.fill")
-                                    .foregroundStyle(.orange)
-                                    .help("Unhandled: this one crashed")
-                            }
-                            // A real short id is `BIOALERGIA-API-1W`, not `API-41`. Measured
-                            // against live data this line ran past 380 points and wrapped in the
-                            // middle of a word, leaving the crash marker alone on a line of its
-                            // own. Shrinking every field was worse: the id truncated to
-                            // `EXAMPLE…` is the part somebody copies, made useless. So the field
-                            // that repeats on every row is the one that goes.
-                            Text(issue.shortId)
-                                .font(.system(.caption2, design: .monospaced))
-                            if showsProject {
-                                Text("·")
-                                Text(issue.project.slug)
-                                    .truncationMode(.middle)
-                                    .layoutPriority(-1)
-                            }
-                            Text("·")
-                            // `inflect` so one event is not "1 events".
-                            Text("^[\(issue.count) event](inflect: true)")
-                                .layoutPriority(1)
-                            if issue.userCount > 0 {
-                                Text("·")
-                                Text("^[\(issue.userCount) person](inflect: true)")
-                                    .layoutPriority(1)
-                            }
-                            Text("·")
-                            Text(issue.lastSeen, format: .relative(presentation: .numeric))
-                        }
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
-                        // One line, always. Wrapping put the timestamp under the id and made two
-                        // rows out of one.
-                        .lineLimit(1)
+        ForEach(releases) { release in
+            HStack(alignment: .firstTextBaseline) {
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(release.label).font(.system(.callout, design: .monospaced))
+                    if showsProject, let slug = release.primaryProjectSlug {
+                        Text(slug)
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
                     }
-                    Spacer(minLength: 0)
                 }
-                .contentShape(.rect)
-                .padding(.horizontal, 12)
-                .padding(.vertical, 5)
+                Spacer(minLength: 8)
+                Text("^[\(release.newGroups) new issue](inflect: true)")
+                    .font(.caption)
+                    .foregroundStyle(release.newGroups > 0 ? .orange : .secondary)
+                Text(release.dateCreated, format: .relative(presentation: .numeric))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
             }
-            .buttonStyle(.plain)
-            // One element, not six. Without this VoiceOver reads the title, the file, the short
-            // id, the project, the event count, the people count and the time as seven separate
-            // stops, and getting past a list of fifteen issues takes a hundred swipes.
-            .accessibilityElement(children: .combine)
-            .accessibilityLabel(spoken(issue))
-            .accessibilityHint("Opens the issue in Sentry")
+            .padding(.horizontal, 12)
+            .padding(.vertical, 4)
         }
     }
 }
@@ -197,11 +88,7 @@ struct HealthSection: View {
         }
 
         if !state.data.errorsByProject.isEmpty {
-            Text("Errors by project")
-                .font(.caption.weight(.semibold))
-                .foregroundStyle(.secondary)
-                .padding(.horizontal, 12)
-                .padding(.top, 10)
+            SectionHeader("Errors by project")
             ForEach(state.data.errorsByProject) { entry in
                 HStack {
                     Text(entry.slug ?? entry.projectID)
@@ -260,15 +147,10 @@ struct PerformanceSection: View {
 
     var body: some View {
         if !transactions.isEmpty {
-            HStack {
-                Text("Slowest by p95")
-                Spacer()
-                Text("over \(Int(thresholdMilliseconds)) ms is slow, per Sentry")
-            }
-            .font(.caption2)
-            .foregroundStyle(.secondary)
-            .padding(.horizontal, 12)
-            .padding(.bottom, 4)
+            SectionHeader(
+                "Slowest by p95",
+                trailing: "over \(Int(thresholdMilliseconds)) ms is slow, per Sentry"
+            )
         }
         if transactions.isEmpty {
             if loading {
@@ -279,11 +161,25 @@ struct PerformanceSection: View {
         }
         ForEach(transactions) { row in
             HStack(alignment: .firstTextBaseline, spacing: 8) {
-                VStack(alignment: .leading, spacing: 1) {
-                    Text(row.transaction)
-                        .lineLimit(1)
-                        .truncationMode(.middle)
-                        .font(.callout)
+                VStack(alignment: .leading, spacing: 2) {
+                    HStack(spacing: 6) {
+                        // A backend transaction carries its HTTP method — badge it the way an API
+                        // client colours GET/POST, so the verb reads at a glance and the route
+                        // starts on a common column. A page-load transaction has no method and
+                        // just shows its path.
+                        if let method = row.method {
+                            Text(method)
+                                .font(.system(.caption2, design: .monospaced).weight(.semibold))
+                                .foregroundStyle(methodColor(method))
+                                .padding(.horizontal, 5)
+                                .padding(.vertical, 1)
+                                .background(methodColor(method).opacity(0.15), in: Capsule())
+                        }
+                        Text(row.path)
+                            .lineLimit(1)
+                            .truncationMode(.middle)
+                            .font(.callout)
+                    }
                     Text("^[\(row.count) sample](inflect: true)")
                         .font(.caption2)
                         .foregroundStyle(.secondary)
@@ -297,6 +193,18 @@ struct PerformanceSection: View {
             }
             .padding(.horizontal, 12)
             .padding(.vertical, 3)
+        }
+    }
+
+    /// The convention an API client uses: GET reads (green), POST writes (blue), PUT/PATCH change
+    /// (orange), DELETE removes (red). Anything else stays neutral rather than inventing a colour.
+    private func methodColor(_ method: String) -> Color {
+        switch method {
+        case "GET": .green
+        case "POST": .blue
+        case "PUT", "PATCH": .orange
+        case "DELETE": .red
+        default: .secondary
         }
     }
 
@@ -337,11 +245,7 @@ struct FeedbackSection: View {
         }
 
         if !replays.isEmpty {
-            Text("Replays")
-                .font(.caption.weight(.semibold))
-                .foregroundStyle(.secondary)
-                .padding(.horizontal, 12)
-                .padding(.top, 10)
+            SectionHeader("Replays")
             ForEach(replays) { replay in
                 HStack {
                     Text(replay.id)

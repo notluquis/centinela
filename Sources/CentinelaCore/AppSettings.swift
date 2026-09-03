@@ -59,6 +59,13 @@ public final class AppSettings {
         didSet { defaults.set(maxIssues, forKey: "maxIssues") }
     }
 
+    /// What the menu-bar number counts. Part of `queryShape` because it decides which route the
+    /// cheap cycle asks for, so changing it has to re-ask straight away rather than at the next
+    /// tick five minutes out.
+    public var badgeMetric: BadgeMetric {
+        didSet { defaults.set(badgeMetric.rawValue, forKey: "badgeMetric") }
+    }
+
     /// OAuth client id for the device flow. Empty in `UserDefaults` means "use Centinela's", not
     /// "there is none". It is not a secret (RFC 8628 treats these clients as public), which is
     /// why it lives here and not in the Keychain.
@@ -141,6 +148,7 @@ public final class AppSettings {
         intervalSeconds = savedInterval > 0 ? savedInterval : 300
         let savedMax = defaults.integer(forKey: "maxIssues")
         maxIssues = savedMax > 0 ? savedMax : 15
+        badgeMetric = BadgeMetric(rawValue: defaults.string(forKey: "badgeMetric") ?? "") ?? .unresolved
         let savedClient = defaults.string(forKey: "oauthClientID") ?? ""
         oauthClientID = savedClient.isEmpty ? DeviceFlow.centinelaClientID : savedClient
         let savedExpiry = defaults.double(forKey: "tokenExpiresAt")
@@ -321,6 +329,7 @@ public final class AppSettings {
         let project: String?
         let environment: String?
         let maxIssues: Int
+        let badgeMetric: BadgeMetric
     }
 
     public var queryShape: QueryShape {
@@ -329,7 +338,8 @@ public final class AppSettings {
             window: window,
             project: selectedProjectID,
             environment: selectedEnvironment,
-            maxIssues: maxIssues
+            maxIssues: maxIssues,
+            badgeMetric: badgeMetric
         )
     }
 

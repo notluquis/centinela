@@ -234,3 +234,51 @@ public enum TimeWindow: String, CaseIterable, Sendable {
         }
     }
 }
+
+/// What the menu-bar number counts.
+///
+/// The default was error *events* (`events-stats`, all issue statuses), which reads next to the
+/// panel's issue list as if it were the same quantity: 147 events across 3 unresolved issues
+/// invites the reading that 144 are missing. They are different questions — one counts
+/// occurrences, the other open issue groups — so the honest fix is to let the number answer the
+/// one the reader means. `.unresolved` is the default because "how many fires are still burning"
+/// is what a watch is for; `.errorEvents` stays for whoever wants raw volume.
+///
+/// The cost is not free and is the reason this is a choice rather than a rename: `.errorEvents`
+/// rides the cheap series the cycle already fetches (937 B), while every other case adds one
+/// issue-list read to each cycle — the read AGENTS.md keeps out of the periodic path. Picking one
+/// of them is opting into that traffic knowingly.
+public enum BadgeMetric: String, CaseIterable, Sendable {
+    case errorEvents
+    case unresolved
+    case forReview
+    case escalating
+    case regressed
+
+    /// For the Settings picker.
+    public var label: String {
+        switch self {
+        case .errorEvents: "Error events"
+        case .unresolved: "Unresolved issues"
+        case .forReview: "Issues for review"
+        case .escalating: "Escalating issues"
+        case .regressed: "Regressed issues"
+        }
+    }
+
+    /// The singular noun for the panel header, inflected by count at the call site
+    /// (`^[\(n) \(noun)](inflect: true)`).
+    public var noun: String {
+        switch self {
+        case .errorEvents: "error"
+        case .unresolved: "unresolved issue"
+        case .forReview: "issue for review"
+        case .escalating: "escalating issue"
+        case .regressed: "regressed issue"
+        }
+    }
+
+    /// `true` for every case that needs an issue-list read in the cheap cycle. `.errorEvents` is
+    /// the one that does not: it reads the series already fetched for the sparkline.
+    public var needsIssueList: Bool { self != .errorEvents }
+}

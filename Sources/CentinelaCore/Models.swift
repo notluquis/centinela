@@ -7,6 +7,29 @@ public struct Project: Codable, Sendable, Hashable {
     public let id: String
     public let slug: String
     public let name: String
+
+    public init(id: String, slug: String, name: String) {
+        self.id = id
+        self.slug = slug
+        self.name = name
+    }
+
+    enum CodingKeys: String, CodingKey { case id, slug, name }
+
+    public init(from decoder: any Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        // Sentry sends the project id as a STRING from `/projects/` but as a NUMBER where a project
+        // is embedded in another object — a release's `projects[]`, and `stats_v2` (see
+        // `ProjectErrorCount`). Accept both, because a release whose project id arrives as a number
+        // otherwise fails to decode and takes the whole releases list down with a `typeMismatch`.
+        if let text = try? container.decode(String.self, forKey: .id) {
+            id = text
+        } else {
+            id = String(try container.decode(Int.self, forKey: .id))
+        }
+        slug = try container.decode(String.self, forKey: .slug)
+        name = try container.decode(String.self, forKey: .name)
+    }
 }
 
 public struct Organization: Codable, Sendable, Hashable, Identifiable {
@@ -128,14 +151,30 @@ public struct Release: Codable, Sendable, Identifiable, Hashable {
     public let dateCreated: Date
     public let newGroups: Int
 
+    /// The projects this release was deployed to. Optional because an older response shape and the
+    /// hand-written fixtures may omit it; when present, the row can say where the release went.
+    public let projects: [Project]?
+
     public var id: String { version }
 
     /// When a release is named after a commit, the API repeats the full 40-character SHA in
-    /// `shortVersion`, so shortening is on us.
+    /// `shortVersion`, so shortening is on us. And when a pipeline names a release by an ISO-8601
+    /// timestamp, `shortVersion` is a wall of punctuation (`2026-09-03T01:07:11Z`); that reads as
+    /// a short date instead. A semantic version (`v2.4.1`) is left alone.
     public var label: String {
         let text = shortVersion
-        let looksLikeSHA = text.count == 40 && text.allSatisfy(\.isHexDigit)
-        return looksLikeSHA ? String(text.prefix(7)) : text
+        if text.count == 40 && text.allSatisfy(\.isHexDigit) { return String(text.prefix(7)) }
+        if let date = ISO8601DateFormatter().date(from: text) {
+            return date.formatted(.dateTime.month(.abbreviated).day().hour().minute())
+        }
+        return text
+    }
+
+    /// What to name on the row: the single project's slug, or "N projects" when a release spans
+    /// several, or `nil` when the response carried none.
+    public var primaryProjectSlug: String? {
+        guard let projects, !projects.isEmpty else { return nil }
+        return projects.count == 1 ? projects[0].slug : "\(projects.count) projects"
     }
 }
 
@@ -268,6 +307,24 @@ public struct TransactionStat: Sendable, Hashable, Identifiable {
 
     public static let countField = "count()"
     public static let p95Field = "p95(span.duration)"
+
+    /// Sentry names a backend transaction `"POST /api/orpc/…"` — the HTTP method, a space, then the
+    /// route — while a frontend one is just a path (`/finanzas/cash-flow`). Split the method off so
+    /// the row can badge it, the way an API client colours GET/POST. `nil` when there is no method,
+    /// which is how a page-load transaction reads.
+    private static let httpMethods: Set<String> = ["GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"]
+
+    public var method: String? {
+        let parts = transaction.split(separator: " ", maxSplits: 1)
+        guard parts.count == 2, Self.httpMethods.contains(String(parts[0])) else { return nil }
+        return String(parts[0])
+    }
+
+    /// The transaction without its leading method, or the whole string when it carries none.
+    public var path: String {
+        guard let method else { return transaction }
+        return String(transaction.dropFirst(method.count).drop(while: { $0 == " " }))
+    }
 
     public static func from(json: Data) throws -> [TransactionStat] {
         guard

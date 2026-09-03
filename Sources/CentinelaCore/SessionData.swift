@@ -23,6 +23,9 @@ public struct SessionData: Sendable {
     public var forReview: [SentryIssue] = []
     public var escalating: [SentryIssue] = []
     public var regressed: [SentryIssue] = []
+    public var resolved: [SentryIssue] = []
+    public var archived: [SentryIssue] = []
+    public var allIssues: [SentryIssue] = []
     public var releases: [Release] = []
     public var crons: [CronMonitor] = []
     public var crashFree: Double?
