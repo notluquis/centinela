@@ -49,9 +49,9 @@ struct PanelHeader: View {
         VStack(alignment: .leading, spacing: 6) {
             HStack {
                 // Noun follows what the number counts (`badgeMetric`): "147 errors" or "3
-                // unresolved issues". `inflect` pluralizes the singular noun by the count, the
-                // same way the release and issue rows do.
-                Text("^[\(state.badgeValue) \(state.badgeNoun)](inflect: true)")
+                // unresolved issues", and "15+" when the fetch hit its limit so the number does
+                // not silently undercount.
+                Text(state.badgeHeadline)
                     .font(.title2.weight(.semibold))
                     // The digits roll instead of being replaced. A count that jumps from 228 to
                     // 231 with no motion reads as a redraw; rolling says a number changed.

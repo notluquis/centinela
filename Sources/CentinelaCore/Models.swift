@@ -161,10 +161,15 @@ public struct Release: Codable, Sendable, Identifiable, Hashable {
     /// `shortVersion`, so shortening is on us. And when a pipeline names a release by an ISO-8601
     /// timestamp, `shortVersion` is a wall of punctuation (`2026-09-03T01:07:11Z`); that reads as
     /// a short date instead. A semantic version (`v2.4.1`) is left alone.
+    /// Shared, because `label` is read once per row per frame inside a `ForEach`, and an
+    /// `ISO8601DateFormatter` is among the most expensive Foundation objects to build. Only ever
+    /// touched from the main thread during rendering.
+    nonisolated(unsafe) private static let isoParser = ISO8601DateFormatter()
+
     public var label: String {
         let text = shortVersion
         if text.count == 40 && text.allSatisfy(\.isHexDigit) { return String(text.prefix(7)) }
-        if let date = ISO8601DateFormatter().date(from: text) {
+        if let date = Release.isoParser.date(from: text) {
             return date.formatted(.dateTime.month(.abbreviated).day().hour().minute())
         }
         return text

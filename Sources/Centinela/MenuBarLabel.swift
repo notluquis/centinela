@@ -11,7 +11,9 @@ struct MenuBarLabel: View {
             // once the session is forgotten, but the bar must not be able to show a number that
             // belongs to nobody even if some future path leaves data behind.
             if watching, state.badgeValue > 0 {
-                Text(state.badgeValue, format: .number)
+                // A trailing "+" when the count hit its fetch limit, so the bar says "15+" instead
+                // of a "15" that a busy org would read as the whole story.
+                Text(state.badgeAtCap ? "\(state.badgeValue)+" : state.badgeValue.formatted())
                     // Same rolling digits as the panel header. Whether the menu bar honours it is
                     // not something this project has measured: the bar is drawn by the system and
                     // the one thing already measured about it is that only `Text` and `Image`

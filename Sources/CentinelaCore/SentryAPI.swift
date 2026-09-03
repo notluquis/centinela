@@ -266,19 +266,16 @@ public enum BadgeMetric: String, CaseIterable, Sendable {
         }
     }
 
-    /// The singular noun for the panel header, inflected by count at the call site
-    /// (`^[\(n) \(noun)](inflect: true)`).
+    /// The singular noun for the panel header. The head is the LAST word on purpose: the header
+    /// pluralizes by appending "s", so "for-review issue" → "for-review issues", where "issue for
+    /// review" would wrongly become "issue for reviews".
     public var noun: String {
         switch self {
         case .errorEvents: "error"
         case .unresolved: "unresolved issue"
-        case .forReview: "issue for review"
+        case .forReview: "for-review issue"
         case .escalating: "escalating issue"
         case .regressed: "regressed issue"
         }
     }
-
-    /// `true` for every case that needs an issue-list read in the cheap cycle. `.errorEvents` is
-    /// the one that does not: it reads the series already fetched for the sparkline.
-    public var needsIssueList: Bool { self != .errorEvents }
 }

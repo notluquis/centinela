@@ -308,8 +308,25 @@ final class AppState {
         }
     }
 
-    /// The singular noun for the header, inflected by `badgeValue` at the call site.
+    /// The singular noun for the header.
     var badgeNoun: String { settings.badgeMetric.noun }
+
+    /// `true` when the badge is an issue count that has hit its limit, so the real number may be
+    /// higher than what was fetched. The list is fetched with `limit: maxIssues`, so a length that
+    /// reaches it means "at least this many" — shown as "N+" rather than a number that lies.
+    var badgeAtCap: Bool {
+        guard settings.badgeMetric != .errorEvents else { return false }
+        return badgeValue >= settings.maxIssues
+    }
+
+    /// The header line: the count, a "+" when it saturated the limit, and the noun pluralized. The
+    /// nouns are built so a bare "s" pluralizes them (`badgeNoun`), which also spares the header
+    /// the morphology engine that mispluralized the two-word "for review" phrase.
+    var badgeHeadline: String {
+        let plus = badgeAtCap ? "+" : ""
+        let noun = badgeValue == 1 ? badgeNoun : badgeNoun + "s"
+        return "\(badgeValue)\(plus) \(noun)"
+    }
 
     var hasOutage: Bool { data.monitors.contains { $0.isActive && !$0.isHealthy } }
 
