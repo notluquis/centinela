@@ -237,17 +237,15 @@ public enum TimeWindow: String, CaseIterable, Sendable {
 
 /// What the menu-bar number counts.
 ///
-/// The default was error *events* (`events-stats`, all issue statuses), which reads next to the
-/// panel's issue list as if it were the same quantity: 147 events across 3 unresolved issues
-/// invites the reading that 144 are missing. They are different questions — one counts
-/// occurrences, the other open issue groups — so the honest fix is to let the number answer the
-/// one the reader means. `.unresolved` is the default because "how many fires are still burning"
-/// is what a watch is for; `.errorEvents` stays for whoever wants raw volume.
+/// Error *events* (`events-stats`, all issue statuses) read next to the panel's issue list as if
+/// they were the same quantity: 147 events across 3 unresolved issues invites the reading that 144
+/// are missing. They are different questions — one counts occurrences, the other open issue groups
+/// — so this lets the number answer the one the reader means.
 ///
-/// The cost is not free and is the reason this is a choice rather than a rename: `.errorEvents`
-/// rides the cheap series the cycle already fetches (937 B), while every other case adds one
-/// issue-list read to each cycle — the read AGENTS.md keeps out of the periodic path. Picking one
-/// of them is opting into that traffic knowingly.
+/// `.errorEvents` is the default because it rides the cheap series the cycle already fetches
+/// (937 B), keeping a fresh install off the periodic issue-list read that AGENTS.md keeps out of
+/// the cheap cycle. Every other case adds one issue-list read per cycle, so choosing one is opting
+/// into that traffic knowingly — and it persists once chosen.
 public enum BadgeMetric: String, CaseIterable, Sendable {
     case errorEvents
     case unresolved

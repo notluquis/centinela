@@ -139,14 +139,14 @@ struct AppSettingsTests {
         #expect(second.badgeMetric == .escalating)
     }
 
-    /// The default is the count of unresolved issues, not the raw event volume: "how many fires
-    /// are still burning" is what a watch is for, and it is the number the panel's list agrees
-    /// with. A blank preference reads as the default, not as `.errorEvents`.
-    @Test("The menu-bar count defaults to unresolved issues")
-    func badgeMetricDefaultsToUnresolved() {
+    /// The default is error events, the one metric that rides the series the cheap cycle already
+    /// fetches, so a fresh install does not pull an issue-list read into every periodic tick. A
+    /// blank preference reads as that default; an issue count is an explicit opt-in.
+    @Test("The menu-bar count defaults to error events, keeping the cheap cycle cheap")
+    func badgeMetricDefaultsToErrorEvents() {
         let fixture = fresh()
         defer { clean(fixture) }
-        #expect(fixture.settings.badgeMetric == .unresolved)
+        #expect(fixture.settings.badgeMetric == .errorEvents)
     }
 
     @Test("`authMethod` tells the two ways in apart, and survives a restart")

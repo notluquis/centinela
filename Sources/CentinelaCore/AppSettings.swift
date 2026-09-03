@@ -148,7 +148,10 @@ public final class AppSettings {
         intervalSeconds = savedInterval > 0 ? savedInterval : 300
         let savedMax = defaults.integer(forKey: "maxIssues")
         maxIssues = savedMax > 0 ? savedMax : 15
-        badgeMetric = BadgeMetric(rawValue: defaults.string(forKey: "badgeMetric") ?? "") ?? .unresolved
+        // Defaults to `.errorEvents`, which rides the series the cheap cycle already fetches, so a
+        // fresh install keeps the periodic cycle cheap. Choosing an issue count is an opt-in that
+        // then persists (see `BadgeMetric`).
+        badgeMetric = BadgeMetric(rawValue: defaults.string(forKey: "badgeMetric") ?? "") ?? .errorEvents
         let savedClient = defaults.string(forKey: "oauthClientID") ?? ""
         oauthClientID = savedClient.isEmpty ? DeviceFlow.centinelaClientID : savedClient
         let savedExpiry = defaults.double(forKey: "tokenExpiresAt")
